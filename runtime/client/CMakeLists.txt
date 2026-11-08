@@ -423,3 +423,12 @@ target_link_libraries(${PROJECT_NAME} ${libs})
 if(LINUX)
     set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "-g -fpermissive")
 endif(LINUX)
+
+if(LINUX AND ENABLE_DXVK)
+	# A release ships libdxvk_d3d9 beside the engine, which looks for it there ($ORIGIN) rather than in the build machine's DXVK folder.
+	# The build copies it into OUT too, so OUT runs as it is
+	set_target_properties(${PROJECT_NAME} PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE INSTALL_RPATH "$ORIGIN")
+	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"${DXVK_LIBRARY_DIRS}/libdxvk_d3d9.so.0" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/libdxvk_d3d9.so.0")
+endif()

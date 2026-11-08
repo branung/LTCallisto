@@ -3,7 +3,16 @@
 #
 #   STAMP_CPP  the source the launchers compile
 #   STAMP_TXT  the same stamp alone, which package_zip.cmake reads
+#
+# The LTCALLISTO_STAMP environment variable - when it holds a stamp - is used instead of the time,
+# so a Linux build can carry the stamp of the Windows build it goes with
 
-string(TIMESTAMP stamp "%Y.%m%d.%H%M%S")
+set(stamp "$ENV{LTCALLISTO_STAMP}")
+if(NOT stamp MATCHES "^[0-9][0-9][0-9][0-9]\\.[0-9][0-9][0-9][0-9]\\.[0-9][0-9][0-9][0-9][0-9][0-9]$")
+    if(stamp)
+        message(WARNING "LTCALLISTO_STAMP '${stamp}' isn't a <year>.<month><day>.<time> stamp, so the time is used")
+    endif()
+    string(TIMESTAMP stamp "%Y.%m%d.%H%M%S")
+endif()
 file(WRITE "${STAMP_CPP}" "// Written by tools/launcher/stamp.cmake on every build\nconst char *g_szLauncherBuild = \"${stamp}\";\n")
 file(WRITE "${STAMP_TXT}" "${stamp}")

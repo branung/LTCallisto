@@ -94,10 +94,10 @@ GameProfile NOLF2Profile(const std::string &sExeDir)
     game.m_sCaption = game.m_sTitle = game.m_sName = "No One Lives Forever 2";
     game.m_sLaunch = "Launch NOLF 2";
     game.m_sKey = "NOLF2";
-    game.m_sSplashRez = "game.rez";
+    game.m_sSplashRez = "GAME.REZ";
     game.m_sSplashPath = "INTERFACE\\MENU\\ART\\SPLASH.PCX";
     game.m_Spec.m_sEngineDir = game.m_Spec.m_sGameDir = sExeDir;
-    game.m_Spec.m_EngineRez = { "engine.rez", "game.rez", "game2.rez", "sound.rez" };
+    game.m_Spec.m_EngineRez = { "Engine.REZ", "GAME.REZ", "GAME2.REZ", "SOUND.REZ" };
     game.m_Spec.m_OptionalRez = { "Update_v1x3.rez" }; // The 1.3 patch
     return game;
 }
@@ -135,7 +135,12 @@ std::string AddOnDir(const GameProfile &game)
 
 bool HasAddOn(const GameProfile &game)
 {
-    return !game.m_AddOn.m_sDir.empty() && FileExists(JoinPath(AddOnDir(game), "CShell.dll"));
+#ifdef _WIN32
+    const char *pShell = "CShell.dll";
+#else
+    const char *pShell = "libCShell.so";
+#endif
+    return !game.m_AddOn.m_sDir.empty() && FileExists(JoinPath(AddOnDir(game), pShell));
 }
 
 std::string ReadTextFile(const std::string &sPath)

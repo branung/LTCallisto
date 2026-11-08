@@ -60,12 +60,12 @@ static bool StartClient(ClientGlob *pGlob)
     // Add the default engine resource...
     if (!g_CV_NoDefaultEngineRez)
     {
-        resTree.push_back("engine.rez");
+        resTree.push_back("Engine.REZ");
     }
 
-    resTree.push_back("game.rez");
-    resTree.push_back("game2.rez");
-    resTree.push_back("sound.rez");
+    resTree.push_back("GAME.REZ");
+    resTree.push_back("GAME2.REZ");
+    resTree.push_back("SOUND.REZ");
 
     // The -rez archives from the command line, as on Windows. LT1 games pass theirs this way
     for (uint32 i = 0; i + 1 < command_line_args->Argc() && resTree.size() < MAX_RESTREES; i++) {

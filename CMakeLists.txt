@@ -271,7 +271,13 @@ else()
     endfunction()
 endif(WIN32)
 
-lt_game_output(NOLF2      NOLF2_ClientShellDLL NOLF2_ClientRes NOLF2_ServerRes NOLF2_ObjectDLL)
+# On Linux NOLF2's client shell links libServerDir.so and finds it beside itself ($ORIGIN).
+# Windows keeps ServerDir.dll beside the engine, where NOLF2 finds it today
+set(nolf2_linux_modules "")
+if(NOT WIN32)
+    set(nolf2_linux_modules ServerDir)
+endif()
+lt_game_output(NOLF2      NOLF2_ClientShellDLL NOLF2_ClientRes NOLF2_ServerRes NOLF2_ObjectDLL ${nolf2_linux_modules})
 lt_game_output(NOLF2/Game NOLF2_ClientFXDLL)
 
 lt_game_output(Shogo      SHOGO_ClientShellDLL SHOGO_ClientRes SHOGO_ObjectDLL SHOGO_ServerRes)
@@ -452,5 +458,49 @@ if(WIN32)
                 -P "${CMAKE_SOURCE_DIR}/tools/launcher/package_zip.cmake"
             VERBATIM)
         add_dependencies(LTCallisto_Zip ${zip_deps})
+    endif()
+else()
+    # A fresh LTCallisto-linux64_v<year>.<month><day>.<time>.tar.gz beside OUT on every build, 
+    # of OUT's engine, launcher and game modules, with the DXVK library the engine looks for beside itself.
+    # SDL2, OpenAL, mpg123 and a Vulkan driver come from the player's system
+    if(TARGET LTCallisto)
+        set(tar_top "$<TARGET_FILE:LTCallisto>")
+        set(tar_deps LTCallisto)
+        if(TARGET EXE_Lithtech)
+            string(APPEND tar_top "|$<TARGET_FILE:EXE_Lithtech>")
+            list(APPEND tar_deps EXE_Lithtech)
+            if(ENABLE_DXVK)
+                string(APPEND tar_top "|$<TARGET_FILE_DIR:EXE_Lithtech>/libdxvk_d3d9.so.0")
+            endif()
+        endif()
+
+        # The staging targets that copy each game's modules into OUT/Games run first
+        foreach(t lt_stage_NOLF2 lt_stage_NOLF2_Game lt_stage_Shogo lt_stage_Blood2 lt_stage_Blood2NM)
+            if(TARGET ${t})
+                list(APPEND tar_deps ${t})
+            endif()
+        endforeach()
+
+        # The same default configs as the Windows zip
+        set(tar_cfgs "")
+        foreach(f autoexec.cfg defkeybd.cfg)
+            string(APPEND tar_cfgs "${CMAKE_SOURCE_DIR}/Shogo/Config/${f}*Games/Shogo|")
+        endforeach()
+        string(APPEND tar_cfgs "${CMAKE_SOURCE_DIR}/Blood2/Config/autoexec.cfg*Games/Blood2|"
+                               "${CMAKE_SOURCE_DIR}/Blood2/Config/autoexec.cfg*Games/Blood2NM")
+
+        add_custom_target(LTCallisto_Package ALL
+            COMMAND ${CMAKE_COMMAND}
+                "-DOUT_DIR=${CMAKE_BINARY_DIR}/OUT"
+                "-DZIP_DIR=${CMAKE_BINARY_DIR}"
+                "-DARCH=linux64"
+                "-DARCHIVE=tar.gz"
+                "-DTOP_FILES=${tar_top}"
+                "-DCONFIG_FILES=${tar_cfgs}"
+                "-DEMPTY_DIRS=Games/Shogo/Custom|Games/Blood2/Custom"
+                "-DSTAMP_FILE=${LT_LAUNCHER_STAMP_TXT}"
+                -P "${CMAKE_SOURCE_DIR}/tools/launcher/package_zip.cmake"
+            VERBATIM)
+        add_dependencies(LTCallisto_Package ${tar_deps})
     endif()
 endif(WIN32)

@@ -11,6 +11,15 @@ SRC=${LT_LINUX_SRC:-$HOME/lithtech-src}
 BUILD=${LT_LINUX_BUILD:-$HOME/lithtech-build}
 export PKG_CONFIG_PATH=/opt/dxvk-native/usr/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}
 
+# The stamp of the Windows build in the same checkout, so the two builds share a version.
+# LTCALLISTO_STAMP set by the caller wins, and with neither the build stamps itself with the time
+WIN_STAMP=${LT_WINDOWS_BUILD:-$REPO/build}/tools/launcher/ltcallisto_stamp.txt
+if [ -z "${LTCALLISTO_STAMP:-}" ] && [ -f "$WIN_STAMP" ]; then
+    LTCALLISTO_STAMP=$(tr -d '\r\n' < "$WIN_STAMP")
+fi
+export LTCALLISTO_STAMP=${LTCALLISTO_STAMP:-}
+echo "stamp: ${LTCALLISTO_STAMP:-the time of this build}"
+
 mkdir -p "$SRC" "$BUILD"
 rsync -a --delete --exclude /build/ --exclude /.git/ --exclude __pycache__/ "$REPO/" "$SRC/"
 echo "sources copied from $REPO to $SRC"

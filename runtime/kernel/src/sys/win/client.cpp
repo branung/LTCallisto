@@ -94,14 +94,14 @@ static bool StartClient(ClientGlob *pGlob)
     nResTrees = 0;
 
     // Add the default engine resource...
-    if (!g_CV_NoDefaultEngineRez) 
+    if (!g_CV_NoDefaultEngineRez)
 	{
-        resTrees[nResTrees++] = "engine.rez"; 
+        resTrees[nResTrees++] = "Engine.REZ";
     }
 
-	resTrees[nResTrees++] = "game.rez";
-	resTrees[nResTrees++] = "game2.rez";
-	resTrees[nResTrees++] = "sound.rez";
+	resTrees[nResTrees++] = "GAME.REZ";
+	resTrees[nResTrees++] = "GAME2.REZ";
+	resTrees[nResTrees++] = "SOUND.REZ";
 
     // Additional rez trees and directories from the command line
 	// Note: '-rez' passed after the others overrides the base game data
