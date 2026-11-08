@@ -33,5 +33,11 @@ LTRESULT ModelPiece::ABC_LOAD( ILTStream & file, CDIModelDrawable *pPiece, Model
 
 CDIModelDrawable *ModelPiece::CreateModelRenderObject( uint32 type )
 {
-    return nullptr;
+    // HeadlessWorld: Load worlds and models a renderer declines, so a build with no renderer can enter a level (for testing)
+    extern int32 g_CV_HeadlessWorld;
+    if (!g_CV_HeadlessWorld)
+        return nullptr;
+    CDIModelDrawable* p;
+    LT_MEM_TRACK_ALLOC(p = new CDIModelDrawable(), LT_MEM_TYPE_MODEL);
+    return p;
 }

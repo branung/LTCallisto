@@ -375,7 +375,16 @@ bool CWorldClientBSP::LoadRenderData(ILTStream *pStream)
 {
 	ASSERT(r_GetRenderStruct());
 	if (!r_GetRenderStruct()->LoadWorldData(pStream))
-		return false;
+	{
+		// HeadlessWorld: Load worlds and models a renderer declines, so a build with no renderer can enter a level (for testing)
+		extern int32 g_CV_HeadlessWorld;
+		if (!g_CV_HeadlessWorld)
+			return false;
+		dsi_ConsolePrint("HeadlessWorld: the renderer declined the world's render data; loading without it");
+		m_aLightGroups.clear();
+		world_bsp_shared->LightTable().ClearLightGroups();
+		return true;
+	}
 
 	// Clear out any lightgroup data we've already got loaded
 	m_aLightGroups.clear();

@@ -177,6 +177,7 @@ int32	g_bLT1PolyGridAlpha = 0; // A polygrid vertex's alpha is its color table a
 int32	g_bLT1ModelShading = 0; // Shade models with LT1's fixed direction ramp rather than flat ambient
 int32	g_bWidescreenFOV = 0; // Horizontal widescreen - widens the horizontal FOV by aspect/4:3 at render time
 int32	g_CV_ConsoleEcho = 0; // The Linux console also writes every line to stdout
+int32	g_CV_HeadlessWorld = 0; // Load worlds and models a renderer declines, so a build with no renderer can enter a level (for testing)
 int32	g_nEngineEra = 0; // The engine line a game was built for, selecting its era set (era/era.h). 0 Jupiter, 1 LT1
 int32	g_bLT1CollideWithWorld = 0; // Under EngineEra 1, retail Shogo's world walk in place of Jupiter's and the walk vars in it. Both sides
 int32	g_bLT1MotionStep = 0; // Under EngineEra 1, LT1's whole physics step in place of Jupiter's and the stand vars in it. Both sides
@@ -501,6 +502,7 @@ static LTEngineVar g_LTEngineVars[] =
 	EV_LONG("LT1ModelShading", &g_bLT1ModelShading),
 	EV_LONG("WidescreenFOV", &g_bWidescreenFOV),
 	EV_LONG("ConsoleEcho", &g_CV_ConsoleEcho),
+	EV_LONG("HeadlessWorld", &g_CV_HeadlessWorld),
 	EV_LONG("EngineEra", &g_nEngineEra),
 	EV_LONG("LT1CollideWithWorld", &g_bLT1CollideWithWorld),
 	EV_LONG("LT1MotionStep", &g_bLT1MotionStep),

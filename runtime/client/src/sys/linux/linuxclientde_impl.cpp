@@ -8,6 +8,11 @@
 #include "renderstruct.h"
 #include "render.h"
 #include "text_mgr.h"
+#include "load_pcx.h"
+#include "client_filemgr.h"
+
+static IClientFileMgr *client_file_mgr;
+define_holder(IClientFileMgr, client_file_mgr);
 
 //the ILTClient game interface
 static ILTClient *ilt_client;
@@ -56,16 +61,48 @@ LTRESULT cis_DeleteSurface(HSURFACE hSurface)
     return LT_OK; // rkj STUB
 }
 
+// A surface's size is state game code reads (a HUD lays its panels out from GetSurfaceDims),
+// so a bitmap gets its real size and pixels from the same PCX reader the Windows client uses.
+// One that can't be read keeps the old 32x32 stand in.
 HSURFACE
 cis_CreateSurfaceFromPcx(LoadedBitmap *pBitmap)
 {
-    return cis_CreateSurface(32, 32);
+    if (!pBitmap || !pBitmap->m_Width || !pBitmap->m_Height)
+        return cis_CreateSurface(32, 32);
+    SDL_Surface *s = SDL_CreateRGBSurface(0, pBitmap->m_Width, pBitmap->m_Height, 32,
+                                          0x00ff0000, 0x0000ff00, 0x000000ff, 0);
+    if (s && pBitmap->m_Data.GetSize() >= pBitmap->m_Pitch * pBitmap->m_Height && pBitmap->m_Format.GetType() == BPP_8P)
+    {
+        for (uint32 y = 0; y < pBitmap->m_Height; ++y)
+        {
+            uint32 *row = (uint32*)((uint8*)s->pixels + y * s->pitch);
+            for (uint32 x = 0; x < pBitmap->m_Width; ++x)
+            {
+                const RPaletteColor &c = pBitmap->m_Palette[pBitmap->Pixel(x, y)];
+                row[x] = ((uint32)c.rgb.r << 16) | ((uint32)c.rgb.g << 8) | c.rgb.b;
+            }
+        }
+    }
+    return (HSURFACE)s;
 }
 
 static HSURFACE
 cis_CreateSurfaceFromBitmap(const char* pBitmap)
 {
-    return cis_CreateSurfaceFromPcx(nullptr);
+    LoadedBitmap bitmap;
+    FileRef ref;
+    ref.m_FileType = FILE_CLIENTFILE;
+    ref.m_pFilename = pBitmap;
+    ILTStream *pStream = client_file_mgr ? client_file_mgr->OpenFile(&ref) : nullptr;
+    HSURFACE h;
+    if (pStream && pcx_Create2(pStream, &bitmap))
+        h = cis_CreateSurfaceFromPcx(&bitmap);
+    else
+        h = cis_CreateSurface(32, 32);
+    if (pStream)
+        pStream->Release();
+    bitmap.Term();
+    return h;
 }
 
 static HSURFACE cis_GetScreenSurface()
