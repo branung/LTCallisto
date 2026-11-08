@@ -1347,7 +1347,7 @@ struct App
         const bool bPressed = Down(r);
         Fill(r, bPressed ? kButtonDown : kButton);
         Frame(r, bPressed ? kBorderDown : kBorder);
-        const bool bLeft = g_nSideW > 0; // Hiding it moves it off to the left
+        const bool bLeft = g_nSideW == 0;
         const int cy = r.y + r.h / 2 + (bPressed ? 1 : 0);
         const int x0 = r.x + (r.w - 8) / 2 + (bPressed ? 1 : 0);
         for (int n = 0; n < 2; ++n)
