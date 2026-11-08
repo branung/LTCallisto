@@ -23,6 +23,38 @@ CRiotSettings::CRiotSettings()
 	m_bAllowGore = TRUE;
 }
 
+// Retail's three presets, which it ships as loose files beside BLOOD2.EXE.
+// A game folder built from the REZ files lacks them, so settings fell back to its low detail form
+// '+' saves each value, as ReadConfigFile does
+static void ReadDetailPreset(ILTClient *pClientDE, int nLevel)
+{
+	static const char *const s_szFiles[3] = { "DetailLo.cfg", "DetailMd.cfg", "DetailHi.cfg" };
+	static const char *const s_szPresets[3][12] =
+	{
+		{	// DetailLo.cfg
+			"+ModelLOD 0", "+MaxModelShadows 0", "+BulletHoles 10", "+TextureDetail 0",
+			"+DynamicLightSetting 0", "+LightMap 0", "+SpecialFX 0", "+EnvMapEnable 0",
+			"+ModelFullbrite 0", "+PVWeapons 1", "+PolyGrids 0", "+CloudMapLight 0",
+		},
+		{	// DetailMd.cfg
+			"+ModelLOD 1", "+MaxModelShadows 0", "+BulletHoles 150", "+TextureDetail 1",
+			"+DynamicLightSetting 2", "+LightMap 1", "+SpecialFX 1", "+EnvMapEnable 0",
+			"+ModelFullbrite 0", "+PVWeapons 0", "+PolyGrids 1", "+CloudMapLight 0",
+		},
+		{	// DetailHi.cfg
+			"+ModelLOD 2", "+MaxModelShadows 1", "+BulletHoles 300", "+TextureDetail 2",
+			"+DynamicLightSetting 2", "+LightMap 1", "+SpecialFX 2", "+EnvMapEnable 1",
+			"+ModelFullbrite 1", "+PVWeapons 0", "+PolyGrids 1", "+CloudMapLight 1",
+		},
+	};
+
+	if (pClientDE->ReadConfigFile((char*)s_szFiles[nLevel]) == LT_OK) return;
+
+	for (int i = 0; i < 12; ++i)
+		pClientDE->RunConsoleString((char*)s_szPresets[nLevel][i]);
+	pClientDE->CPrint("Detail: %s not found, applied retail's preset", s_szFiles[nLevel]);
+}
+
 //////////////////////////////////////////////////////////////////
 //
 //	INIT THE SETTINGS...
@@ -135,13 +167,13 @@ LTBOOL CRiotSettings::Init (ILTClient* pClientDE, CRiotClientShell* pClientShell
 	Setting temp[RS_SUBDET_LAST + 1];
 	memcpy (temp, SubDetail, sizeof(SubDetail));
 
-	pClientDE->ReadConfigFile ("DetailHi.cfg");
+	ReadDetailPreset (pClientDE, 2);
 	ReadSubDetailSettings();
 	memcpy (DefHi, SubDetail, sizeof(SubDetail));
-	pClientDE->ReadConfigFile ("DetailMd.cfg");
+	ReadDetailPreset (pClientDE, 1);
 	ReadSubDetailSettings();
 	memcpy (DefMed, SubDetail, sizeof(SubDetail));
-	pClientDE->ReadConfigFile ("DetailLo.cfg");
+	ReadDetailPreset (pClientDE, 0);
 	ReadSubDetailSettings();
 	memcpy (DefLow, SubDetail, sizeof(SubDetail));
 

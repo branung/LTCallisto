@@ -8787,17 +8787,45 @@ DBOOL CBloodClientShell::MenuSetDetail()
 	hVar = pClientDE->GetConsoleVar("GlobalDetail");
 	m_nGlobalDetail = (DBYTE)pClientDE->GetVarValueFloat (hVar);
 
-	switch(m_nGlobalDetail)
+	// Retail's three presets, which it ships as loose files beside BLOOD2.EXE.
+	// A game folder built from the REZ files lacks them, so the presets never applied and the effect settings
+	// (ObjectParticles, ExplosionsDetail) read 0, their low detail form. These apply only when the file is missing.
+	// '+' saves each value, as ReadConfigFile does
+	static const char *const s_szDetailPresets[3][17] =
 	{
-		case	DETAIL_LOW:
-			pClientDE->ReadConfigFile("detaillo.cfg");
-			break;
-		case	DETAIL_MEDIUM:
-			pClientDE->ReadConfigFile("detailmd.cfg");
-			break;
-		case	DETAIL_HIGH:
-			pClientDE->ReadConfigFile("detailhi.cfg");
-			break;
+		{	// detaillo.cfg
+			"+MasterPaletteMode 1", "+MaxModelShadows 0", "+EnvMapEnable 0",
+			"+LightMap 0", "+DynamicLight 0", "+CloudMapLight 0",
+			"+PVWeapons 0", "+BulletHoles 50", "+ObjectParticles 0",
+			"+ExplosionsDetail 0", "+MipmapDist 375.000000", "+MipmapOffset 2.000000",
+			"+ModelDist1 150.000000", "+ModelDist2 250.000000", "+ModelDist3 350.000000",
+			"+ShadowZRange 17.000000", "+ShadowLodOffset 100.000000",
+		},
+		{	// detailmd.cfg
+			"+MasterPaletteMode 0", "+MaxModelShadows 0", "+EnvMapEnable 0",
+			"+LightMap 1", "+DynamicLight 1", "+CloudMapLight 0",
+			"+PVWeapons 1", "+BulletHoles 175", "+ObjectParticles 1",
+			"+ExplosionsDetail 1", "+MipmapDist 375.000000", "+MipmapOffset 1.000000",
+			"+ModelDist1 150.000000", "+ModelDist2 250.000000", "+ModelDist3 350.000000",
+			"+ShadowZRange 17.000000", "+ShadowLodOffset 100.000000",
+		},
+		{	// detailhi.cfg
+			"+MasterPaletteMode 2", "+MaxModelShadows 1", "+EnvMapEnable 1",
+			"+LightMap 1", "+DynamicLight 1", "+CloudMapLight 0",
+			"+PVWeapons 2", "+BulletHoles 300", "+ObjectParticles 2",
+			"+ExplosionsDetail 2", "+MipmapDist 375.000000", "+MipmapOffset 0.000000",
+			"+ModelDist1 150.000000", "+ModelDist2 250.000000", "+ModelDist3 350.000000",
+			"+ShadowZRange 17.000000", "+ShadowLodOffset 100.000000",
+		},
+	};
+	static const char *const s_szDetailFiles[3] = { "detaillo.cfg", "detailmd.cfg", "detailhi.cfg" };
+
+	if (m_nGlobalDetail <= DETAIL_HIGH &&
+		pClientDE->ReadConfigFile((char*)s_szDetailFiles[m_nGlobalDetail]) != LT_OK)
+	{
+		for (int i = 0; i < 17; ++i)
+			pClientDE->RunConsoleString((char*)s_szDetailPresets[m_nGlobalDetail][i]);
+		pClientDE->CPrint("Detail: %s not found, applied retail's preset", s_szDetailFiles[m_nGlobalDetail]);
 	}
 
 	// record the original state of sound and music
