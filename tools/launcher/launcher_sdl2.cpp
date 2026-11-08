@@ -1848,12 +1848,13 @@ int LauncherMain()
     {
         std::string sBuild = ltlaunch::GetIniValue(app.sSelectedPath, "updatebuild");
         if (sBuild.empty()) sBuild = g_szLauncherBuild;
-        app.pUpdater.reset(new ltlaunch::Updater(LTCALLISTO_UPDATE_REPO, sExeDir, sBuild, [nUpdateEvent]() {
+        const auto wake = [nUpdateEvent]() {
             SDL_Event ev;
             SDL_zero(ev);
             ev.type = nUpdateEvent;
             SDL_PushEvent(&ev);
-        }));
+        };
+        app.pUpdater.reset(new ltlaunch::Updater(LTCALLISTO_UPDATE_REPO, LTCALLISTO_UPDATE_KEY, sExeDir, sBuild, wake));
         app.pUpdater->StartCheck();
     }
 #endif

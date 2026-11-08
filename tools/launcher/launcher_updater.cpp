@@ -35,9 +35,9 @@ std::string TagIn(const std::string &sName)
 
 } // namespace
 
-Updater::Updater(const std::string &sRepo, const std::string &sInstallDir, const std::string &sCurrentBuild,
-                 const std::function<void()> &wake)
-    : m_sRepo(sRepo), m_sInstallDir(sInstallDir), m_sCurrent(sCurrentBuild), m_Wake(wake)
+Updater::Updater(const std::string &sRepo, const std::string &sKeyHex, const std::string &sInstallDir,
+                 const std::string &sCurrentBuild, const std::function<void()> &wake)
+    : m_sRepo(sRepo), m_sKey(sKeyHex), m_sInstallDir(sInstallDir), m_sCurrent(sCurrentBuild), m_Wake(wake)
 {
     SetHttpUserAgent(std::string("LTCallisto-Launcher/") + sCurrentBuild);
 }
@@ -190,8 +190,27 @@ void Updater::Download()
     const std::string sZip = JoinPath(UpdateDir(), rel.m_sAssetName);
     const std::string sPart = sZip + ".part";
 
+    // The signature first: it names the package and its SHA-256, which the download must match
+    std::string sError, sSig, sSignedSha;
+    if (rel.m_sSigUrl.empty())
+    {
+        Set(State::Failed, "This release isn't signed.");
+        return;
+    }
+    if (!HttpGet(rel.m_sSigUrl, "application/octet-stream", sSig, 4096, sError) ||
+        !CheckReleaseSignature(sSig, m_sKey, rel.m_sAssetName, sSignedSha, sError))
+    {
+        Set(State::Failed, sError);
+        return;
+    }
+    if (!rel.m_sSha256.empty() && rel.m_sSha256 != sSignedSha)
+    {
+        Set(State::Failed, "GitHub's checksum differs from the signed one");
+        return;
+    }
+    if (m_bCancel) return;
+
     int nLastPercent = -1;
-    std::string sError;
     const bool bOk = HttpDownload(rel.m_sAssetUrl, sPart, [&](uint64_t nDone, uint64_t nTotal) {
         if (m_bCancel) return false;
         if (!nTotal) nTotal = rel.m_nAssetSize;
@@ -208,17 +227,17 @@ void Updater::Download()
     if (m_bCancel) { fs::remove(fs::path(sPart), ec); return; }
     if (!bOk) { fs::remove(fs::path(sPart), ec); Set(State::Failed, sError); return; }
 
-    // Checked against what GitHub says it published
+    // Checked against the size GitHub gives and the signed SHA-256, which is always there
     if (rel.m_nAssetSize && fs::file_size(fs::path(sPart), ec) != rel.m_nAssetSize)
     {
         fs::remove(fs::path(sPart), ec);
         Set(State::Failed, "The download is incomplete");
         return;
     }
-    if (!rel.m_sSha256.empty())
     {
         std::string sHash;
-        if (!Sha256File(sPart, sHash, sError) || sHash != rel.m_sSha256)
+        sError.clear();
+        if (!Sha256File(sPart, sHash, sError) || sHash != sSignedSha)
         {
             fs::remove(fs::path(sPart), ec);
             Set(State::Failed, sError.empty() ? "The download is damaged" : sError);

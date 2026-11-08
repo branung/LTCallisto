@@ -1,4 +1,5 @@
 #include "launcher_update.h"
+#include "launcher_sign.h"
 
 #include <nlohmann/json.hpp>
 #include <zlib.h>
@@ -468,15 +469,17 @@ bool ParseRelease(const std::string &sJson, const std::string &sArch, const std:
         return false;
     }
 
-    const std::string sPrefix = "ltcallisto-" + Lower(sArch) + "_";
+    // Only the package named for this release's own stamp, which also keeps the name safe to save under
+    const std::string sStamp = out.m_sTag.substr(out.m_sTag[0] == 'v' || out.m_sTag[0] == 'V' ? 1 : 0);
+    const std::string sPackage = "ltcallisto-" + Lower(sArch) + "_v" + sStamp + Lower(sArchive);
     const auto assets = j.find("assets");
     if (assets != j.end() && assets->is_array())
+    {
         for (const nlohmann::json &a : *assets)
         {
             if (!a.is_object()) continue;
             const std::string sName = JsonString(a, "name");
-            const std::string sLower = Lower(sName);
-            if (sLower.compare(0, sPrefix.size(), sPrefix) != 0 || !EndsWith(sLower, Lower(sArchive))) continue;
+            if (Lower(sName) != sPackage) continue;
 
             out.m_sAssetName = sName;
             out.m_sAssetUrl = JsonString(a, "browser_download_url");
@@ -486,12 +489,75 @@ bool ParseRelease(const std::string &sJson, const std::string &sArch, const std:
             if (sDigest.compare(0, 7, "sha256:") == 0) out.m_sSha256 = Lower(sDigest.substr(7));
             break;
         }
+        for (const nlohmann::json &a : *assets)
+        {
+            if (!a.is_object() || Lower(JsonString(a, "name")) != sPackage + ".sig") continue;
+            const std::string sUrl = JsonString(a, "browser_download_url");
+            if (sUrl.compare(0, 8, "https://") == 0) out.m_sSigUrl = sUrl;
+            break;
+        }
+    }
 
     if (out.m_sAssetUrl.compare(0, 8, "https://") != 0)
     {
         sError = "The latest release has no " + sArch + " package";
         return false;
     }
+    return true;
+}
+
+namespace {
+
+bool FromHex(const std::string &sHex, unsigned char *pOut, size_t nBytes)
+{
+    if (sHex.size() != nBytes * 2) return false;
+    for (size_t i = 0; i < nBytes * 2; ++i)
+    {
+        const char c = (char)std::tolower((unsigned char)sHex[i]);
+        const int n = (c >= '0' && c <= '9') ? c - '0' : (c >= 'a' && c <= 'f') ? c - 'a' + 10 : -1;
+        if (n < 0) return false;
+        if (i % 2 == 0) pOut[i / 2] = (unsigned char)(n << 4);
+        else pOut[i / 2] |= (unsigned char)n;
+    }
+    return true;
+}
+
+} // namespace
+
+bool CheckReleaseSignature(const std::string &sSig, const std::string &sKeyHex, const std::string &sPackage,
+                           std::string &sSha256, std::string &sError)
+{
+    std::string sFile, sHash, sSignature;
+    std::istringstream in(sSig);
+    std::string sLine;
+    while (std::getline(in, sLine))
+    {
+        if (!sLine.empty() && sLine.back() == '\r') sLine.pop_back();
+        if (sLine.compare(0, 5, "file=") == 0) sFile = sLine.substr(5);
+        else if (sLine.compare(0, 7, "sha256=") == 0) sHash = Lower(sLine.substr(7));
+        else if (sLine.compare(0, 8, "ed25519=") == 0) sSignature = sLine.substr(8);
+    }
+
+    unsigned char key[32], sig[64], hash[32];
+    if (!FromHex(sKeyHex, key, sizeof(key)))
+    {
+        sError = "This launcher has no key to check updates with";
+        return false;
+    }
+    if (sFile != sPackage || !FromHex(sHash, hash, sizeof(hash)) || !FromHex(sSignature, sig, sizeof(sig)))
+    {
+        sError = "The release's signature is not for this package";
+        return false;
+    }
+
+    // sign_release.py signs the same text
+    const std::string sSigned = "LTCallisto release signature 1\nfile=" + sFile + "\nsha256=" + sHash + "\n";
+    if (!Ed25519Verify(sig, (const unsigned char *)sSigned.data(), sSigned.size(), key))
+    {
+        sError = "The release's signature doesn't match LTCallisto's key";
+        return false;
+    }
+    sSha256 = sHash;
     return true;
 }
 
@@ -693,8 +759,8 @@ bool ExtractTarGz(const std::string &sTarGz, const std::string &sDestDir, std::v
             break;
         }
 #ifndef _WIN32
-        // Programs stay executable
-        fs::permissions(out, fs::perms(e.m_nMode & 0777), ec);
+        // Programs stay executable, and only the owner can change them
+        fs::permissions(out, fs::perms(e.m_nMode & 0755), ec);
 #endif
         files.push_back(sName);
     }
@@ -760,6 +826,14 @@ bool ApplyUpdate(const std::string &sStageDir, const std::vector<std::string> &f
             if (!s.old.empty()) fs::rename(s.old, s.dst, e);
         }
     };
+
+    // The list is read back from the Update folder, so its names are checked again
+    for (const std::string &sRel : files)
+        if (SafeName(sRel) != sRel)
+        {
+            sError = "The update holds a file named " + sRel;
+            return false;
+        }
 
     for (const std::string &sRel : files)
     {

@@ -22,6 +22,7 @@ struct ReleaseInfo
     std::string m_sPageUrl;   // The release's page
     std::string m_sAssetName; // LTCallisto-<arch>_v<stamp><archive>
     std::string m_sAssetUrl;
+    std::string m_sSigUrl;    // <package>.sig, empty when the release has none
     std::string m_sSha256;    // Lowercase hex, empty when GitHub gave none
     uint64_t m_nAssetSize = 0;
 };
@@ -33,9 +34,14 @@ bool ParseBuildStamp(const std::string &sStamp, int nOut[3]);
 bool IsNewerBuild(const std::string &sRelease, const std::string &sCurrent);
 
 // Reads GitHub's releases/latest answer. False with sError set when it isn't usable,
-// including when it has no package for sArch ending in sArchive
+// including when it has no package named LTCallisto-<sArch>_<tag><sArchive>
 bool ParseRelease(const std::string &sJson, const std::string &sArch, const std::string &sArchive,
                   ReleaseInfo &out, std::string &sError);
+
+// Checks a release's .sig: that it is sKeyHex's signature of sPackage's name and SHA-256.
+// Gives the signed SHA-256 in lowercase hex, which the download must then match
+bool CheckReleaseSignature(const std::string &sSig, const std::string &sKeyHex, const std::string &sPackage,
+                           std::string &sSha256, std::string &sError);
 
 // A file's SHA-256 in lowercase hex
 bool Sha256File(const std::string &sPath, std::string &sHex, std::string &sError);
@@ -59,7 +65,7 @@ std::string ToAscii(const std::string &s);
 bool ExtractZip(const std::string &sZip, const std::string &sDestDir, std::vector<std::string> &files,
                 std::string &sError);
 
-// The same for a .tar.gz. On Linux each file keeps the permissions the archive gives it
+// The same for a .tar.gz. On Linux each file keeps the archive's permissions, less write access for others
 bool ExtractTarGz(const std::string &sTarGz, const std::string &sDestDir, std::vector<std::string> &files,
                   std::string &sError);
 
@@ -72,7 +78,8 @@ bool ExtractArchive(const std::string &sArchive, const std::string &sDestDir, st
 bool UpdateReplaces(const std::string &sRelPath);
 
 // Moves the unpacked files into sInstallDir. A file being replaced is renamed to <name>.old first,
-// which Windows allows for a running program. Puts everything back when a step fails
+// which Windows allows for a running program. Puts everything back when a step fails.
+// Refuses a list naming a file outside sInstallDir
 bool ApplyUpdate(const std::string &sStageDir, const std::vector<std::string> &files,
                  const std::string &sInstallDir, std::string &sError);
 

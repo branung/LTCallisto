@@ -12,6 +12,20 @@ set(LT_LAUNCHER_DIR ${CMAKE_CURRENT_SOURCE_DIR} CACHE INTERNAL "")
 # The GitHub repository (owner/name) whose latest release LTCallisto offers as an update. Empty turns the check off.
 set(LTCALLISTO_UPDATE_REPO "branung/LTCallisto" CACHE STRING "GitHub repository LTCallisto updates from")
 
+# The public key releases are signed with (sign_release.py keygen). Without one LTCallisto is built without updates,
+# since it installs nothing it can't verify
+set(LT_UPDATE_KEY_FILE ${LT_LAUNCHER_DIR}/update_key.txt)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${LT_UPDATE_KEY_FILE})
+set(update_key "")
+if(EXISTS ${LT_UPDATE_KEY_FILE})
+	file(STRINGS ${LT_UPDATE_KEY_FILE} update_key REGEX "^[0-9a-fA-F]+$" LIMIT_COUNT 1)
+	string(LENGTH "${update_key}" update_key_len)
+	if(NOT update_key_len EQUAL 64)
+		set(update_key "")
+	endif()
+endif()
+set(LT_UPDATE_KEY "${update_key}" CACHE INTERNAL "")
+
 # The build stamp in the launchers' footer, and in the zip's name (stamp.cmake), taken again on every build.
 # The source exists from configure on, so a launcher target in another folder can list it
 set(LT_LAUNCHER_STAMP_CPP ${CMAKE_BINARY_DIR}/tools/launcher/ltcallisto_stamp.cpp CACHE INTERNAL "")
@@ -44,7 +58,9 @@ function(lt_launcher_target target)
 		# Only the network calls differ: WinHTTP on Windows, libcurl on Linux, loaded at run time.
 		# Building on Linux needs libcurl's header (libcurl4-openssl-dev), not its library
 		set(http_src "")
-		if(WIN32)
+		if(NOT LT_UPDATE_KEY)
+			message(STATUS "tools/launcher/update_key.txt has no key, so LTCallisto is built without updates")
+		elseif(WIN32)
 			set(http_src ${LT_LAUNCHER_DIR}/launcher_http_win.cpp)
 		else()
 			find_path(LT_CURL_INCLUDE_DIR curl/curl.h)
@@ -59,9 +75,10 @@ function(lt_launcher_target target)
 			target_sources(${target} PRIVATE
 				${LT_LAUNCHER_DIR}/launcher_update.cpp
 				${LT_LAUNCHER_DIR}/launcher_updater.cpp
+				${LT_LAUNCHER_DIR}/launcher_sign.cpp
 				${http_src})
 			target_compile_definitions(${target} PRIVATE LTLAUNCH_UPDATES=1
-				LTCALLISTO_UPDATE_REPO="${LTCALLISTO_UPDATE_REPO}")
+				LTCALLISTO_UPDATE_REPO="${LTCALLISTO_UPDATE_REPO}" LTCALLISTO_UPDATE_KEY="${LT_UPDATE_KEY}")
 			target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/json/single_include)
 			if(TARGET LIB_ZLib)
 				target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/libs/zlib)

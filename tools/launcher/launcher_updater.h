@@ -27,9 +27,10 @@ public:
         std::string m_sError;
     };
 
-    // sRepo is owner/name on GitHub. sCurrentBuild is this build's stamp
-    Updater(const std::string &sRepo, const std::string &sInstallDir, const std::string &sCurrentBuild,
-            const std::function<void()> &wake);
+    // sRepo is owner/name on GitHub. sCurrentBuild is this build's stamp.
+    // sKeyHex is the public key releases are signed with; a package it doesn't verify is never installed
+    Updater(const std::string &sRepo, const std::string &sKeyHex, const std::string &sInstallDir,
+            const std::string &sCurrentBuild, const std::function<void()> &wake);
     ~Updater();
 
     void StartCheck();
@@ -53,7 +54,7 @@ private:
     std::string StageDir(const ReleaseInfo &rel) const;
     std::string FilesList(const ReleaseInfo &rel) const;
 
-    const std::string m_sRepo, m_sInstallDir, m_sCurrent;
+    const std::string m_sRepo, m_sKey, m_sInstallDir, m_sCurrent;
     const std::function<void()> m_Wake;
 
     mutable std::mutex m_Lock;

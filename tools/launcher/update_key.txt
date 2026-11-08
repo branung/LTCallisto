@@ -1,0 +1,2 @@
+# The key LTCallisto's updater checks releases against (sign_release.py), made 2026-11-08
+94b8c1c8a12fb612c23208969348833f07bc4b14767b897426d5cf9b5b23b09f
