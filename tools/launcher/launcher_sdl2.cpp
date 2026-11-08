@@ -48,6 +48,17 @@ namespace {
 // The launcher's name, shown with its build stamp
 const char *kLauncherName = "LTCallisto";
 
+// The combined launcher starts each game with no data folder, so a first time player is asked for their copy.
+// A single game's launcher sits in that game's folder and uses it
+#ifdef LTLAUNCH_COMBINED
+const bool kAskForDataDir = true;
+#else
+const bool kAskForDataDir = false;
+#endif
+
+// launcher.ini's datadir for the game folder itself
+const char *kGameFolderDataDir = ".";
+
 // Launcher color palette (0xRRGGBB)
 const Uint32 kFace   = 0xF0F0F0;
 const Uint32 kWindow = 0xFFFFFF;
@@ -628,12 +639,14 @@ struct App
         bool bSeen = false;
         std::vector<std::string> chosenRez;
         bool bAlwaysRez = false, bAddOn = false;
+        bool bDataChosen = false;
         std::string sDataDir;
     };
     std::vector<GameState> states;
 
     ltlaunch::GameProfile game;
     ltlaunch::LaunchSpec spec;
+    bool bDataChosen = false; // Whether a data folder was chosen. spec.m_sDataDir is empty for the game folder
     std::string sStatus;
     bool bQuit = false;
 
@@ -701,6 +714,7 @@ struct App
             old.chosenRez = chosenRez;
             old.bAlwaysRez = bAlwaysRez;
             old.bAddOn = bAddOn;
+            old.bDataChosen = bDataChosen;
             old.sDataDir = spec.m_sDataDir;
         }
 
@@ -716,12 +730,14 @@ struct App
             chosenRez = st.chosenRez;
             bAlwaysRez = st.bAlwaysRez;
             bAddOn = st.bAddOn;
+            bDataChosen = st.bDataChosen;
             spec.m_sDataDir = st.sDataDir;
         }
         else
         {
             chosenRez.clear();
             bAlwaysRez = bAddOn = false;
+            bDataChosen = !kAskForDataDir;
             LoadSettings();
         }
 
@@ -806,7 +822,7 @@ struct App
 
     void DoPlay()
     {
-        if (!ltlaunch::FirstMissing(ltlaunch::DataDir(spec), Required()).empty()) return;
+        if (!bDataChosen || !ltlaunch::FirstMissing(ltlaunch::DataDir(spec), Required()).empty()) return;
 
         ltlaunch::LaunchSpec launch = spec;
         std::string sMissing;
@@ -1329,7 +1345,8 @@ struct App
         settings.m_bAlwaysRez = bAlwaysRez;
         settings.m_AlwaysRez = chosenRez;
         settings.m_bAddOn = bAddOn;
-        settings.m_sDataDir = spec.m_sDataDir;
+        if (bDataChosen)
+            settings.m_sDataDir = spec.m_sDataDir.empty() && kAskForDataDir ? kGameFolderDataDir : spec.m_sDataDir;
         if (!ltlaunch::SaveSettings(sSettingsPath, settings)) sStatus = "Could not write " + sSettingsPath;
     }
 
@@ -1341,19 +1358,22 @@ struct App
         bAlwaysRez = settings.m_bAlwaysRez;
         if (bAlwaysRez) chosenRez = settings.m_AlwaysRez;
         bAddOn = settings.m_bAddOn;
-        spec.m_sDataDir = settings.m_sDataDir;
+        const std::string &sDir = settings.m_sDataDir;
+        if (!sDir.empty()) bDataChosen = true;
+        spec.m_sDataDir = (sDir == kGameFolderDataDir || ltlaunch::SameDir(sDir, spec.m_sGameDir)) ? std::string() : sDir;
     }
 
-    // A standard install's folder to read the archives from. The game folder goes back to the default
+    // The folder to read the archives from: the player's copy of the game, or the game folder itself
     void BrowseDataDir()
     {
         std::string sDir, sError;
-        if (!PickFolder(pWnd, ltlaunch::DataDir(spec), sDir, sError))
+        if (!PickFolder(pWnd, bDataChosen ? ltlaunch::DataDir(spec) : std::string(), sDir, sError))
         {
             if (!sError.empty()) sStatus = sError;
             return;
         }
 
+        bDataChosen = true;
         spec.m_sDataDir = ltlaunch::SameDir(sDir, spec.m_sGameDir) ? std::string() : sDir;
         bSplashTried = false;
         sStatus.clear();
@@ -1425,7 +1445,8 @@ struct App
         Fill(kDataDirBox, kWindow);
         Frame(kDataDirBox, kBorder);
         Text(kDataDirBox.x + 4, kDataDirBox.y + (kDataDirBox.h - g_nLineH) / 2,
-             FitLeft(ltlaunch::DataDir(spec), kDataDirBox.w - 8), kText, kDataDirBox.w - 8);
+             bDataChosen ? FitLeft(ltlaunch::DataDir(spec), kDataDirBox.w - 8) : std::string("No folder selected"),
+             bDataChosen ? kText : kGrayTxt, kDataDirBox.w - 8);
         Button(kBrowseButton, "Browse...", Down(kBrowseButton));
         if (kToggleW > 0) DrawGameListToggle();
 
@@ -1443,7 +1464,12 @@ struct App
             present.push_back(HasData(sRez));
             bMissing = bMissing || !present.back();
         }
-        if (bMissing)
+        if (!bDataChosen)
+        {
+            DrawChooseFolder(panel, required);
+            bSplashTried = false;
+        }
+        else if (bMissing)
         {
             DrawDataMissing(panel, required, present);
             bSplashTried = false; // loaded again once the archives are back
@@ -1665,40 +1691,79 @@ struct App
         SDL_RenderCopy(g_pRen, pSplash, 0, &dst);
     }
 
+    // Text wrapped at spaces to the panel's inside, from y. Returns the y below it
+    int Wrapped(const Rect &in, int y, std::string s)
+    {
+        const int nMaxW = in.w - 8;
+        while (!s.empty())
+        {
+            size_t n = s.size();
+            while (n > 0 && TextW(s.substr(0, n)) > nMaxW)
+            {
+                const size_t cut = s.find_last_of(' ', n - 1);
+                n = (cut == std::string::npos || cut == 0) ? n - 1 : cut;
+            }
+            if (n == 0) n = 1;
+            Text(in.x + 4, y, s.substr(0, n), kText, nMaxW);
+            s.erase(0, n);
+            while (!s.empty() && s[0] == ' ') s.erase(0, 1);
+            y += g_nLineH;
+        }
+        return y;
+    }
+
+    // A panel's heading, centered and drawn twice for weight. Returns the y below it
+    int Heading(const Rect &in, int y, const std::string &sHead, Uint32 color)
+    {
+        const int hx = in.x + (in.w - TextW(sHead)) / 2;
+        Text(hx, y, sHead, color);
+        Text(hx + 1, y, sHead, color);
+        return y + g_nLineH + 6;
+    }
+
+    // The archives from y down, in two columns when there are too many rows for one.
+    // With pPresent, each is marked found or missing
+    void ArchiveList(const Rect &in, int y, const std::vector<std::string> &names, const std::vector<bool> *pPresent)
+    {
+        const int nRoom = (in.y + in.h - y) / g_nLineH;
+        const int nCols = (int)names.size() > nRoom ? 2 : 1;
+        const int nPerCol = ((int)names.size() + nCols - 1) / nCols;
+        const int nColW = (in.w - 8) / nCols;
+        for (size_t i = 0; i < names.size(); ++i)
+        {
+            const int x = in.x + 4 + (int)i / nPerCol * nColW;
+            const int ry = y + (int)i % nPerCol * g_nLineH;
+            if (ry + g_nLineH > in.y + in.h) continue;
+            if (!pPresent)
+            {
+                Text(x + 12, ry, names[i], kText, nColW - 16);
+                continue;
+            }
+            const bool bFound = (*pPresent)[i];
+            Text(x + 8, ry, bFound ? "found" : "missing", bFound ? kGrayTxt : kAlert);
+            Text(x + 72, ry, names[i], bFound ? kGrayTxt : kText, nColW - 76);
+        }
+    }
+
+    // Before a data folder is chosen: asks for the player's copy of the game, and names what it holds
+    void DrawChooseFolder(const Rect &panel, const std::vector<std::string> &required)
+    {
+        const Rect in(panel.x + 3, panel.y + 3, panel.w - 6, panel.h - 6);
+        int y = Heading(in, in.y + 8, "SELECT YOUR GAME FOLDER", kText);
+        y = Wrapped(in, y, "Press 'Browse...' to point to your copy of " + game.m_sName + ".");
+        y = Wrapped(in, y + 6, "The folder should hold:");
+        ArchiveList(in, y + 2, required, nullptr);
+    }
+
     // Names each archive the game needs, whether it was found, and the folder they belong in
     void DrawDataMissing(const Rect &panel, const std::vector<std::string> &required, const std::vector<bool> &present)
     {
         const Rect in(panel.x + 3, panel.y + 3, panel.w - 6, panel.h - 6);
         const int nMaxW = in.w - 8;
-        int y = in.y + 8;
+        int y = Heading(in, in.y + 8, "GAME DATA MISSING", kAlert);
 
-        // Wrapped at spaces to the panel
-        auto Wrapped = [&](std::string s)
-        {
-            while (!s.empty())
-            {
-                size_t n = s.size();
-                while (n > 0 && TextW(s.substr(0, n)) > nMaxW)
-                {
-                    const size_t cut = s.find_last_of(' ', n - 1);
-                    n = (cut == std::string::npos || cut == 0) ? n - 1 : cut;
-                }
-                if (n == 0) n = 1;
-                Text(in.x + 4, y, s.substr(0, n), kText, nMaxW);
-                s.erase(0, n);
-                while (!s.empty() && s[0] == ' ') s.erase(0, 1);
-                y += g_nLineH;
-            }
-        };
-
-        const std::string sHead = "GAME DATA MISSING";
-        const int hx = in.x + (in.w - TextW(sHead)) / 2;
-        Text(hx, y, sHead, kAlert);
-        Text(hx + 1, y, sHead, kAlert);
-        y += g_nLineH + 6;
-
-        Wrapped(spec.m_sDataDir.empty() ? "This game's archives were not found. Copy them into:"
-                                        : "This game's archives were not found in:");
+        y = Wrapped(in, y, spec.m_sDataDir.empty() ? "This game's archives were not found. Copy them into:"
+                                                   : "This game's archives were not found in:");
         y += 4;
 
         std::string sDir = ltlaunch::DataDir(spec);
@@ -1717,23 +1782,9 @@ struct App
         }
         y += 6;
 
-        Wrapped(spec.m_sDataDir.empty() ? "Or press Browse... to point to your copy of the game."
-                                        : "Press Browse... to point to your copy of the game.");
-        y += 6;
-
-        // In two columns when a long folder name leaves too little room for one
-        const int nRoom = (in.y + in.h - y) / g_nLineH;
-        const int nCols = (int)required.size() > nRoom ? 2 : 1;
-        const int nPerCol = ((int)required.size() + nCols - 1) / nCols;
-        const int nColW = (in.w - 8) / nCols;
-        for (size_t i = 0; i < required.size(); ++i)
-        {
-            const int x = in.x + 4 + (int)i / nPerCol * nColW;
-            const int ry = y + (int)i % nPerCol * g_nLineH;
-            if (ry + g_nLineH > in.y + in.h) continue;
-            Text(x + 8, ry, present[i] ? "found" : "missing", present[i] ? kGrayTxt : kAlert);
-            Text(x + 72, ry, required[i], present[i] ? kGrayTxt : kText, nColW - 76);
-        }
+        y = Wrapped(in, y, spec.m_sDataDir.empty() ? "Or press 'Browse...' to point to your copy of the game."
+                                                   : "Press 'Browse...' to point to your copy of the game.");
+        ArchiveList(in, y + 6, required, &present);
     }
 
     // The frame, caption bar, close box, OK and Cancel every dialog shares. An empty label leaves its button out
