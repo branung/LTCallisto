@@ -9,7 +9,7 @@ set(exec_src
     src/main.cpp)
 
 add_custom_command(OUTPUT myres.rc.cpp
-    COMMAND  ${CMAKE_SOURCE_DIR}/libs/DynRes/rc.parser.py ${CMAKE_SOURCE_DIR}/tests/DynResDLL/src/myres.rc)
+    COMMAND  ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/libs/DynRes/rc.parser.py ${CMAKE_SOURCE_DIR}/tests/DynResDLL/src/myres.rc)
 
 
 add_library(${PROJECT_NAME} SHARED ${exec_src})

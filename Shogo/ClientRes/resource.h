@@ -1,2 +1,2 @@
 
-#include "..\shared\ClientRes.h"
+#include "../Shared/ClientRes.h"

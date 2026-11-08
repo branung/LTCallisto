@@ -8,7 +8,7 @@
 //
 // ----------------------------------------------------------------------- //
 
-#include "Stdafx.h"
+#include "StdAfx.h"
 
 #include "ProfileMgr.h"
 #include "ClientUtilities.h"

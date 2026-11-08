@@ -6,6 +6,10 @@
 #endif
 #include <SDL.h>
 #include <SDL_syswm.h>
+#ifndef _WIN32
+// SDL_syswm.h brings in X11's headers, whose None macro would break DialogId::None
+#undef None
+#endif
 
 #include <cstdio>
 #include <cstdlib>

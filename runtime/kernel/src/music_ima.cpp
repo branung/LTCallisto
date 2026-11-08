@@ -36,6 +36,9 @@ static const uint8 kMusicVolumeClass = MAX_SOUND_VOLUME_CLASSES;
 // LT1's volume range, from musicmgr.h: 100 is full
 static const uint16 kMusicFullVolume = 100;
 
+// Declared out here, since one inside the namespace below names a different variable on GCC and doesn't link
+extern const char *g_CV_GameDataDir;
+
 namespace
 {
 
@@ -151,7 +154,6 @@ public:
         }
 
         // Then the one in the launcher's data folder, a standard install
-        extern const char *g_CV_GameDataDir;
         if (szRoot[0] && g_CV_GameDataDir && g_CV_GameDataDir[0])
         {
             char szTree[512];

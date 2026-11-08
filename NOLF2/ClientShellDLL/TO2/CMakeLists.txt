@@ -295,7 +295,10 @@ if(MSVC)
     add_definitions(-D_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS)	# VC14 deprecated stdext::hash_*
 endif(MSVC)
 if(LINUX)
-    set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "-Werror -fPIC")
+    # -Werror predates the compilers this is built with now. GCC's newer format-overflow, write-strings
+    # and unused-result checks stay warnings, so the module builds on a current toolchain
+    set(NOLF2_CSHELL_WARN "-Werror -Wno-error=format-overflow -Wno-error=write-strings -Wno-error=unused-result -Wno-c++1z-compat")
+    set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "${NOLF2_CSHELL_WARN} -fPIC")
     include_directories(${CMAKE_SOURCE_DIR}/libs/DynRes
                         ${CMAKE_SOURCE_DIR}/json/single_include)
 endif(LINUX)

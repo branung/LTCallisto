@@ -13,7 +13,7 @@ if(LINUX)
 	include_directories(../../libs/DynRes)
 	list(APPEND exec_src ClientRes.rc.cpp)
 	add_custom_command(OUTPUT ClientRes.rc.cpp
-		COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/DynRes/rc.parser.py
+		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/DynRes/rc.parser.py
 			${CMAKE_CURRENT_SOURCE_DIR}/ClientRes.rc
 			DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ClientRes.rc
 			${CMAKE_CURRENT_SOURCE_DIR}/../../libs/DynRes/rc.parser.py)

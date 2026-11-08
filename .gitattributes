@@ -1,1 +1,2 @@
 libs/libsmacker/** -text
+tools/linux/*.sh text eol=lf

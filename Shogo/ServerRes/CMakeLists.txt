@@ -8,7 +8,7 @@ if(LINUX)
 	include_directories(../../libs/DynRes)
 	list(APPEND exec_src ServerRes.rc.cpp)
 	add_custom_command(OUTPUT ServerRes.rc.cpp
-		COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/DynRes/rc.parser.py
+		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/DynRes/rc.parser.py
 			${CMAKE_CURRENT_SOURCE_DIR}/ServerRes.rc
 		# DEPENDS re-runs the generator when the .rc changes
 			DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ServerRes.rc

@@ -2971,10 +2971,18 @@ bool si_GetModelFilenames(HOBJECT hObj, char *pFilename, int fileBufLen, char *p
 	{
 		LTStrCpy(pSkinName, server_filemgr->GetUsedFilename(pObj->sd->m_pSkin), skinBufLen);
 	}
-	else 
+	else
 	{
 		pSkinName[0] = 0;
 	}
+
+#if defined(__LINUX)
+	// A Linux build's names come back with '/', but game code compares them with its own DOS paths.
+	for (char *p = pFilename; *p; ++p)
+		if (*p == '/') *p = '\\';
+	for (char *p = pSkinName; *p; ++p)
+		if (*p == '/') *p = '\\';
+#endif
 
 	return true;
 }
