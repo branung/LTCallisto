@@ -3160,7 +3160,7 @@ DBOOL AI_Mgr::CanSee( HOBJECT hTarget )
 // PARAMS		: DFLOAT fSpeed
 // ----------------------------------------------------------------------- //
 
-DBOOL AI_Mgr::Move(DVector &vDir, DFLOAT fSpeed)
+DBOOL AI_Mgr::Move(const DVector &vDir, DFLOAT fSpeed)
 {
 	DVector vTemp;
 

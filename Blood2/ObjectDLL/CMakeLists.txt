@@ -178,6 +178,23 @@ if(LINUX)
 	set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "-fPIC")
 
 	target_link_options(${PROJECT_NAME} PRIVATE -Wl,--no-undefined)
+	# The 1998 code's Windows spellings. tools/case_include_shim.py links each include name MSVC found
+	# without matching case (like "DLink.h" for dlink.h) into a folder searched after the real ones,
+	# and ../LinuxCompat stands in for the Windows headers.
+	# -fpermissive accepts MSVC's extra member qualifications
+	find_package(Python3 COMPONENTS Interpreter REQUIRED)
+	set(B2_CASE_SHIM ${CMAKE_CURRENT_BINARY_DIR}/case_shim)
+	execute_process(COMMAND ${Python3_EXECUTABLE}
+		${CMAKE_CURRENT_SOURCE_DIR}/../../tools/case_include_shim.py ${B2_CASE_SHIM}
+		${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../Shared ${CMAKE_CURRENT_SOURCE_DIR}/../Misc
+		-I ${CMAKE_CURRENT_SOURCE_DIR}/../Shared ${CMAKE_CURRENT_SOURCE_DIR}/../Misc
+		   ${CMAKE_CURRENT_SOURCE_DIR}/../ClientRes ${CMAKE_CURRENT_SOURCE_DIR}/../LinuxCompat
+		   ${CMAKE_CURRENT_SOURCE_DIR}/../../sdk/inc ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/DECompat
+		   ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/DECompat/lt1)
+	target_include_directories(${PROJECT_NAME} PRIVATE ../LinuxCompat ${B2_CASE_SHIM})
+	target_compile_options(${PROJECT_NAME} PRIVATE -fpermissive)
+	# MSVC's CRT spelling the engine headers don't already give (ltbasedefs.h)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE _strupr=strupr)
 endif(LINUX)
 
 # Macro redefinitions are build errors here.

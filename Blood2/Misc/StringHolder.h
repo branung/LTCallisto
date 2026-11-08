@@ -17,7 +17,7 @@
 	
 
 	#include "StdLithDefs.h"
-	#include "DynArray.h"
+	#include "Dynarray.h"
 	#include "Memory.h"
 
 

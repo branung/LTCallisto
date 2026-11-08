@@ -20,7 +20,11 @@
 	#include <string.h>
 	#include <assert.h>
 
-
+	#ifndef _WIN32
+	// Linux: the stand-in's 32-bit DWORD and its BOOL, WORD and BYTE come first,
+	// so the fallbacks below never apply (unsigned long is 64 bits here)
+	#include <windows.h>
+	#endif
 
 	#ifndef BOOL
 		#define BOOL	int

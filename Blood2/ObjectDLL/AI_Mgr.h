@@ -420,7 +420,7 @@ protected :
 	DBOOL			NavigateObstacle();
 	HOBJECT			FindObjectInRadius(HCLASS hObjectTest, DFLOAT fRange, DDWORD dwFlags = 0);
 	DBOOL			CanSee( HOBJECT hTarget );
-	DBOOL			Move(DVector &vDir, DFLOAT fSpeed);
+	DBOOL			Move(const DVector &vDir, DFLOAT fSpeed);	// const: callers pass temporaries, which only MSVC 6 bound to a non-const reference
 	DBOOL			Jump(DFLOAT m_fYSpeed, DFLOAT m_fZSpeed);
 	virtual DBOOL	Fire(DBOOL bAltFire = DFALSE);
 	DBOOL			CheckClearShot(DVector &vPos, DRotation &rRot, DBOOL bAltFire, DDWORD dwFlags = 0);

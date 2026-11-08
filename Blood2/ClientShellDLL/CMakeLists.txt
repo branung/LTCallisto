@@ -156,6 +156,20 @@ if(LINUX)
 		BUILD_WITH_INSTALL_RPATH TRUE
 		INSTALL_RPATH "$ORIGIN/")
 	target_link_options(${PROJECT_NAME} PRIVATE -Wl,--no-undefined)
+	# The 1998 code's Windows spellings, handled as in ObjectDLL
+	find_package(Python3 COMPONENTS Interpreter REQUIRED)
+	set(B2_CASE_SHIM ${CMAKE_CURRENT_BINARY_DIR}/case_shim)
+	execute_process(COMMAND ${Python3_EXECUTABLE}
+		${CMAKE_CURRENT_SOURCE_DIR}/../../tools/case_include_shim.py ${B2_CASE_SHIM}
+		${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../Shared ${CMAKE_CURRENT_SOURCE_DIR}/../Misc
+		-I ${CMAKE_CURRENT_SOURCE_DIR}/../Shared ${CMAKE_CURRENT_SOURCE_DIR}/../Misc
+		   ${CMAKE_CURRENT_SOURCE_DIR}/../ClientRes ${CMAKE_CURRENT_SOURCE_DIR}/../LinuxCompat
+		   ${CMAKE_CURRENT_SOURCE_DIR}/../../sdk/inc ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/DECompat
+		   ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/DECompat/lt1)
+	target_include_directories(${PROJECT_NAME} PRIVATE ../LinuxCompat ${B2_CASE_SHIM})
+	target_compile_options(${PROJECT_NAME} PRIVATE -fpermissive)
+	# MSVC's CRT spelling the engine headers don't already give (ltbasedefs.h)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE _strupr=strupr)
 endif(LINUX)
 
 # Macro redefinitions are build errors here, as in ObjectDLL

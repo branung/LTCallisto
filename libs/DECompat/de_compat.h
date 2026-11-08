@@ -16,8 +16,17 @@
 
 #include "de_types.h"
 #include "de_message.h"
+
+// A client module gets only those two. Blood 2's client shell reaches this file through basedefs_de.h,
+// and GCC would emit DEBaseClass's inline virtuals there, which need server symbols a client can't link.
+// LIB_DECompatClient defines DECOMPAT_CLIENT_MODULE for every module that links it
+#ifndef DECOMPAT_CLIENT_MODULE
 #include "de_server.h"
 #include "de_engineobjects.h"
 #include "de_servershell.h"
+#else
+// ObjectCreateStruct: LT1's basedefs_de.h declared it, and client code creates its effect objects with one
+#include "ltobjectcreate.h"
+#endif
 
 #endif // __DE_COMPAT_H__

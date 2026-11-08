@@ -1,6 +1,12 @@
 #ifndef __WINUTIL_H
 #define __WINUTIL_H
 
+#ifndef _WIN32
+// Linux: the stand-in's 32-bit DWORD comes before the typedef below,
+// so every file declares CWinUtil with the type WinUtil.cpp defines it with
+#include <windows.h>
+#endif
+
 #ifndef BOOL
 	typedef int		    BOOL;
 	#define FALSE		    0

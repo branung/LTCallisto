@@ -28,6 +28,8 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 add_library(LIB_DECompatClient STATIC
 	de_client.cpp)
 target_link_libraries(LIB_DECompatClient PUBLIC LIB_DECompatDefaults)
+# A client module sees only the client half and the shared wire format, even through de_compat.h
+target_compile_definitions(LIB_DECompatClient PUBLIC DECOMPAT_CLIENT_MODULE)
 
 if(LINUX)
     set_target_properties(LIB_DECompatClient PROPERTIES COMPILE_FLAGS "-fPIC")

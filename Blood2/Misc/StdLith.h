@@ -18,7 +18,7 @@
 	#include "LithException.h"
 	#include "Memory.h"
 
-	#include "DynArray.h"
+	#include "Dynarray.h"
 	
 	#include "LinkList.h"
 	#include "GoodLinkList.h"
