@@ -16,6 +16,12 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "../../runtime/ui/src/stb_truetype.h"
 
+#ifdef LTLAUNCH_UPDATES
+#include "launcher_http.h"
+#include "launcher_updater.h"
+#include <memory>
+#endif
+
 #ifdef _WIN32
 #include <windows.h>
 #include <shobjidl.h>
@@ -50,15 +56,38 @@ const Uint32 kAlert  = 0xA00000;
 const Uint32 kGrayTxt = 0x6D6D6D;
 const Uint32 kCaption = 0x0078D7;
 const Uint32 kCapText = 0xFFFFFF;
-
-// The combined launcher's game list, to the left of the one game's window
-#ifdef LTLAUNCH_COMBINED
-const int kSideW = 210;
-#else
-const int kSideW = 0;
+#ifdef LTLAUNCH_UPDATES
+const Uint32 kLink = 0x0066CC;
 #endif
-const int kMainW = 640;
-const int kWinW = kSideW + kMainW, kWinH = 470;
+
+// The combined launcher's games list, left of the game's own area. It can be hidden, which narrows the window
+#ifdef LTLAUNCH_COMBINED
+const int kGameListW = 185;
+#else
+const int kGameListW = 0;
+#endif
+
+// The banner. The games' art is 4:3, so it's drawn at half of 640x480, which scales it cleanly,
+// inside a 1 pixel border. The rest of the window is laid out around it
+const int kBannerW = 320, kBannerH = 240;
+const int kPanelY = 40, kPanelW = kBannerW + 2, kPanelH = kBannerH + 2;
+const int kPanelBottom = kPanelY + kPanelH;
+
+// The column of buttons right of the banner, 12 pixels from it and from the window's edge.
+// Wide enough for "Launch Nightmares"
+const int kButtonColumnW = 140;
+
+// The game's own area: the banner and the buttons
+const int kMainW = 12 + kPanelW + 12 + kButtonColumnW + 12;
+
+// Below the banner: the status line, the update notice and the footer, then the window's bottom edge
+const int kStatusY = kPanelBottom + 36;
+const int kFooterY = kPanelBottom + 110;
+const int kWinH = kPanelBottom + 140;
+
+// Set by Layout: the games list's width, 0 while it's hidden, and the window's width
+int g_nSideW = 0;
+int g_nWinW = kMainW;
 
 struct Rect
 {
@@ -72,16 +101,17 @@ bool In(const Rect &r, int x, int y)
     return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
 }
 
-const Rect kPlayButton(kSideW + 406, 12, 222, 26);
-const Rect kQuitButton(kSideW + 406, 330, 222, 26);
-const Rect kDisplayButton(kSideW + 406, 52, 222, 26);
-const Rect kCustomizeButton(kSideW + 406, 86, 222, 26);
-const Rect kAddOnBox(kSideW + 12, 338, 380, 18);
-const Rect kDataDirBox(kSideW + 12, 12, 300, 22);
-const Rect kBrowseButton(kSideW + 318, 12, 74, 22);
+// Everything left to right moves with the games list, so these are set by Layout.
+// Quit's top lines up with the banner's bottom, and the addon's checkbox sits under the banner level with Quit
+Rect kBannerPanel, kPlayButton, kQuitButton, kDisplayButton, kCustomizeButton, kAddOnBox;
 
-// The game list's heading, and its buttons spaced like Display... and Customize...
-const Rect kGamesHeading(12, 12, kSideW - 24, 26);
+// The folder row spans the banner's width: the games list's toggle in the combined launcher, the folder, Browse...
+const int kBrowseW = 74;
+const int kToggleW = kGameListW > 0 ? 22 : 0;
+Rect kGameListToggle, kDataDirBox, kBrowseButton;
+
+// The games list's heading, and its buttons spaced like Display... and Customize...
+Rect kGamesHeading;
 const int  kGameButtonY = 52, kGameButtonStep = 34;
 
 const int kCaptionH = 22;
@@ -90,13 +120,14 @@ const int kDlgButtonW = 80, kDlgButtonH = 24;
 const int kDlgButtonGap = 8; // Gap between OK and Cancel and between Cancel and the frame's edge
 const int kDlgBottomMargin = 10; // Margin below OK and Cancel
 
-// A dialog centred over the game's side of the window, with its caption bar, close box, OK and Cancel
+// A dialog centered on the launcher, with its caption bar, close box, OK and Cancel
 struct Dialog
 {
     Rect frame, caption, close, ok, cancel;
 
+    Dialog() {}
     Dialog(int w, int h)
-        : frame(kSideW + (kMainW - w) / 2, (kWinH - h) / 2, w, h),
+        : frame((g_nWinW - w) / 2, (kWinH - h) / 2, w, h),
           caption(frame.x + 1, frame.y + 1, w - 2, kCaptionH),
           close(caption.x + caption.w - kCloseSize - 3, caption.y + 2, kCloseSize, kCloseSize),
           ok(frame.x + w - 2 * (kDlgButtonW + kDlgButtonGap), frame.y + h - kDlgButtonH - kDlgBottomMargin,
@@ -105,16 +136,72 @@ struct Dialog
                  kDlgButtonW, kDlgButtonH) {}
 };
 
-const Dialog kDisplayDlg(440, 320);
-const Rect kSizeList(kDisplayDlg.frame.x + 14, kDisplayDlg.frame.y + 48, kDisplayDlg.frame.w - 28, 172);
-const Rect kBorderlessBox(kDisplayDlg.frame.x + 14, kDisplayDlg.frame.y + 228, kDisplayDlg.frame.w - 28, 18);
+// The dialogs, narrow enough for the window with the games list hidden
+Dialog kDisplayDlg;
+Rect kSizeList, kBorderlessBox;
 
-const Dialog kCustomizeDlg(586, 290);
-const Rect kAvailableList(kCustomizeDlg.frame.x + 14, kCustomizeDlg.frame.y + 46, 220, 160);
-const Rect kChosenList(kCustomizeDlg.frame.x + 352, kCustomizeDlg.frame.y + 46, 220, 160);
-const Rect kAddButton(kCustomizeDlg.frame.x + 248, kCustomizeDlg.frame.y + 90, 90, 24);
-const Rect kRemoveButton(kCustomizeDlg.frame.x + 248, kCustomizeDlg.frame.y + 122, 90, 24);
-const Rect kAlwaysRezBox(kCustomizeDlg.frame.x + 193, kCustomizeDlg.frame.y + 216, 200, 18);
+Dialog kCustomizeDlg;
+Rect kAvailableList, kChosenList, kAddButton, kRemoveButton, kAlwaysRezBox;
+
+#ifdef LTLAUNCH_UPDATES
+// A release's notes, opened from the update notice above the footer. Its buttons update and restart,
+// with the download's progress or an error on the line above them
+Dialog kReleaseDlg;
+const int kUpdateStatusH = 24;
+Rect kNotesBox, kGitHubButton;
+#endif
+
+// Places everything for the games list shown or hidden
+void Layout(bool bGameList)
+{
+    g_nSideW = bGameList ? kGameListW : 0;
+    g_nWinW = g_nSideW + kMainW;
+
+    const int x = g_nSideW + 12;
+    const int nColumnX = x + kPanelW + 12;
+    kBannerPanel = Rect(x, kPanelY, kPanelW, kPanelH);
+    kPlayButton = Rect(nColumnX, 12, kButtonColumnW, 26);
+    kDisplayButton = Rect(nColumnX, 52, kButtonColumnW, 26);
+    kCustomizeButton = Rect(nColumnX, 86, kButtonColumnW, 26);
+    kQuitButton = Rect(nColumnX, kPanelBottom, kButtonColumnW, 26);
+    kAddOnBox = Rect(x, kPanelBottom + 8, kPanelW, 18);
+
+    kGameListToggle = Rect(x, 12, kToggleW, 22);
+    const int nDirX = kToggleW > 0 ? x + kToggleW + 6 : x;
+    kBrowseButton = Rect(x + kPanelW - kBrowseW, 12, kBrowseW, 22);
+    kDataDirBox = Rect(nDirX, 12, kBrowseButton.x - 6 - nDirX, 22);
+    kGamesHeading = Rect(12, 12, kGameListW - 24, 26);
+
+    kDisplayDlg = Dialog(440, 320);
+    const Rect &d = kDisplayDlg.frame;
+    kSizeList = Rect(d.x + 14, d.y + 48, d.w - 28, 172);
+    kBorderlessBox = Rect(d.x + 14, d.y + 228, d.w - 28, 18);
+
+    kCustomizeDlg = Dialog(470, 290);
+    const Rect &c = kCustomizeDlg.frame;
+    kAvailableList = Rect(c.x + 14, c.y + 46, 165, 160);
+    kAddButton = Rect(c.x + 190, c.y + 90, 90, 24);
+    kRemoveButton = Rect(c.x + 190, c.y + 122, 90, 24);
+    kChosenList = Rect(c.x + c.w - 14 - 165, c.y + 46, 165, 160);
+    kAlwaysRezBox = Rect(c.x + (c.w - 200) / 2, c.y + 216, 200, 18);
+
+#ifdef LTLAUNCH_UPDATES
+    kReleaseDlg = Dialog(470, 340);
+    const Rect &r = kReleaseDlg.frame;
+    kNotesBox = Rect(r.x + 14, r.y + kCaptionH + 12, r.w - 28,
+                     r.h - kCaptionH - 12 - kDlgButtonH - kDlgBottomMargin - 10 - kUpdateStatusH);
+    kGitHubButton = Rect(r.x + 14, kReleaseDlg.ok.y, 130, kDlgButtonH);
+#endif
+}
+
+#ifdef LTLAUNCH_UPDATES
+// The update notice's line, between the status line and the footer
+const int kUpdateY = kFooterY - 36;
+
+// The notes' scroll bar arrows, and how a held one repeats (ms)
+const int kScrollArrowH = 14;
+const Uint32 kArrowDelay = 400, kArrowRepeat = 50;
+#endif
 const int  kRowH = 18;
 const int  kListPad = 2;
 const int  kScrollBarW = 14;
@@ -189,12 +276,13 @@ void TextC(const Rect &r, const std::string &s, Uint32 c)
     Text(r.x + (r.w - TextW(s)) / 2, r.y + (r.h - g_nLineH) / 2, s, c, r.w);
 }
 
-// A path that's too wide keeps its end, which names the folder
+// A path that's too wide keeps its end, which names the folder.
+// TextW rounds, so a fit is strictly narrower: one that only fits when rounded lost its last character to Text's clip
 std::string FitLeft(const std::string &s, int nMaxW)
 {
-    if (TextW(s) <= nMaxW) return s;
+    if (TextW(s) < nMaxW) return s;
     size_t i = 0;
-    while (i < s.size() && TextW("..." + s.substr(i)) > nMaxW) ++i;
+    while (i < s.size() && TextW("..." + s.substr(i)) >= nMaxW) ++i;
     return "..." + s.substr(i);
 }
 
@@ -451,11 +539,12 @@ bool PickFolder(SDL_Window *, const std::string &sStart, std::string &sOut, std:
 }
 #endif
 
-// Starts the engine with the game directory as its working directory
-bool Spawn(const std::vector<std::string> &args, const std::string &sCwd,
-           std::string &sError)
-{
+// Starts the engine with the game directory as its working directory.
+// On Windows, pProcess keeps the process's handle when it's given.
 #ifdef _WIN32
+bool Spawn(const std::vector<std::string> &args, const std::string &sCwd,
+           std::string &sError, HANDLE *pProcess = 0)
+{
     std::string sCmd = ltlaunch::QuoteArgs(args);
     STARTUPINFOA si; PROCESS_INFORMATION pi;
     ZeroMemory(&si, sizeof(si)); si.cb = sizeof(si);
@@ -465,9 +554,14 @@ bool Spawn(const std::vector<std::string> &args, const std::string &sCwd,
                         sCwd.c_str(), &si, &pi))
     { sError = "Could not start " + args[0]; return false; }
     CloseHandle(pi.hThread);
-    CloseHandle(pi.hProcess);
+    if (pProcess) *pProcess = pi.hProcess;
+    else CloseHandle(pi.hProcess);
     return true;
+}
 #else
+bool Spawn(const std::vector<std::string> &args, const std::string &sCwd,
+           std::string &sError)
+{
     const pid_t pid = fork();
     if (pid < 0) { sError = "Could not start " + args[0]; return false; }
     if (pid == 0)
@@ -480,8 +574,8 @@ bool Spawn(const std::vector<std::string> &args, const std::string &sCwd,
         _exit(127);
     }
     return true;
-#endif
 }
+#endif
 
 struct App
 {
@@ -506,8 +600,31 @@ struct App
     std::string sStatus;
     bool bQuit = false;
 
-    enum class DialogId { None, Display, Customize };
+    enum class DialogId { None, Display, Customize, Release };
     DialogId eOpenDialog = DialogId::None;
+
+#ifdef LTLAUNCH_UPDATES
+    std::string sExeDir;
+    std::unique_ptr<ltlaunch::Updater> pUpdater; // Null when updates are off
+    ltlaunch::Updater::View update; // Taken on each Draw
+    Rect rUpdateLink; // Laid out on each Draw, empty when not shown
+    std::string sUpdateMessage; // Why Restart was refused, shown in the release notes
+    std::vector<HANDLE> gameProcesses; // The games this launcher started
+
+    // The release notes, wrapped to the dialog
+    struct NoteRow
+    {
+        std::string sText;
+        int x = 0;
+        bool bHeading = false, bBullet = false;
+    };
+    std::vector<NoteRow> noteRows;
+    int nNotesScroll = 0;
+    bool bNotesDrag = false; // The scroll bar's handle is held
+    int nNotesGrabY = 0; // Where on the handle it was taken
+    int nNotesArrow = 0; // The arrow held, -1 up or 1 down
+    Uint32 nArrowRepeatAt = 0; // When a held arrow next scrolls
+#endif
 
     const Rect *pPressed = 0;
     bool bPressedOver = false;
@@ -681,8 +798,15 @@ struct App
         }
 
         std::string sError;
+#ifdef LTLAUNCH_UPDATES
+        HANDLE hProcess = NULL;
+        if (!Spawn(args, sCwd, sError, &hProcess))
+        { sStatus = sError; return; }
+        gameProcesses.push_back(hProcess);
+#else
         if (!Spawn(args, sCwd, sError))
         { sStatus = sError; return; }
+#endif
         sStatus.clear();
     }
 
@@ -692,17 +816,25 @@ struct App
     static const std::vector<const Rect *> &ButtonsFor(DialogId eDialog)
     {
         static const std::vector<const Rect *> kMain =
-            { &kPlayButton, &kDisplayButton, &kCustomizeButton, &kQuitButton, &kAddOnBox, &kBrowseButton };
+            { &kPlayButton, &kDisplayButton, &kCustomizeButton, &kQuitButton, &kAddOnBox, &kBrowseButton,
+              &kGameListToggle };
         static const std::vector<const Rect *> kDisplay =
             { &kDisplayDlg.ok, &kDisplayDlg.cancel, &kDisplayDlg.close, &kBorderlessBox };
         static const std::vector<const Rect *> kCustomize =
             { &kCustomizeDlg.ok, &kCustomizeDlg.cancel, &kCustomizeDlg.close, &kAddButton, &kRemoveButton,
               &kAlwaysRezBox };
+#ifdef LTLAUNCH_UPDATES
+        static const std::vector<const Rect *> kRelease =
+            { &kReleaseDlg.ok, &kReleaseDlg.cancel, &kReleaseDlg.close, &kGitHubButton };
+#endif
 
         switch (eDialog)
         {
             case DialogId::Display:   return kDisplay;
             case DialogId::Customize: return kCustomize;
+#ifdef LTLAUNCH_UPDATES
+            case DialogId::Release:   return kRelease;
+#endif
             default:                  return kMain;
         }
     }
@@ -710,10 +842,21 @@ struct App
     const Rect *ButtonAt(int x, int y) const
     {
         for (const Rect *pButton : ButtonsFor(eOpenDialog))
+        {
+#ifdef LTLAUNCH_UPDATES
+            if (pButton == &kReleaseDlg.ok && UpdateLabel().empty()) continue;
+#endif
             if (In(*pButton, x, y) && (pButton != &kAddOnBox || bHasAddOn)) return pButton;
+        }
         if (eOpenDialog == DialogId::None)
-            for (const Rect &r : gameButtons)
-                if (In(r, x, y)) return &r;
+        {
+            if (g_nSideW > 0)
+                for (const Rect &r : gameButtons)
+                    if (In(r, x, y)) return &r;
+#ifdef LTLAUNCH_UPDATES
+            if (In(rUpdateLink, x, y)) return &rUpdateLink;
+#endif
+        }
         return 0;
     }
 
@@ -738,15 +881,263 @@ struct App
         else if (p == &kQuitButton) bQuit = true;
         else if (p == &kAddOnBox) ToggleAddOn();
         else if (p == &kBrowseButton) BrowseDataDir();
+        else if (p == &kGameListToggle) ToggleGameList();
         // Display dialog
         else if (p == &kBorderlessBox) bBorderless = !bBorderless;
         // Customize dialog
         else if (p == &kAddButton) AddRez();
         else if (p == &kRemoveButton) RemoveRez();
         else if (p == &kAlwaysRezBox) bAlwaysRez = !bAlwaysRez;
+#ifdef LTLAUNCH_UPDATES
+        // The update notice and the release notes
+        else if (p == &rUpdateLink) OpenReleaseNotes();
+        else if (p == &kReleaseDlg.ok) UpdateAction(); // The notes stay open to show the progress
+        else if (p == &kGitHubButton) OpenReleasePage();
+#endif
         // OK, Cancel or a close box. Cancel and the close boxes put things back
         else CloseDialog(IsOkButton(p));
     }
+
+#ifdef LTLAUNCH_UPDATES
+    // The release notes' button for the next step. Empty while there's nothing to press
+    std::string UpdateLabel() const
+    {
+        switch (update.m_eState)
+        {
+            case ltlaunch::Updater::State::Available: return "Update";
+            case ltlaunch::Updater::State::Ready:     return "Restart";
+            case ltlaunch::Updater::State::Failed:    return "Retry";
+            default:                                  return std::string();
+        }
+    }
+
+    void UpdateAction()
+    {
+        if (!pUpdater) return;
+        update = pUpdater->Get();
+        sUpdateMessage.clear();
+        switch (update.m_eState)
+        {
+            case ltlaunch::Updater::State::Available:
+            case ltlaunch::Updater::State::Failed: pUpdater->StartDownload(); break;
+            case ltlaunch::Updater::State::Ready:  RestartToUpdate(); break;
+            default: break;
+        }
+    }
+
+    void OpenReleasePage()
+    {
+        if (!pUpdater) return;
+        if (!ltlaunch::OpenInBrowser(update.m_Release.m_sPageUrl) &&
+            !ltlaunch::OpenInBrowser(pUpdater->ReleasesPage()))
+            sUpdateMessage = "Could not open the release page";
+    }
+
+    // Whether a game this launcher started is still running
+    bool GameRunning()
+    {
+        bool bRunning = false;
+        for (size_t i = gameProcesses.size(); i-- > 0;)
+        {
+            if (WaitForSingleObject(gameProcesses[i], 0) == WAIT_TIMEOUT) { bRunning = true; continue; }
+            CloseHandle(gameProcesses[i]);
+            gameProcesses.erase(gameProcesses.begin() + (std::ptrdiff_t)i);
+        }
+        return bRunning;
+    }
+
+    // Installs the downloaded update, then starts the new launcher and closes this one
+    void RestartToUpdate()
+    {
+        if (GameRunning())
+        {
+            sUpdateMessage = "Close the game before restarting to update.";
+            return;
+        }
+        if (!pUpdater->Install()) return; // The release notes say why
+
+        std::string sError;
+        if (Spawn({ ltlaunch::JoinPath(sExeDir, "LTCallisto.exe") }, sExeDir, sError)) bQuit = true;
+        else sUpdateMessage = "Updated! Start LTCallisto again to use the new version.";
+    }
+
+    void OpenReleaseNotes()
+    {
+        noteRows.clear();
+        nNotesScroll = 0;
+        bNotesDrag = false;
+        nNotesArrow = 0;
+        sUpdateMessage.clear();
+
+        const int nWidth = kNotesBox.w - 2 * kListPad - kScrollBarW - 12;
+        const int nBulletW = TextW("-  ");
+        std::vector<ltlaunch::NoteLine> lines = ltlaunch::ReleaseNotes(update.m_Release.m_sBody);
+        if (lines.empty()) lines.push_back({ "This release has no notes.", false, false });
+
+        for (const ltlaunch::NoteLine &line : lines)
+        {
+            const int nIndent = line.m_bBullet ? nBulletW : 0;
+            std::string s = line.m_sText;
+            bool bFirst = true;
+            if (s.empty()) noteRows.push_back(NoteRow());
+
+            // Wrapped at spaces, or anywhere in a word too long for a line
+            while (!s.empty())
+            {
+                size_t n = s.size();
+                while (n > 1 && TextW(s.substr(0, n)) > nWidth - nIndent)
+                {
+                    const size_t cut = s.find_last_of(' ', n - 1);
+                    n = (cut == std::string::npos || cut == 0) ? n - 1 : cut;
+                }
+                NoteRow row;
+                row.sText = s.substr(0, n);
+                row.x = nIndent;
+                row.bHeading = line.m_bHeading;
+                row.bBullet = line.m_bBullet && bFirst;
+                noteRows.push_back(row);
+                bFirst = false;
+                s.erase(0, n);
+                while (!s.empty() && s[0] == ' ') s.erase(0, 1);
+            }
+        }
+        eOpenDialog = DialogId::Release;
+    }
+
+    int NoteRowH() const { return g_nLineH + 2; }
+    int VisibleNoteRows() const { return (kNotesBox.h - 2 * kListPad) / NoteRowH(); }
+
+    int ClampNotesScroll(int nScroll) const
+    {
+        const int nMax = (int)noteRows.size() - VisibleNoteRows();
+        if (nScroll > nMax) nScroll = nMax;
+        return nScroll < 0 ? 0 : nScroll;
+    }
+
+    // The notes' scroll bar, empty when everything fits: an arrow at each end and the track between them
+    Rect NotesBar() const
+    {
+        if ((int)noteRows.size() <= VisibleNoteRows()) return Rect();
+        return Rect(kNotesBox.x + kNotesBox.w - kScrollBarW, kNotesBox.y + kListPad, kScrollBarW - kListPad,
+                    kNotesBox.h - 2 * kListPad);
+    }
+
+    Rect NotesArrow(int nDir) const
+    {
+        const Rect bar = NotesBar();
+        if (bar.h <= 0) return Rect();
+        return Rect(bar.x, nDir < 0 ? bar.y : bar.y + bar.h - kScrollArrowH, bar.w, kScrollArrowH);
+    }
+
+    Rect NotesTrack() const
+    {
+        const Rect bar = NotesBar();
+        if (bar.h <= 0) return Rect();
+        return Rect(bar.x, bar.y + kScrollArrowH, bar.w, bar.h - 2 * kScrollArrowH);
+    }
+
+    Rect NotesHandle() const
+    {
+        const Rect track = NotesTrack();
+        if (track.h <= 0) return Rect();
+        const int nVis = VisibleNoteRows(), nRows = (int)noteRows.size();
+        int nHandleH = track.h * nVis / nRows;
+        if (nHandleH < kMinHandleH) nHandleH = kMinHandleH;
+        return Rect(track.x, track.y + (track.h - nHandleH) * nNotesScroll / (nRows - nVis), track.w, nHandleH);
+    }
+
+    // A press on the bar. An arrow scrolls a line and repeats while held, the handle is dragged,
+    // and the track either side of it pages up or down
+    bool PressNotesBar(int x, int y)
+    {
+        if (eOpenDialog != DialogId::Release || !In(NotesBar(), x, y)) return false;
+        for (int nDir = -1; nDir <= 1; nDir += 2)
+            if (In(NotesArrow(nDir), x, y))
+            {
+                nNotesArrow = nDir;
+                nNotesScroll = ClampNotesScroll(nNotesScroll + nDir);
+                nArrowRepeatAt = SDL_GetTicks() + kArrowDelay;
+                SDL_CaptureMouse(SDL_TRUE);
+                return true;
+            }
+
+        const Rect handle = NotesHandle();
+        if (In(handle, x, y))
+        {
+            bNotesDrag = true;
+            nNotesGrabY = y - handle.y;
+            SDL_CaptureMouse(SDL_TRUE); // Keeps the drag when the pointer leaves the window
+        }
+        else
+            nNotesScroll = ClampNotesScroll(nNotesScroll + (y < handle.y ? -1 : 1) * (VisibleNoteRows() - 1));
+        return true;
+    }
+
+    // Moves the handle with the pointer. True when the notes scrolled
+    bool DragNotes(int y)
+    {
+        const Rect track = NotesTrack(), handle = NotesHandle();
+        const int nTravel = track.h - handle.h;
+        const int nMax = (int)noteRows.size() - VisibleNoteRows();
+        if (nTravel <= 0 || nMax <= 0) return false;
+        const int nTop = y - nNotesGrabY - track.y;
+        const int nScroll = ClampNotesScroll((nTop * nMax + nTravel / 2) / nTravel);
+        if (nScroll == nNotesScroll) return false;
+        nNotesScroll = nScroll;
+        return true;
+    }
+
+    bool NotesHeld() const { return bNotesDrag || nNotesArrow != 0; }
+
+    void EndNotesDrag()
+    {
+        bNotesDrag = false;
+        nNotesArrow = 0;
+        SDL_CaptureMouse(SDL_FALSE);
+    }
+
+    // How long the event loop may wait before a held arrow scrolls again
+    Uint32 ArrowWait() const
+    {
+        const Uint32 nNow = SDL_GetTicks();
+        return nArrowRepeatAt > nNow ? nArrowRepeatAt - nNow : 0;
+    }
+
+    // A held arrow scrolls another line while the pointer is still on it. True when the notes scrolled
+    bool RepeatArrow()
+    {
+        if (!nNotesArrow || SDL_GetTicks() < nArrowRepeatAt) return false;
+        nArrowRepeatAt = SDL_GetTicks() + kArrowRepeat;
+        int x = 0, y = 0;
+        SDL_GetMouseState(&x, &y);
+        if (!In(NotesArrow(nNotesArrow), x, y)) return false;
+        const int nScroll = ClampNotesScroll(nNotesScroll + nNotesArrow);
+        if (nScroll == nNotesScroll) return false;
+        nNotesScroll = nScroll;
+        return true;
+    }
+
+    // A scroll bar arrow, drawn as a small button with a triangle pointing up or down
+    void DrawArrow(const Rect &r, int nDir, bool bPressed)
+    {
+        Fill(r, bPressed ? kButtonDown : kButton);
+        Frame(r, bPressed ? kBorderDown : kBorder);
+        const int cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+        for (int i = 0; i < 4; ++i)
+        {
+            const int nRow = nDir < 0 ? cy - 2 + i : cy + 1 - i;
+            Fill(Rect(cx - i, nRow, 2 * i + 1, 1), kText);
+        }
+    }
+
+    // The hand over the version link
+    void UpdateCursor(int x, int y, SDL_Cursor *pHand, SDL_Cursor *pArrow)
+    {
+        const bool bOver = eOpenDialog == DialogId::None && In(rUpdateLink, x, y);
+        SDL_Cursor *pWant = bOver ? pHand : pArrow;
+        if (pWant && SDL_GetCursor() != pWant) SDL_SetCursor(pWant);
+    }
+#endif
 
     void CloseDialog(bool bAccept)
     {
@@ -794,6 +1185,13 @@ struct App
     // Scrolls the list under the mouse
     bool ScrollList(int x, int y, int nRows)
     {
+#ifdef LTLAUNCH_UPDATES
+        if (eOpenDialog == DialogId::Release && In(kNotesBox, x, y))
+        {
+            nNotesScroll = ClampNotesScroll(nNotesScroll + nRows);
+            return true;
+        }
+#endif
         for (ListRef &list : OpenLists())
             if (In(list.rect, x, y))
             {
@@ -927,6 +1325,39 @@ struct App
     }
 
     // The addon has its own banner, so the splash is loaded again
+    // Shows or hides the games list. The window narrows or widens on its left, so the rest stays where it is
+    void ToggleGameList()
+    {
+        const bool bShow = g_nSideW == 0;
+        Layout(bShow);
+        if (pWnd)
+        {
+            int x = 0, y = 0;
+            SDL_GetWindowPosition(pWnd, &x, &y);
+            SDL_SetWindowSize(pWnd, g_nWinW, kWinH);
+            SDL_SetWindowPosition(pWnd, bShow ? x - kGameListW : x + kGameListW, y);
+        }
+        if (!sSelectedPath.empty()) ltlaunch::SetIniValue(sSelectedPath, "gamelist", bShow ? "1" : "0");
+    }
+
+    // A small button holding a double arrow pointing the way the games list will move
+    void DrawGameListToggle()
+    {
+        const Rect &r = kGameListToggle;
+        const bool bPressed = Down(r);
+        Fill(r, bPressed ? kButtonDown : kButton);
+        Frame(r, bPressed ? kBorderDown : kBorder);
+        const bool bLeft = g_nSideW > 0; // Hiding it moves it off to the left
+        const int cy = r.y + r.h / 2 + (bPressed ? 1 : 0);
+        const int x0 = r.x + (r.w - 8) / 2 + (bPressed ? 1 : 0);
+        for (int n = 0; n < 2; ++n)
+            for (int i = 0; i < 4; ++i)
+            {
+                const int nCol = bLeft ? x0 + n * 4 + i : x0 + n * 4 + 3 - i;
+                Fill(Rect(nCol, cy - i, 1, 2 * i + 1), kText);
+            }
+    }
+
     void ToggleAddOn()
     {
         bAddOn = !bAddOn;
@@ -952,7 +1383,7 @@ struct App
 
     void Draw()
     {
-        Fill(Rect(0, 0, kWinW, kWinH), kFace);
+        Fill(Rect(0, 0, g_nWinW, kWinH), kFace);
 
         // The folder the archives are read from
         Fill(kDataDirBox, kWindow);
@@ -960,10 +1391,11 @@ struct App
         Text(kDataDirBox.x + 4, kDataDirBox.y + (kDataDirBox.h - g_nLineH) / 2,
              FitLeft(ltlaunch::DataDir(spec), kDataDirBox.w - 8), kText, kDataDirBox.w - 8);
         Button(kBrowseButton, "Browse...", Down(kBrowseButton));
+        if (kToggleW > 0) DrawGameListToggle();
 
-        if (kSideW > 0) DrawGameList();
+        if (g_nSideW > 0) DrawGameList();
 
-        const Rect panel(kSideW + 12, 40, 380, 290);
+        const Rect &panel = kBannerPanel;
         Fill(panel, kWindow);
         Frame(panel, kBorder);
 
@@ -985,22 +1417,153 @@ struct App
 
         // An addon without a label of its own launches under the plain one
         const bool bAddOnLabel = UseAddOn() && !game.m_AddOn.m_sButton.empty();
-        Button(kPlayButton, bAddOnLabel ? game.m_AddOn.m_sButton : "Launch", Down(kPlayButton));
+        const std::string sLaunch = game.m_sLaunch.empty() ? std::string("Launch") : game.m_sLaunch;
+        Button(kPlayButton, bAddOnLabel ? game.m_AddOn.m_sButton : sLaunch, Down(kPlayButton));
         Button(kDisplayButton, "Display...", Down(kDisplayButton));
         Button(kCustomizeButton, "Customize...", Down(kCustomizeButton));
         Button(kQuitButton, "Quit", Down(kQuitButton));
         if (bHasAddOn) CheckBox(kAddOnBox, game.m_AddOn.m_sLabel, bAddOn, Down(kAddOnBox));
 
         // A refused or failed launch
-        Text(kSideW + 12, 366, sStatus, kAlert, kMainW - 24);
+        Text(g_nSideW + 12, kStatusY, sStatus, kAlert, kMainW - 24);
+
+#ifdef LTLAUNCH_UPDATES
+        DrawUpdateNotice();
+#endif
 
         // The footer
         const std::string sLine = std::string(kLauncherName) + " v" + g_szLauncherBuild;
-        Text((kWinW - TextW(sLine)) / 2, 440, sLine, kText);
+        Text((g_nWinW - TextW(sLine)) / 2, kFooterY, sLine, kText);
 
         if (eOpenDialog == DialogId::Display) DrawDisplayDialog();
         else if (eOpenDialog == DialogId::Customize) DrawCustomizeDialog();
+#ifdef LTLAUNCH_UPDATES
+        else if (eOpenDialog == DialogId::Release) DrawReleaseDialog();
+#endif
     }
+
+#ifdef LTLAUNCH_UPDATES
+    int DownloadPercent() const
+    {
+        if (!update.m_nTotal) return 0;
+        const int n = (int)(update.m_nDone * 100 / update.m_nTotal);
+        return n > 100 ? 100 : n;
+    }
+
+    // One line naming the newer release, its version a link to the notes, which hold the buttons
+    void DrawUpdateNotice()
+    {
+        update = pUpdater ? pUpdater->Get() : ltlaunch::Updater::View();
+        rUpdateLink = Rect();
+        if (update.m_eState == ltlaunch::Updater::State::None) return;
+
+        std::string sStamp = update.m_Release.m_sTag;
+        if (!sStamp.empty() && (sStamp[0] == 'v' || sStamp[0] == 'V')) sStamp.erase(0, 1);
+        const std::string sVersion = std::string(kLauncherName) + " v" + sStamp;
+
+        std::string sBefore, sAfter;
+        switch (update.m_eState)
+        {
+            case ltlaunch::Updater::State::Available:   sBefore = "Update available: "; break;
+            case ltlaunch::Updater::State::Downloading:
+                sBefore = "Downloading ";
+                sAfter = "  " + std::to_string(DownloadPercent()) + "%";
+                break;
+            case ltlaunch::Updater::State::Ready:       sAfter = " is ready to install"; break;
+            default:                                    sBefore = "Update failed: "; break;
+        }
+
+        // Centered under the footer, but kept clear of the game list
+        const int nLinkW = TextW(sVersion);
+        int x = (g_nWinW - TextW(sBefore) - nLinkW - TextW(sAfter)) / 2;
+        if (x < g_nSideW + 12) x = g_nSideW + 12;
+        const int y = kUpdateY;
+        const Uint32 cText = update.m_eState == ltlaunch::Updater::State::Failed ? kAlert : kText;
+
+        Text(x, y, sBefore, cText);
+        x += TextW(sBefore);
+        Text(x, y, sVersion, kLink);
+        Fill(Rect(x, y + g_nAscent + 2, nLinkW, 1), kLink);
+        rUpdateLink = Rect(x, y - 2, nLinkW, g_nLineH + 4);
+        Text(x + nLinkW, y, sAfter, cText);
+    }
+
+    // The line above the release notes' buttons, centered: the download's progress, what's next, or what went wrong
+    void DrawUpdateStatus()
+    {
+        const Rect line(kNotesBox.x, kNotesBox.y + kNotesBox.h + 2, kNotesBox.w, kUpdateStatusH);
+        const int y = line.y + (line.h - g_nLineH) / 2;
+
+        if (!sUpdateMessage.empty())
+        {
+            TextC(line, sUpdateMessage, kAlert);
+            return;
+        }
+
+        switch (update.m_eState)
+        {
+            case ltlaunch::Updater::State::Available:
+                TextC(line, "", kText);
+                break;
+            case ltlaunch::Updater::State::Downloading:
+            {
+                // The percentage and its bar, centered together
+                const std::string sText = "Downloading...  " + std::to_string(DownloadPercent()) + "%";
+                const int nBarW = 240, nGap = 12;
+                const int x = line.x + (line.w - TextW(sText) - nGap - nBarW) / 2;
+                Text(x, y, sText, kText);
+                const Rect bar(x + TextW(sText) + nGap, y + (g_nLineH - 10) / 2, nBarW, 10);
+                Fill(bar, kWindow);
+                Frame(bar, kBorder);
+                const int nFill = (bar.w - 2) * DownloadPercent() / 100;
+                Fill(Rect(bar.x + 1, bar.y + 1, nFill, bar.h - 2), kCaption);
+                break;
+            }
+            case ltlaunch::Updater::State::Ready:
+                TextC(line, "Downloaded! Restart LTCallisto to finish updating.", kText);
+                break;
+            case ltlaunch::Updater::State::Failed:
+                TextC(line, "Update failed: " + update.m_sError, kAlert);
+                break;
+            default:
+                break;
+        }
+    }
+
+    void DrawReleaseDialog()
+    {
+        std::string sTitle = ltlaunch::ToAscii(update.m_Release.m_sName);
+        if (sTitle.empty()) sTitle = std::string(kLauncherName) + " " + update.m_Release.m_sTag;
+        DrawDialog(kReleaseDlg, sTitle, UpdateLabel(), "Close");
+        Button(kGitHubButton, "View on GitHub", Down(kGitHubButton));
+        DrawUpdateStatus();
+
+        Fill(kNotesBox, kWindow);
+        Frame(kNotesBox, kBorder);
+        const int nVis = VisibleNoteRows();
+        const int nRows = (int)noteRows.size();
+        const int nBulletW = TextW("-  ");
+        for (int n = 0; n < nVis && nNotesScroll + n < nRows; ++n)
+        {
+            const NoteRow &row = noteRows[(size_t)(nNotesScroll + n)];
+            const int x = kNotesBox.x + kListPad + 6 + row.x;
+            const int y = kNotesBox.y + kListPad + n * NoteRowH() + 1;
+            if (row.bBullet) Text(x - nBulletW, y, "-", kText);
+            Text(x, y, row.sText, kText);
+            if (row.bHeading) Text(x + 1, y, row.sText, kText);
+        }
+
+        if (nRows > nVis)
+        {
+            Fill(NotesBar(), kFace);
+            DrawArrow(NotesArrow(-1), -1, nNotesArrow < 0);
+            DrawArrow(NotesArrow(1), 1, nNotesArrow > 0);
+            const Rect handle = NotesHandle();
+            Fill(handle, bNotesDrag ? kButtonDown : kButton);
+            Frame(handle, bNotesDrag ? kBorderDown : kBorder);
+        }
+    }
+#endif
 
     // The combined launcher's games, the shown one drawn as held down, then a rule between the list and the game
     void DrawGameList()
@@ -1024,7 +1587,7 @@ struct App
                 Button(r, games[i].m_sName, Down(r));
         }
 
-        Fill(Rect(kSideW - 1, 12, 1, kWinH - 24), kBorder);
+        Fill(Rect(g_nSideW - 1, 12, 1, kWinH - 24), kBorder);
     }
 
     void LoadSplash()
@@ -1071,17 +1634,36 @@ struct App
     {
         const Rect in(panel.x + 3, panel.y + 3, panel.w - 6, panel.h - 6);
         const int nMaxW = in.w - 8;
-        int y = in.y + 12;
+        int y = in.y + 8;
+
+        // Wrapped at spaces to the panel
+        auto Wrapped = [&](std::string s)
+        {
+            while (!s.empty())
+            {
+                size_t n = s.size();
+                while (n > 0 && TextW(s.substr(0, n)) > nMaxW)
+                {
+                    const size_t cut = s.find_last_of(' ', n - 1);
+                    n = (cut == std::string::npos || cut == 0) ? n - 1 : cut;
+                }
+                if (n == 0) n = 1;
+                Text(in.x + 4, y, s.substr(0, n), kText, nMaxW);
+                s.erase(0, n);
+                while (!s.empty() && s[0] == ' ') s.erase(0, 1);
+                y += g_nLineH;
+            }
+        };
 
         const std::string sHead = "GAME DATA MISSING";
         const int hx = in.x + (in.w - TextW(sHead)) / 2;
         Text(hx, y, sHead, kAlert);
         Text(hx + 1, y, sHead, kAlert);
-        y += g_nLineH + 10;
+        y += g_nLineH + 6;
 
-        Text(in.x + 4, y, spec.m_sDataDir.empty() ? "This game's archives were not found. Copy them into:"
-                                                  : "This game's archives were not found in:", kText, nMaxW);
-        y += g_nLineH + 4;
+        Wrapped(spec.m_sDataDir.empty() ? "This game's archives were not found. Copy them into:"
+                                        : "This game's archives were not found in:");
+        y += 4;
 
         std::string sDir = ltlaunch::DataDir(spec);
         while (!sDir.empty())
@@ -1097,46 +1679,38 @@ struct App
             sDir.erase(0, n);
             y += g_nLineH;
         }
-        y += 8;
+        y += 6;
 
-        // Wrapped at spaces to the panel
-        std::string sBrowse = spec.m_sDataDir.empty()
-            ? "Or press Browse... to point to your copy of the game."
-            : "Press Browse... to point to your copy of the game.";
-        while (!sBrowse.empty())
-        {
-            size_t n = sBrowse.size();
-            while (n > 0 && TextW(sBrowse.substr(0, n)) > nMaxW)
-            {
-                const size_t cut = sBrowse.find_last_of(' ', n - 1);
-                n = (cut == std::string::npos || cut == 0) ? n - 1 : cut;
-            }
-            if (n == 0) n = 1;
-            Text(in.x + 4, y, sBrowse.substr(0, n), kText, nMaxW);
-            sBrowse.erase(0, n);
-            while (!sBrowse.empty() && sBrowse[0] == ' ') sBrowse.erase(0, 1);
-            y += g_nLineH;
-        }
-        y += 8;
+        Wrapped(spec.m_sDataDir.empty() ? "Or press Browse... to point to your copy of the game."
+                                        : "Press Browse... to point to your copy of the game.");
+        y += 6;
 
-        for (size_t i = 0; i < required.size() && y + g_nLineH <= in.y + in.h; ++i)
+        // In two columns when a long folder name leaves too little room for one
+        const int nRoom = (in.y + in.h - y) / g_nLineH;
+        const int nCols = (int)required.size() > nRoom ? 2 : 1;
+        const int nPerCol = ((int)required.size() + nCols - 1) / nCols;
+        const int nColW = (in.w - 8) / nCols;
+        for (size_t i = 0; i < required.size(); ++i)
         {
-            Text(in.x + 12, y, present[i] ? "found" : "missing", present[i] ? kGrayTxt : kAlert);
-            Text(in.x + 84, y, required[i], present[i] ? kGrayTxt : kText, in.w - 88);
-            y += g_nLineH;
+            const int x = in.x + 4 + (int)i / nPerCol * nColW;
+            const int ry = y + (int)i % nPerCol * g_nLineH;
+            if (ry + g_nLineH > in.y + in.h) continue;
+            Text(x + 8, ry, present[i] ? "found" : "missing", present[i] ? kGrayTxt : kAlert);
+            Text(x + 72, ry, required[i], present[i] ? kGrayTxt : kText, nColW - 76);
         }
     }
 
-    // The frame, caption bar, close box, OK and Cancel every dialog shares
-    void DrawDialog(const Dialog &d, const std::string &sTitle)
+    // The frame, caption bar, close box, OK and Cancel every dialog shares. An empty label leaves its button out
+    void DrawDialog(const Dialog &d, const std::string &sTitle, const std::string &sOk = "OK",
+                    const std::string &sCancel = "Cancel")
     {
         Fill(d.frame, kFace);
         Frame(d.frame, kBorder);
         Fill(d.caption, kCaption);
         Text(d.caption.x + 6, d.caption.y + (d.caption.h - g_nLineH) / 2, sTitle, kCapText, d.caption.w - 32);
         Button(d.close, "x", Down(d.close));
-        Button(d.ok, "OK", Down(d.ok));
-        Button(d.cancel, "Cancel", Down(d.cancel));
+        if (!sOk.empty()) Button(d.ok, sOk, Down(d.ok));
+        if (!sCancel.empty()) Button(d.cancel, sCancel, Down(d.cancel));
     }
 
     void DrawDisplayDialog()
@@ -1198,16 +1772,19 @@ int LauncherMain()
     const std::string sCaption = app.games[0].m_sCaption;
 #endif
     app.states.resize(app.games.size());
-    if (kSideW > 0)
+    if (kGameListW > 0)
         for (size_t i = 0; i < app.games.size(); ++i)
-            app.gameButtons.push_back(Rect(12, kGameButtonY + (int)i * kGameButtonStep, kSideW - 24, 26));
+            app.gameButtons.push_back(Rect(12, kGameButtonY + (int)i * kGameButtonStep, kGameListW - 24, 26));
     app.SelectGame(iStart);
+
+    // The games list is shown unless it was hidden last time (gamelist=0 in launcher.ini)
+    Layout(kGameListW > 0 && ltlaunch::GetIniValue(app.sSelectedPath, "gamelist") != "0");
 
     app.sizes = DesktopSizes();
 
     SDL_Window *pWnd = SDL_CreateWindow(sCaption.c_str(),
                                         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                        kWinW, kWinH, SDL_WINDOW_SHOWN);
+                                        g_nWinW, kWinH, SDL_WINDOW_SHOWN);
     if (!pWnd) { SDL_Quit(); return 1; }
     app.pWnd = pWnd;
     g_pRen = SDL_CreateRenderer(pWnd, -1, SDL_RENDERER_SOFTWARE);
@@ -1223,6 +1800,28 @@ int LauncherMain()
         return 1;
     }
 
+#ifdef LTLAUNCH_UPDATES
+    // Checks GitHub for a newer build. Off when launcher.ini says updates=0, and in a build's output folder,
+    // where an update would replace what was just built. updatebuild=<stamp> stands in for this build's stamp
+    const Uint32 nUpdateEvent = SDL_RegisterEvents(1);
+    SDL_Cursor *pHand = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
+    SDL_Cursor *pArrow = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+    app.sExeDir = sExeDir;
+    if (ltlaunch::GetIniValue(app.sSelectedPath, "updates") != "0" && !ltlaunch::InBuildTree(sExeDir) &&
+        nUpdateEvent != (Uint32)-1)
+    {
+        std::string sBuild = ltlaunch::GetIniValue(app.sSelectedPath, "updatebuild");
+        if (sBuild.empty()) sBuild = g_szLauncherBuild;
+        app.pUpdater.reset(new ltlaunch::Updater(LTCALLISTO_UPDATE_REPO, sExeDir, sBuild, [nUpdateEvent]() {
+            SDL_Event ev;
+            SDL_zero(ev);
+            ev.type = nUpdateEvent;
+            SDL_PushEvent(&ev);
+        }));
+        app.pUpdater->StartCheck();
+    }
+#endif
+
     bool bRedraw = true;
     while (!app.bQuit)
     {
@@ -1234,11 +1833,41 @@ int LauncherMain()
         }
 
         SDL_Event e;
+#ifdef LTLAUNCH_UPDATES
+        // A held scroll bar arrow repeats, so the wait ends in time for its next line
+        if (app.nNotesArrow)
+        {
+            if (!SDL_WaitEventTimeout(&e, (int)app.ArrowWait() + 1))
+            {
+                if (app.RepeatArrow()) bRedraw = true;
+                continue;
+            }
+        }
+        else
+#endif
         if (!SDL_WaitEvent(&e)) break;
         do
         {
             if (e.type == SDL_QUIT)
                 app.bQuit = true;
+#ifdef LTLAUNCH_UPDATES
+            else if (e.type == nUpdateEvent)
+                bRedraw = true;
+            else if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT &&
+                     app.PressNotesBar(e.button.x, e.button.y))
+                bRedraw = true;
+            else if (e.type == SDL_MOUSEMOTION && app.bNotesDrag)
+            {
+                if (app.DragNotes(e.motion.y)) bRedraw = true;
+            }
+            else if (e.type == SDL_MOUSEBUTTONUP && e.button.button == SDL_BUTTON_LEFT && app.NotesHeld())
+            {
+                app.EndNotesDrag();
+                bRedraw = true;
+            }
+            else if (e.type == SDL_MOUSEMOTION && !app.pPressed)
+                app.UpdateCursor(e.motion.x, e.motion.y, pHand, pArrow);
+#endif
             else if (e.type == SDL_WINDOWEVENT && (e.window.event == SDL_WINDOWEVENT_EXPOSED ||
                                                    e.window.event == SDL_WINDOWEVENT_FOCUS_GAINED))
                 bRedraw = true;
@@ -1281,7 +1910,21 @@ int LauncherMain()
                 bRedraw = true;
             }
         } while (SDL_PollEvent(&e));
+
+#ifdef LTLAUNCH_UPDATES
+        // Events arriving steadily, like a moving mouse, mustn't hold up a held arrow
+        if (app.nNotesArrow && app.RepeatArrow()) bRedraw = true;
+#endif
     }
+
+#ifdef LTLAUNCH_UPDATES
+    // The window goes first, so waiting for a download to stop isn't seen
+    SDL_HideWindow(pWnd);
+    app.pUpdater.reset();
+    for (HANDLE h : app.gameProcesses) CloseHandle(h);
+    if (pHand) SDL_FreeCursor(pHand);
+    if (pArrow) SDL_FreeCursor(pArrow);
+#endif
 
     if (app.pSplash) SDL_DestroyTexture(app.pSplash);
     if (g_pFont) SDL_DestroyTexture(g_pFont);

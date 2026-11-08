@@ -36,6 +36,7 @@ struct GameProfile
     std::string m_sCaption; // The window's caption
     std::string m_sTitle;
     std::string m_sName; // Its button in the combined launcher's game list
+    std::string m_sLaunch; // The Launch button, naming the game
     std::string m_sKey; // Its folder beside the combined launcher, and its name in that launcher's launcher.ini
     std::string m_sSplashRez; // The archive holding the banner
     std::string m_sSplashPath; // The banner's path inside it
@@ -136,6 +137,12 @@ bool LoadSettings(const std::string &sPath, LauncherSettings &settings);
 
 // False when the file can't be written
 bool SaveSettings(const std::string &sPath, const LauncherSettings &settings);
+
+// One key=value line of an ini file, empty when it isn't there
+std::string GetIniValue(const std::string &sPath, const std::string &sKey);
+
+// Sets one key=value line, keeping the file's other lines
+bool SetIniValue(const std::string &sPath, const std::string &sKey, const std::string &sValue);
 
 // The combined launcher's selected game, by its m_sKey, kept in its own launcher.ini (each game's settings are in its folder)
 std::string LoadSelectedGame(const std::string &sPath);

@@ -9,6 +9,9 @@ endif()
 
 set(LT_LAUNCHER_DIR ${CMAKE_CURRENT_SOURCE_DIR} CACHE INTERNAL "")
 
+# The GitHub repository (owner/name) whose latest release LTCallisto offers as an update. Empty turns the check off.
+set(LTCALLISTO_UPDATE_REPO "branung/LTCallisto" CACHE STRING "GitHub repository LTCallisto updates from")
+
 # The build stamp in the launchers' footer, and in the zip's name (stamp.cmake), taken again on every build.
 # The source exists from configure on, so a launcher target in another folder can list it
 set(LT_LAUNCHER_STAMP_CPP ${CMAKE_BINARY_DIR}/tools/launcher/ltcallisto_stamp.cpp CACHE INTERNAL "")
@@ -36,6 +39,23 @@ function(lt_launcher_target target)
 
 	if(ARGC GREATER 1)
 		target_compile_definitions(${target} PRIVATE LTLAUNCH_PROFILE=${ARGV1})
+	elseif(WIN32 AND LTCALLISTO_UPDATE_REPO)
+		# The combined launcher checks GitHub for a newer build (launcher_updater.cpp)
+		target_sources(${target} PRIVATE
+			${LT_LAUNCHER_DIR}/launcher_update.cpp
+			${LT_LAUNCHER_DIR}/launcher_updater.cpp
+			${LT_LAUNCHER_DIR}/launcher_http.cpp)
+		target_compile_definitions(${target} PRIVATE LTLAUNCH_UPDATES=1
+			LTCALLISTO_UPDATE_REPO="${LTCALLISTO_UPDATE_REPO}")
+		target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/json/single_include)
+		if(TARGET LIB_ZLib)
+			target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/libs/zlib)
+			target_link_libraries(${target} LIB_ZLib)
+		else()
+			target_include_directories(${target} PRIVATE ${ZLIB_INCLUDE_DIRS})
+			target_link_libraries(${target} ${ZLIB_LIBRARIES})
+		endif()
+		target_link_libraries(${target} winhttp bcrypt shell32)
 	endif()
 
 	if(NOT MSVC)

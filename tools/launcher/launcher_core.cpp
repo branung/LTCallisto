@@ -34,6 +34,7 @@ GameProfile ShogoProfile(const std::string &sExeDir)
     GameProfile game;
     game.m_sCaption = game.m_sTitle = "Shogo: Mobile Armor Division";
     game.m_sName = game.m_sKey = "Shogo";
+    game.m_sLaunch = "Launch Shogo";
     game.m_sSplashRez = "SHOGO.REZ";
     game.m_sSplashPath = "INTERFACE\\SPLASH.PCX";
     game.m_Spec.m_sEngineDir = game.m_Spec.m_sGameDir = sExeDir;
@@ -68,6 +69,7 @@ GameProfile Blood2Profile(const std::string &sExeDir)
     GameProfile game;
     game.m_sCaption = game.m_sTitle = "Blood II: The Chosen";
     game.m_sName = "Blood 2";
+    game.m_sLaunch = "Launch Blood 2";
     game.m_sKey = "Blood2";
     game.m_sSplashRez = "BLOOD2.REZ";
     game.m_sSplashPath = "INTERFACE\\MAINMENUS\\SPLASH.PCX";
@@ -77,7 +79,7 @@ GameProfile Blood2Profile(const std::string &sExeDir)
 
     // The retail launcher adds BLOOD2NM2.REZ too, which no install here has
     game.m_AddOn.m_sLabel = "The Nightmare Levels";
-    //game.m_AddOn.m_sButton = "Launch Nightmares";
+    game.m_AddOn.m_sButton = "Launch Nightmares";
     game.m_AddOn.m_sDir = "Blood2NM";
     game.m_AddOn.m_sSplashRez = "BLOOD2NM.REZ";
     game.m_AddOn.m_sSplashPath = "SCREENS_AO\\TITLE.PCX";
@@ -90,6 +92,7 @@ GameProfile NOLF2Profile(const std::string &sExeDir)
 {
     GameProfile game;
     game.m_sCaption = game.m_sTitle = game.m_sName = "No One Lives Forever 2";
+    game.m_sLaunch = "Launch NOLF 2";
     game.m_sKey = "NOLF2";
     game.m_sSplashRez = "game.rez";
     game.m_sSplashPath = "INTERFACE\\MENU\\ART\\SPLASH.PCX";
@@ -376,21 +379,50 @@ bool SaveSettings(const std::string &sPath, const LauncherSettings &settings)
     return WriteTextFile(sPath, os.str());
 }
 
-std::string LoadSelectedGame(const std::string &sPath)
+std::string GetIniValue(const std::string &sPath, const std::string &sKey)
 {
     std::istringstream in(ReadTextFile(sPath));
     std::string line;
+    const std::string sPrefix = sKey + "=";
     while (std::getline(in, line))
     {
         if (!line.empty() && line[line.size() - 1] == '\r') line.erase(line.size() - 1);
-        if (line.compare(0, 5, "game=") == 0) return line.substr(5);
+        if (line.compare(0, sPrefix.size(), sPrefix) == 0) return line.substr(sPrefix.size());
     }
     return std::string();
 }
 
+bool SetIniValue(const std::string &sPath, const std::string &sKey, const std::string &sValue)
+{
+    std::istringstream in(ReadTextFile(sPath));
+    std::ostringstream os;
+    std::string line;
+    const std::string sPrefix = sKey + "=";
+    bool bFound = false;
+    while (std::getline(in, line))
+    {
+        if (!line.empty() && line[line.size() - 1] == '\r') line.erase(line.size() - 1);
+        if (line.compare(0, sPrefix.size(), sPrefix) == 0)
+        {
+            if (bFound) continue;
+            line = sPrefix + sValue;
+            bFound = true;
+        }
+        os << line << "\n";
+    }
+    if (os.str().empty()) os << "# Written by LTCallisto. Safe to delete\n";
+    if (!bFound) os << sPrefix << sValue << "\n";
+    return WriteTextFile(sPath, os.str());
+}
+
+std::string LoadSelectedGame(const std::string &sPath)
+{
+    return GetIniValue(sPath, "game");
+}
+
 bool SaveSelectedGame(const std::string &sPath, const std::string &sKey)
 {
-    return WriteTextFile(sPath, "# Written by LTCallisto. Safe to delete\ngame=" + sKey + "\n");
+    return SetIniValue(sPath, "game", sKey);
 }
 
 std::vector<std::string> BuildCommandLine(const LaunchSpec &spec)
