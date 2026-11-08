@@ -129,7 +129,7 @@ struct LauncherSettings
     bool m_bAlwaysRez = false;
     std::vector<std::string> m_AlwaysRez;
     bool m_bAddOn = false; // The addon's checkbox
-    std::string m_sDataDir; // The chosen data folder, empty for the game folder
+    std::string m_sDataDir; // The chosen data folder, "." for the game folder itself, empty when none is chosen
 };
 
 // False when the file can't be read, leaving the defaults
