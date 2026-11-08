@@ -52,7 +52,6 @@ static void ReadDetailPreset(ILTClient *pClientDE, int nLevel)
 
 	for (int i = 0; i < 12; ++i)
 		pClientDE->RunConsoleString((char*)s_szPresets[nLevel][i]);
-	pClientDE->CPrint("Detail: %s not found, applied retail's preset", s_szFiles[nLevel]);
 }
 
 //////////////////////////////////////////////////////////////////

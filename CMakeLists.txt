@@ -373,8 +373,6 @@ if(WIN32)
         lt_game_package(Shogo
             TARGETS SHOGO_ClientShellDLL SHOGO_ClientRes SHOGO_ObjectDLL SHOGO_ServerRes
             FILES ${CMAKE_SOURCE_DIR}/Shogo/Config/autoexec.cfg ${CMAKE_SOURCE_DIR}/Shogo/Config/defkeybd.cfg
-                  ${CMAKE_SOURCE_DIR}/Shogo/Config/DetailHi.cfg ${CMAKE_SOURCE_DIR}/Shogo/Config/DetailMd.cfg
-                  ${CMAKE_SOURCE_DIR}/Shogo/Config/DetailLo.cfg
             DIRS Custom
             LAUNCHER Shogo
             SERVER_NAME ShogoServer)
@@ -433,7 +431,7 @@ if(WIN32)
 
         # The same default configs the per-game packages get
         set(zip_cfgs "")
-        foreach(f autoexec.cfg defkeybd.cfg DetailHi.cfg DetailMd.cfg DetailLo.cfg)
+        foreach(f autoexec.cfg defkeybd.cfg)
             string(APPEND zip_cfgs "${CMAKE_SOURCE_DIR}/Shogo/Config/${f}*Games/Shogo|")
         endforeach()
         string(APPEND zip_cfgs "${CMAKE_SOURCE_DIR}/Blood2/Config/autoexec.cfg*Games/Blood2|"

@@ -151,15 +151,6 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		${CMAKE_CURRENT_SOURCE_DIR}/../Config/defkeybd.cfg
 		$<TARGET_FILE_DIR:${PROJECT_NAME}>/defkeybd.cfg
-	COMMAND ${CMAKE_COMMAND} -E copy_if_different
-		${CMAKE_CURRENT_SOURCE_DIR}/../Config/DetailHi.cfg
-		$<TARGET_FILE_DIR:${PROJECT_NAME}>/DetailHi.cfg
-	COMMAND ${CMAKE_COMMAND} -E copy_if_different
-		${CMAKE_CURRENT_SOURCE_DIR}/../Config/DetailMd.cfg
-		$<TARGET_FILE_DIR:${PROJECT_NAME}>/DetailMd.cfg
-	COMMAND ${CMAKE_COMMAND} -E copy_if_different
-		${CMAKE_CURRENT_SOURCE_DIR}/../Config/DetailLo.cfg
-		$<TARGET_FILE_DIR:${PROJECT_NAME}>/DetailLo.cfg
 	COMMAND ${CMAKE_COMMAND} -E make_directory
 		$<TARGET_FILE_DIR:${PROJECT_NAME}>/Custom)
 

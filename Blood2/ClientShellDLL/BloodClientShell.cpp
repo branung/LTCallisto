@@ -8825,7 +8825,6 @@ DBOOL CBloodClientShell::MenuSetDetail()
 	{
 		for (int i = 0; i < 17; ++i)
 			pClientDE->RunConsoleString((char*)s_szDetailPresets[m_nGlobalDetail][i]);
-		pClientDE->CPrint("Detail: %s not found, applied retail's preset", s_szDetailFiles[m_nGlobalDetail]);
 	}
 
 	// record the original state of sound and music
