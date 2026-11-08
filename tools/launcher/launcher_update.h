@@ -7,14 +7,20 @@
 
 namespace ltlaunch {
 
-// The newest release on GitHub, and the zip in it for this build's architecture
+// This build's release package: the architecture in its name, the archive it comes in,
+// and the launcher's file name inside it
+extern const char *kReleaseArch;     // win64, win32 or linux64
+extern const char *kReleaseArchive;  // .zip on Windows, .tar.gz on Linux, which keeps the programs executable
+extern const char *kLauncherFile;    // LTCallisto.exe or LTCallisto
+
+// The newest release on GitHub, and the package in it for this build's architecture
 struct ReleaseInfo
 {
-    std::string m_sTag;       // v<year>.<month><day>.<time>, the build stamp of the zip
+    std::string m_sTag;       // v<year>.<month><day>.<time>, the build stamp of the package
     std::string m_sName;      // The release's title
     std::string m_sBody;      // Its notes, in Markdown
     std::string m_sPageUrl;   // The release's page
-    std::string m_sAssetName; // LTCallisto-<arch>_v<stamp>.zip
+    std::string m_sAssetName; // LTCallisto-<arch>_v<stamp><archive>
     std::string m_sAssetUrl;
     std::string m_sSha256;    // Lowercase hex, empty when GitHub gave none
     uint64_t m_nAssetSize = 0;
@@ -27,8 +33,12 @@ bool ParseBuildStamp(const std::string &sStamp, int nOut[3]);
 bool IsNewerBuild(const std::string &sRelease, const std::string &sCurrent);
 
 // Reads GitHub's releases/latest answer. False with sError set when it isn't usable,
-// including when it has no zip for sArch (win64 or win32)
-bool ParseRelease(const std::string &sJson, const std::string &sArch, ReleaseInfo &out, std::string &sError);
+// including when it has no package for sArch ending in sArchive
+bool ParseRelease(const std::string &sJson, const std::string &sArch, const std::string &sArchive,
+                  ReleaseInfo &out, std::string &sError);
+
+// A file's SHA-256 in lowercase hex
+bool Sha256File(const std::string &sPath, std::string &sHex, std::string &sError);
 
 // One paragraph of the notes, with the Markdown taken out and only ASCII left, which is all the launcher's font draws
 struct NoteLine
@@ -49,8 +59,16 @@ std::string ToAscii(const std::string &s);
 bool ExtractZip(const std::string &sZip, const std::string &sDestDir, std::vector<std::string> &files,
                 std::string &sError);
 
-// Whether an update replaces this file when it's already there. Configs and anything else the player
-// may have changed are only added when missing
+// The same for a .tar.gz. On Linux each file keeps the permissions the archive gives it
+bool ExtractTarGz(const std::string &sTarGz, const std::string &sDestDir, std::vector<std::string> &files,
+                  std::string &sError);
+
+// ExtractZip or ExtractTarGz, by the archive's name
+bool ExtractArchive(const std::string &sArchive, const std::string &sDestDir, std::vector<std::string> &files,
+                    std::string &sError);
+
+// Whether an update replaces this file when it's already there: programs and modules.
+// Configs and anything else the player may have changed are only added when missing
 bool UpdateReplaces(const std::string &sRelPath);
 
 // Moves the unpacked files into sInstallDir. A file being replaced is renamed to <name>.old first,

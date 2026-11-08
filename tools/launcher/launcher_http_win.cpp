@@ -1,11 +1,10 @@
 #include "launcher_http.h"
 
+// The updater's network calls on Windows: WinHTTP, and ShellExecute for the browser
 #include <windows.h>
 #include <winhttp.h>
-#include <bcrypt.h>
 #include <shellapi.h>
 
-#include <cstdio>
 #include <fstream>
 #include <vector>
 
@@ -142,42 +141,6 @@ bool HttpDownload(const std::string &sUrl, const std::string &sPath, const HttpP
     out.close();
     if (bOk && !out) { sError = "Could not save the download in the launcher's folder"; return false; }
     return bOk;
-}
-
-bool Sha256File(const std::string &sPath, std::string &sHex, std::string &sError)
-{
-    sError = "Could not check the download";
-    std::ifstream in(sPath.c_str(), std::ios::binary);
-    if (!in) return false;
-
-    BCRYPT_ALG_HANDLE hAlg = NULL;
-    BCRYPT_HASH_HANDLE hHash = NULL;
-    if (BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_SHA256_ALGORITHM, NULL, 0) != 0) return false;
-    bool bOk = BCryptCreateHash(hAlg, &hHash, NULL, 0, NULL, 0, 0) == 0;
-
-    std::vector<char> buf(64 * 1024);
-    while (bOk && in)
-    {
-        in.read(&buf[0], (std::streamsize)buf.size());
-        const std::streamsize n = in.gcount();
-        if (n > 0) bOk = BCryptHashData(hHash, (PUCHAR)&buf[0], (ULONG)n, 0) == 0;
-    }
-
-    unsigned char digest[32];
-    if (bOk) bOk = BCryptFinishHash(hHash, digest, sizeof(digest), 0) == 0;
-    if (hHash) BCryptDestroyHash(hHash);
-    BCryptCloseAlgorithmProvider(hAlg, 0);
-    if (!bOk) return false;
-
-    char sByte[3];
-    sHex.clear();
-    for (unsigned char b : digest)
-    {
-        std::snprintf(sByte, sizeof(sByte), "%02x", b);
-        sHex += sByte;
-    }
-    sError.clear();
-    return true;
 }
 
 bool OpenInBrowser(const std::string &sUrl)

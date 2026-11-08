@@ -16,6 +16,20 @@ namespace ltlaunch {
 
 const char *kUpdateFolder = "Update";
 
+#if defined(_WIN64)
+const char *kReleaseArch = "win64";
+const char *kReleaseArchive = ".zip";
+const char *kLauncherFile = "LTCallisto.exe";
+#elif defined(_WIN32)
+const char *kReleaseArch = "win32";
+const char *kReleaseArchive = ".zip";
+const char *kLauncherFile = "LTCallisto.exe";
+#else
+const char *kReleaseArch = "linux64";
+const char *kReleaseArchive = ".tar.gz";
+const char *kLauncherFile = "LTCallisto";
+#endif
+
 namespace {
 
 // The suffix a replaced file is renamed to. Distinct, so a player's own .old files are never touched
@@ -249,6 +263,166 @@ bool WriteFile(const fs::path &path, const unsigned char *p, size_t n)
     return (bool)out;
 }
 
+// SHA-256 (FIPS 180-4), so both platforms check downloads the same way
+struct Sha256
+{
+    uint32_t h[8] = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
+    unsigned char block[64];
+    size_t nBlock = 0;
+    uint64_t nBits = 0;
+
+    static uint32_t Rotr(uint32_t x, int n) { return (x >> n) | (x << (32 - n)); }
+
+    void Compress(const unsigned char *p)
+    {
+        static const uint32_t k[64] = {
+            0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+            0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+            0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+            0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+            0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+            0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+            0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+            0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2 };
+        uint32_t w[64];
+        for (int i = 0; i < 16; ++i)
+            w[i] = ((uint32_t)p[i * 4] << 24) | ((uint32_t)p[i * 4 + 1] << 16) | ((uint32_t)p[i * 4 + 2] << 8) | p[i * 4 + 3];
+        for (int i = 16; i < 64; ++i)
+        {
+            const uint32_t s0 = Rotr(w[i - 15], 7) ^ Rotr(w[i - 15], 18) ^ (w[i - 15] >> 3);
+            const uint32_t s1 = Rotr(w[i - 2], 17) ^ Rotr(w[i - 2], 19) ^ (w[i - 2] >> 10);
+            w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+        }
+        uint32_t a = h[0], b = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], hh = h[7];
+        for (int i = 0; i < 64; ++i)
+        {
+            const uint32_t t1 = hh + (Rotr(e, 6) ^ Rotr(e, 11) ^ Rotr(e, 25)) + ((e & f) ^ (~e & g)) + k[i] + w[i];
+            const uint32_t t2 = (Rotr(a, 2) ^ Rotr(a, 13) ^ Rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
+            hh = g; g = f; f = e; e = d + t1; d = c; c = b; b = a; a = t1 + t2;
+        }
+        h[0] += a; h[1] += b; h[2] += c; h[3] += d; h[4] += e; h[5] += f; h[6] += g; h[7] += hh;
+    }
+
+    void Update(const unsigned char *p, size_t n)
+    {
+        nBits += (uint64_t)n * 8;
+        while (n)
+        {
+            const size_t nTake = (64 - nBlock) < n ? (64 - nBlock) : n;
+            std::memcpy(block + nBlock, p, nTake);
+            nBlock += nTake; p += nTake; n -= nTake;
+            if (nBlock == 64) { Compress(block); nBlock = 0; }
+        }
+    }
+
+    std::string Hex()
+    {
+        const uint64_t nLength = nBits;
+        const unsigned char cPad = 0x80, cZero = 0;
+        Update(&cPad, 1);
+        while (nBlock != 56) Update(&cZero, 1);
+        unsigned char len[8];
+        for (int i = 0; i < 8; ++i) len[i] = (unsigned char)(nLength >> (56 - i * 8));
+        Update(len, 8);
+        std::string s;
+        char sByte[3];
+        for (uint32_t v : h)
+            for (int i = 3; i >= 0; --i)
+            {
+                std::snprintf(sByte, sizeof(sByte), "%02x", (unsigned)((v >> (i * 8)) & 0xff));
+                s += sByte;
+            }
+        return s;
+    }
+};
+
+// One tar entry's header, with any GNU long name or pax path that came before it applied
+struct TarEntry
+{
+    std::string m_sName;
+    char m_cType = 0;
+    unsigned m_nMode = 0;
+    uint64_t m_nSize = 0;
+};
+
+uint64_t TarOctal(const unsigned char *p, size_t n)
+{
+    uint64_t v = 0;
+    for (size_t i = 0; i < n && p[i]; ++i)
+        if (p[i] >= '0' && p[i] <= '7') v = v * 8 + (p[i] - '0');
+    return v;
+}
+
+bool GzRead(gzFile gz, void *p, size_t n)
+{
+    return n == 0 || gzread(gz, p, (unsigned)n) == (int)n;
+}
+
+bool GzSkip(gzFile gz, uint64_t n)
+{
+    return n == 0 || gzseek(gz, (z_off_t)n, SEEK_CUR) != -1;
+}
+
+uint64_t TarPadding(uint64_t n)
+{
+    return (512 - n % 512) % 512;
+}
+
+// Reads the next entry's header. 1 for an entry, 0 at the end, -1 when the archive is damaged
+int NextTarEntry(gzFile gz, TarEntry &e)
+{
+    std::string sLongName;
+    for (;;)
+    {
+        unsigned char h[512];
+        if (!GzRead(gz, h, sizeof(h))) return -1;
+        bool bZero = true;
+        for (unsigned char c : h) if (c) { bZero = false; break; }
+        if (bZero) return 0;
+
+        // The checksum counts its own field as spaces
+        unsigned nSum = 0;
+        for (int i = 0; i < 512; ++i) nSum += (i >= 148 && i < 156) ? ' ' : h[i];
+        if (nSum != TarOctal(h + 148, 8)) return -1;
+
+        e = TarEntry();
+        e.m_cType = (char)h[156];
+        e.m_nMode = (unsigned)TarOctal(h + 100, 8);
+        e.m_nSize = TarOctal(h + 124, 12);
+        e.m_sName.assign((const char *)h, strnlen((const char *)h, 100));
+        if (std::memcmp(h + 257, "ustar", 5) == 0 && h[345])
+            e.m_sName = std::string((const char *)h + 345, strnlen((const char *)h + 345, 155)) + "/" + e.m_sName;
+
+        // A GNU long name or a pax record holds the next entry's real name
+        if (e.m_cType == 'L' || e.m_cType == 'x' || e.m_cType == 'g')
+        {
+            if (e.m_nSize > 1024 * 1024) return -1;
+            std::string sData((size_t)e.m_nSize, '\0');
+            if (!GzRead(gz, &sData[0], sData.size()) || !GzSkip(gz, TarPadding(e.m_nSize))) return -1;
+            if (e.m_cType == 'L')
+                sLongName = sData.c_str();
+            else if (e.m_cType == 'x')
+            {
+                // Records of "<length> <key>=<value>\n"
+                for (size_t i = 0; i < sData.size();)
+                {
+                    const size_t nLen = (size_t)std::strtoul(sData.c_str() + i, nullptr, 10);
+                    if (nLen == 0 || i + nLen > sData.size()) break;
+                    const std::string sRec = sData.substr(i, nLen);
+                    const size_t nSpace = sRec.find(' '), nEq = sRec.find('=');
+                    if (nSpace != std::string::npos && nEq != std::string::npos && sRec.compare(nSpace + 1, nEq - nSpace - 1, "path") == 0)
+                        sLongName = sRec.substr(nEq + 1, sRec.size() - nEq - 2);
+                    i += nLen;
+                }
+            }
+            continue;
+        }
+        if (!sLongName.empty()) e.m_sName = sLongName;
+        if (e.m_cType == '5' && !e.m_sName.empty() && e.m_sName.back() != '/') e.m_sName += '/';
+        return 1;
+    }
+}
+
 } // namespace
 
 bool ParseBuildStamp(const std::string &sStamp, int nOut[3])
@@ -272,7 +446,8 @@ bool IsNewerBuild(const std::string &sRelease, const std::string &sCurrent)
     return false;
 }
 
-bool ParseRelease(const std::string &sJson, const std::string &sArch, ReleaseInfo &out, std::string &sError)
+bool ParseRelease(const std::string &sJson, const std::string &sArch, const std::string &sArchive,
+                  ReleaseInfo &out, std::string &sError)
 {
     const nlohmann::json j = nlohmann::json::parse(sJson, nullptr, false);
     if (j.is_discarded() || !j.is_object())
@@ -301,7 +476,7 @@ bool ParseRelease(const std::string &sJson, const std::string &sArch, ReleaseInf
             if (!a.is_object()) continue;
             const std::string sName = JsonString(a, "name");
             const std::string sLower = Lower(sName);
-            if (sLower.compare(0, sPrefix.size(), sPrefix) != 0 || !EndsWith(sLower, ".zip")) continue;
+            if (sLower.compare(0, sPrefix.size(), sPrefix) != 0 || !EndsWith(sLower, Lower(sArchive))) continue;
 
             out.m_sAssetName = sName;
             out.m_sAssetUrl = JsonString(a, "browser_download_url");
@@ -314,7 +489,7 @@ bool ParseRelease(const std::string &sJson, const std::string &sArch, ReleaseInf
 
     if (out.m_sAssetUrl.compare(0, 8, "https://") != 0)
     {
-        sError = "The latest release has no " + sArch + " zip";
+        sError = "The latest release has no " + sArch + " package";
         return false;
     }
     return true;
@@ -449,12 +624,119 @@ bool ExtractZip(const std::string &sZip, const std::string &sDestDir, std::vecto
     return true;
 }
 
+bool ExtractTarGz(const std::string &sTarGz, const std::string &sDestDir, std::vector<std::string> &files,
+                  std::string &sError)
+{
+    files.clear();
+    gzFile gz = gzopen(sTarGz.c_str(), "rb");
+    if (!gz) { sError = "Could not open the downloaded update"; return false; }
+
+    // The folder every entry sits in, which isn't unpacked
+    std::string sTop;
+    bool bFirst = true;
+    TarEntry e;
+    int nResult;
+    while ((nResult = NextTarEntry(gz, e)) == 1)
+    {
+        const std::string sName = SafeName(e.m_sName);
+        const size_t nSlash = sName.find('/');
+        const std::string sFirst = nSlash == std::string::npos ? std::string() : sName.substr(0, nSlash + 1);
+        if (bFirst) { sTop = sFirst; bFirst = false; }
+        else if (sFirst != sTop) sTop.clear();
+        if (!GzSkip(gz, e.m_nSize + TarPadding(e.m_nSize))) { nResult = -1; break; }
+    }
+    if (nResult < 0 || gzrewind(gz) != 0) { gzclose(gz); sError = "The update's archive is damaged"; return false; }
+
+    std::error_code ec;
+    const fs::path dest(sDestDir);
+    fs::create_directories(dest, ec);
+    std::vector<char> buf(64 * 1024);
+    bool bOk = true;
+    while (bOk && (nResult = NextTarEntry(gz, e)) == 1)
+    {
+        std::string sName = SafeName(e.m_sName);
+        if (sName.empty()) { sError = "The update holds a file named " + e.m_sName; bOk = false; break; }
+        sName.erase(0, sTop.size());
+
+        if (e.m_cType == '5')
+        {
+            if (!sName.empty())
+            {
+                fs::create_directories(dest / fs::path(sName), ec);
+                files.push_back(sName);
+            }
+            continue;
+        }
+        if (e.m_cType != '0' && e.m_cType != '\0')
+        {
+            sError = "The update holds " + sName + ", which isn't a plain file";
+            bOk = false;
+            break;
+        }
+
+        const fs::path out = dest / fs::path(sName);
+        fs::create_directories(out.parent_path(), ec);
+        std::ofstream f(out, std::ios::binary | std::ios::trunc);
+        uint64_t nLeft = e.m_nSize;
+        while (f && nLeft)
+        {
+            const size_t nChunk = nLeft < buf.size() ? (size_t)nLeft : buf.size();
+            if (!GzRead(gz, &buf[0], nChunk)) { nLeft = 1; break; }
+            f.write(&buf[0], (std::streamsize)nChunk);
+            nLeft -= nChunk;
+        }
+        f.close();
+        if (nLeft || !f || !GzSkip(gz, TarPadding(e.m_nSize)))
+        {
+            sError = "Could not unpack " + sName;
+            bOk = false;
+            break;
+        }
+#ifndef _WIN32
+        // Programs stay executable
+        fs::permissions(out, fs::perms(e.m_nMode & 0777), ec);
+#endif
+        files.push_back(sName);
+    }
+    // zlib checks the gzip stream's CRC as it reaches the end
+    if (bOk && nResult < 0) { sError = "The update's archive is damaged"; bOk = false; }
+    gzclose(gz);
+    return bOk;
+}
+
+bool ExtractArchive(const std::string &sArchive, const std::string &sDestDir, std::vector<std::string> &files,
+                    std::string &sError)
+{
+    const std::string s = Lower(sArchive);
+    if (EndsWith(s, ".tar.gz") || EndsWith(s, ".tgz")) return ExtractTarGz(sArchive, sDestDir, files, sError);
+    return ExtractZip(sArchive, sDestDir, files, sError);
+}
+
+bool Sha256File(const std::string &sPath, std::string &sHex, std::string &sError)
+{
+    std::ifstream in(fs::path(sPath), std::ios::binary);
+    if (!in) { sError = "Could not check the download"; return false; }
+    Sha256 sha;
+    std::vector<char> buf(64 * 1024);
+    while (in)
+    {
+        in.read(&buf[0], (std::streamsize)buf.size());
+        const std::streamsize n = in.gcount();
+        if (n > 0) sha.Update((const unsigned char *)&buf[0], (size_t)n);
+    }
+    if (in.bad()) { sError = "Could not check the download"; return false; }
+    sHex = sha.Hex();
+    return true;
+}
+
 bool UpdateReplaces(const std::string &sRelPath)
 {
     const std::string s = Lower(sRelPath);
-    for (const char *pExt : { ".exe", ".dll", ".lto", ".fxd", ".ren" })
+    for (const char *pExt : { ".exe", ".dll", ".lto", ".fxd", ".ren", ".so" })
         if (EndsWith(s, pExt)) return true;
-    return false;
+    // A versioned Linux library (libdxvk_d3d9.so.0), and a Linux program, which has no extension (Lithtech)
+    if (s.find(".so.") != std::string::npos) return true;
+    return fs::path(s).filename().string().find('.') == std::string::npos;
 }
 
 bool ApplyUpdate(const std::string &sStageDir, const std::vector<std::string> &files,

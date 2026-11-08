@@ -39,23 +39,44 @@ function(lt_launcher_target target)
 
 	if(ARGC GREATER 1)
 		target_compile_definitions(${target} PRIVATE LTLAUNCH_PROFILE=${ARGV1})
-	elseif(WIN32 AND LTCALLISTO_UPDATE_REPO)
-		# The combined launcher checks GitHub for a newer build (launcher_updater.cpp)
-		target_sources(${target} PRIVATE
-			${LT_LAUNCHER_DIR}/launcher_update.cpp
-			${LT_LAUNCHER_DIR}/launcher_updater.cpp
-			${LT_LAUNCHER_DIR}/launcher_http.cpp)
-		target_compile_definitions(${target} PRIVATE LTLAUNCH_UPDATES=1
-			LTCALLISTO_UPDATE_REPO="${LTCALLISTO_UPDATE_REPO}")
-		target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/json/single_include)
-		if(TARGET LIB_ZLib)
-			target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/libs/zlib)
-			target_link_libraries(${target} LIB_ZLib)
+	elseif(LTCALLISTO_UPDATE_REPO)
+		# The combined launcher checks GitHub for a newer build (launcher_updater.cpp).
+		# Only the network calls differ: WinHTTP on Windows, libcurl on Linux, loaded at run time.
+		# Building on Linux needs libcurl's header (libcurl4-openssl-dev), not its library
+		set(http_src "")
+		if(WIN32)
+			set(http_src ${LT_LAUNCHER_DIR}/launcher_http_win.cpp)
 		else()
-			target_include_directories(${target} PRIVATE ${ZLIB_INCLUDE_DIRS})
-			target_link_libraries(${target} ${ZLIB_LIBRARIES})
+			find_path(LT_CURL_INCLUDE_DIR curl/curl.h)
+			if(LT_CURL_INCLUDE_DIR)
+				set(http_src ${LT_LAUNCHER_DIR}/launcher_http_linux.cpp)
+			else()
+				message(STATUS "curl/curl.h not found, so LTCallisto is built without updates")
+			endif()
 		endif()
-		target_link_libraries(${target} winhttp bcrypt shell32)
+
+		if(http_src)
+			target_sources(${target} PRIVATE
+				${LT_LAUNCHER_DIR}/launcher_update.cpp
+				${LT_LAUNCHER_DIR}/launcher_updater.cpp
+				${http_src})
+			target_compile_definitions(${target} PRIVATE LTLAUNCH_UPDATES=1
+				LTCALLISTO_UPDATE_REPO="${LTCALLISTO_UPDATE_REPO}")
+			target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/json/single_include)
+			if(TARGET LIB_ZLib)
+				target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/libs/zlib)
+				target_link_libraries(${target} LIB_ZLib)
+			else()
+				target_include_directories(${target} PRIVATE ${ZLIB_INCLUDE_DIRS})
+				target_link_libraries(${target} ${ZLIB_LIBRARIES})
+			endif()
+			if(WIN32)
+				target_link_libraries(${target} winhttp shell32)
+			else()
+				target_include_directories(${target} PRIVATE ${LT_CURL_INCLUDE_DIR})
+				target_link_libraries(${target} ${CMAKE_DL_LIBS})
+			endif()
+		endif()
 	endif()
 
 	if(NOT MSVC)

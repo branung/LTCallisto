@@ -543,11 +543,18 @@ bool PickFolder(SDL_Window *, const std::string &sStart, std::string &sOut, std:
 }
 #endif
 
+// A started process, kept to ask later whether it's still running
+#ifdef _WIN32
+typedef HANDLE ProcessRef;
+#else
+typedef pid_t ProcessRef;
+#endif
+
 // Starts the engine with the game directory as its working directory.
-// On Windows, pProcess keeps the process's handle when it's given.
+// pProcess keeps the process when it's given
 #ifdef _WIN32
 bool Spawn(const std::vector<std::string> &args, const std::string &sCwd,
-           std::string &sError, HANDLE *pProcess = 0)
+           std::string &sError, ProcessRef *pProcess = 0)
 {
     std::string sCmd = ltlaunch::QuoteArgs(args);
     STARTUPINFOA si; PROCESS_INFORMATION pi;
@@ -564,7 +571,7 @@ bool Spawn(const std::vector<std::string> &args, const std::string &sCwd,
 }
 #else
 bool Spawn(const std::vector<std::string> &args, const std::string &sCwd,
-           std::string &sError)
+           std::string &sError, ProcessRef *pProcess = 0)
 {
     const pid_t pid = fork();
     if (pid < 0) { sError = "Could not start " + args[0]; return false; }
@@ -577,7 +584,33 @@ bool Spawn(const std::vector<std::string> &args, const std::string &sCwd,
         execv(cargv[0], (char *const *)&cargv[0]);
         _exit(127);
     }
+    if (pProcess) *pProcess = pid;
     return true;
+}
+#endif
+
+#ifdef LTLAUNCH_UPDATES
+// Whether a started process is still running. A finished one is released
+bool StillRunning(ProcessRef p)
+{
+#ifdef _WIN32
+    if (WaitForSingleObject(p, 0) == WAIT_TIMEOUT) return true;
+    CloseHandle(p);
+    return false;
+#else
+    int nStatus = 0;
+    return waitpid(p, &nStatus, WNOHANG) == 0;
+#endif
+}
+
+// Lets go of a process that's still running when the launcher closes
+void ReleaseProcess(ProcessRef p)
+{
+#ifdef _WIN32
+    CloseHandle(p);
+#else
+    (void)p;
+#endif
 }
 #endif
 
@@ -613,7 +646,7 @@ struct App
     ltlaunch::Updater::View update; // Taken on each Draw
     Rect rUpdateLink; // Laid out on each Draw, empty when not shown
     std::string sUpdateMessage; // Why Restart was refused, shown in the release notes
-    std::vector<HANDLE> gameProcesses; // The games this launcher started
+    std::vector<ProcessRef> gameProcesses; // The games this launcher started
 
     // The release notes, wrapped to the dialog
     struct NoteRow
@@ -803,10 +836,10 @@ struct App
 
         std::string sError;
 #ifdef LTLAUNCH_UPDATES
-        HANDLE hProcess = NULL;
-        if (!Spawn(args, sCwd, sError, &hProcess))
+        ProcessRef process = 0;
+        if (!Spawn(args, sCwd, sError, &process))
         { sStatus = sError; return; }
-        gameProcesses.push_back(hProcess);
+        gameProcesses.push_back(process);
 #else
         if (!Spawn(args, sCwd, sError))
         { sStatus = sError; return; }
@@ -943,8 +976,7 @@ struct App
         bool bRunning = false;
         for (size_t i = gameProcesses.size(); i-- > 0;)
         {
-            if (WaitForSingleObject(gameProcesses[i], 0) == WAIT_TIMEOUT) { bRunning = true; continue; }
-            CloseHandle(gameProcesses[i]);
+            if (StillRunning(gameProcesses[i])) { bRunning = true; continue; }
             gameProcesses.erase(gameProcesses.begin() + (std::ptrdiff_t)i);
         }
         return bRunning;
@@ -961,7 +993,7 @@ struct App
         if (!pUpdater->Install()) return; // The release notes say why
 
         std::string sError;
-        if (Spawn({ ltlaunch::JoinPath(sExeDir, "LTCallisto.exe") }, sExeDir, sError)) bQuit = true;
+        if (Spawn({ ltlaunch::JoinPath(sExeDir, ltlaunch::kLauncherFile) }, sExeDir, sError)) bQuit = true;
         else sUpdateMessage = "Updated! Start LTCallisto again to use the new version.";
     }
 
@@ -1925,7 +1957,7 @@ int LauncherMain()
     // The window goes first, so waiting for a download to stop isn't seen
     SDL_HideWindow(pWnd);
     app.pUpdater.reset();
-    for (HANDLE h : app.gameProcesses) CloseHandle(h);
+    for (ProcessRef p : app.gameProcesses) ReleaseProcess(p);
     if (pHand) SDL_FreeCursor(pHand);
     if (pArrow) SDL_FreeCursor(pArrow);
 #endif

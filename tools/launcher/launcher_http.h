@@ -18,9 +18,6 @@ bool HttpGet(const std::string &sUrl, const std::string &sAccept, std::string &s
 bool HttpDownload(const std::string &sUrl, const std::string &sPath, const HttpProgress &progress,
                   std::string &sError);
 
-// A file's SHA-256 in lowercase hex
-bool Sha256File(const std::string &sPath, std::string &sHex, std::string &sError);
-
 // Opens a GitHub page in the default browser. Any other address is refused
 bool OpenInBrowser(const std::string &sUrl);
 

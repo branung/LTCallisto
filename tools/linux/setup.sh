@@ -15,7 +15,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq \
     build-essential cmake pkg-config git curl python3 rsync \
-    libsdl2-dev libopenal-dev libmpg123-dev libvulkan-dev libfreetype-dev \
+    libsdl2-dev libopenal-dev libmpg123-dev libvulkan-dev libfreetype-dev libcurl4-openssl-dev \
     mesa-vulkan-drivers vulkan-tools xvfb >/dev/null
 echo "packages installed"
 

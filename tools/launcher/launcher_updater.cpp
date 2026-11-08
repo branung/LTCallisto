@@ -33,12 +33,6 @@ std::string TagIn(const std::string &sName)
     return std::string();
 }
 
-#if defined(_WIN64)
-const char *kArch = "win64";
-#else
-const char *kArch = "win32";
-#endif
-
 } // namespace
 
 Updater::Updater(const std::string &sRepo, const std::string &sInstallDir, const std::string &sCurrentBuild,
@@ -161,7 +155,8 @@ void Updater::Check()
 
     ReleaseInfo rel;
     std::string sError;
-    if (!ParseRelease(sJson, kArch, rel, sError) || !IsNewerBuild(rel.m_sTag, m_sCurrent)) return;
+    if (!ParseRelease(sJson, kReleaseArch, kReleaseArchive, rel, sError) || !IsNewerBuild(rel.m_sTag, m_sCurrent))
+        return;
 
     // Downloaded and unpacked by an earlier run
     std::vector<std::string> files;
@@ -237,7 +232,7 @@ void Updater::Download()
     const std::string sStage = StageDir(rel);
     fs::remove_all(fs::path(sStage), ec);
     std::vector<std::string> files;
-    if (!ExtractZip(sZip, sStage, files, sError))
+    if (!ExtractArchive(sZip, sStage, files, sError))
     {
         fs::remove_all(fs::path(sStage), ec);
         Set(State::Failed, sError);
@@ -245,8 +240,8 @@ void Updater::Download()
     }
     fs::remove(fs::path(sZip), ec);
 
-    // A zip without the launcher at its top isn't an LTCallisto build
-    if (!FileExists(JoinPath(sStage, "LTCallisto.exe")))
+    // A package without the launcher at its top isn't an LTCallisto build
+    if (!FileExists(JoinPath(sStage, kLauncherFile)))
     {
         fs::remove_all(fs::path(sStage), ec);
         Set(State::Failed, "The download is not an LTCallisto build");
