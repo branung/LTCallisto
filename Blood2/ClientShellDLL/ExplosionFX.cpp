@@ -548,7 +548,9 @@ DBOOL CExplosionFlameFX::Init(SFXCREATESTRUCT* psfxCreateStruct)
 	m_bFadeType			= pEFCS->bFadeType;
 	m_bRampFlags		= pEFCS->bRampFlags;
 
-	m_szParticle		= pEFCS->szParticle;
+	if( m_szParticle )
+		g_pClientDE->FreeString( m_szParticle );
+	m_szParticle		= pEFCS->szParticle ? g_pClientDE->CopyString( pEFCS->szParticle ) : DNULL;
 
 	return DTRUE;
 }
