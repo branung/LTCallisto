@@ -36,7 +36,7 @@ option(ENABLE_OPENAL "Use OpenAL as audio backend" ON)
 option(ENABLE_DIRECTMUSIC OFF)
 endif(WIN32)
 option(FINAL_BUILD "Strip the developer console, counters and diagnostics" OFF)
-option(BUILD_TESTS "Build the offline loader checks (testDtxLT1, testModelABC, testWorldV56)" OFF)
+option(BUILD_TESTS "Build the offline checks (testDtxLT1, testModelABC, testWorldV56, testButeMerge)" OFF)
 option(USE_INTERNAL_ZLIB "Use bundled zlib" ON)			# eventually want default to be OFF
 option(USE_INTERNAL_FREETYPE "Use bundled freetype" ON)	# eventually want default to be OFF
 
@@ -306,6 +306,9 @@ if(BUILD_TESTS)
     add_subdirectory(tests/DtxLT1)
     add_subdirectory(tests/ModelABC)
     add_subdirectory(tests/WorldV56)
+    if(TARGET LIB_ButeMgr)
+        add_subdirectory(tests/ButeMerge)       # testButeMerge: a mod's bute overlay
+    endif()
 endif(BUILD_TESTS)
 
 # Each game in a folder of its own under OUT/<config>_Builds

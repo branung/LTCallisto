@@ -19,3 +19,6 @@ include_directories(.
 	../stdlith
 	../lith
 	../MFCStub)
+
+# Allocates through stdlith's StructBank, so GNU ld must see LIB_StdLith after this archive
+target_link_libraries(${PROJECT_NAME} LIB_StdLith)

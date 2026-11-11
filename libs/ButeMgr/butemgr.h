@@ -34,6 +34,7 @@
 #endif
 
 #include <functional>
+#include <vector>
 #if _MSC_VER >= 1300 && _MSC_VER < 1916 && !defined(__clang__)
 #	include <iosfwd>
 #	include <strstream>
@@ -310,6 +311,10 @@ public:
 	typedef bool (*GetTagsCallback)( const char* pszTagName, void* pContext );
 	void GetTags( GetTagsCallback pCallback, void* pContext = NULL);
 
+	// Parsed tags in the order the file declares them
+	int GetNumTagsInFileOrder() const { return (int)m_tagFileOrder.size(); }
+	const char* GetTagInFileOrder(int i) const { return (i >= 0 && i < (int)m_tagFileOrder.size()) ? m_tagFileOrder[i] : NULL; }
+
 	typedef bool (*GetKeysCallback)( const char* pszKeyName, CSymTabItem* pItem, void* pContext );
 	void GetKeys( const char* pszTagName, GetKeysCallback pCallback, void* pContext = NULL);
 
@@ -358,6 +363,11 @@ public:
 	void SetRange(const char* szTagName, const char* szAttName, const CARange& val);
 
 	bool AddTag(const char *szTagName);
+
+	// Merges a mod's overlay into this file. 
+	// An existing tag takes the overlay's keys, a new tag starts as a copy of the tag its "Base" key names. 
+	// All or nothing: on a bad Base it returns false with the reason in szError and changes nothing.
+	bool Merge(CButeMgr& overlay, int* pnChanged, int* pnAdded, char* szError, int nError);
 
 	CButeMgr::SymTypes GetType(const char* szTagName, const char* szAttName);  // returns NullType if tag/key doesn't exist
 
@@ -464,6 +474,9 @@ private:
 	// table of tags.
 	TableOfTags m_newTagTab;
 
+	// Parsed tags in declaration order, pointing at the keys m_tagTab owns
+	std::vector<char const*> m_tagFileOrder;
+
 	// Current table of items.
 	TableOfItems* m_pCurrTabOfItems;
 
@@ -553,6 +566,9 @@ private:
 
 	// Gets a symtabitem from any of the tags, or creates one if not available.
 	CSymTabItem* GetSymTabItem( char const* pszTagName, char const* pszAttName );
+
+	// Merge's writer: sets a key from an item, keeping the type this file already gives a number
+	void SetFromItem( char const* pszTagName, char const* pszAttName, const CSymTabItem& item );
 
 	// Called by destructor to delete the symtabitems.
 	static bool TraverseTableOfItemsDeleteSymTab( char const* pszAttName, CSymTabItem& theSymTab, void* pContext );

@@ -4,6 +4,8 @@
 
 #include "stdafx.h"
 #include "butemgr.h"
+#include <stdio.h>
+#include <string>
 
 #if defined(_DEBUG)
 	#define new DEBUG_NEW
@@ -391,6 +393,7 @@ void CButeMgr::Term( )
 	}
 
 	m_tagTab.clear();
+	m_tagFileOrder.clear();
 
 	TraverseTableOfTags( m_auxTagTab, TraverseTableOfTagsDeleteSymTab, this );
 
@@ -950,6 +953,9 @@ bool CButeMgr::Tag()
 		}
 
 		m_pCurrTabOfItems = CreateTableOfItems( m_tagTab, m_szTokenString );
+		TableOfTags::iterator itOrder = m_tagTab.find( m_szTokenString );
+		if( itOrder != m_tagTab.end( ))
+			m_tagFileOrder.push_back( (*itOrder).first );
 	}
 	if (!Match(TagEndTok))
 		return false;
@@ -2332,4 +2338,132 @@ void CButeMgr::TraverseTableOfTags( TableOfTags& tableOfTags, TraverseTableOfTag
 		// Go to next item.
 		iter++;
 	}
+}
+
+
+namespace
+{
+	struct MergeKeys
+	{
+		std::vector< std::string > keys;
+		std::vector< const CButeMgr::CSymTabItem* > items;
+	};
+
+	bool CollectKey( const char* pszKeyName, CButeMgr::CSymTabItem* pItem, void* pContext )
+	{
+		MergeKeys* p = (MergeKeys*)pContext;
+		p->keys.push_back( pszKeyName );
+		p->items.push_back( pItem );
+		return true;
+	}
+
+	bool IsNumeric( CButeMgr::SymTypes t )
+	{
+		return t == CButeMgr::IntType || t == CButeMgr::DwordType || t == CButeMgr::ByteType ||
+			   t == CButeMgr::DoubleType || t == CButeMgr::FloatType;
+	}
+
+	double NumberOf( const CButeMgr::CSymTabItem& item )
+	{
+		switch( item.SymType )
+		{
+			case CButeMgr::IntType:		return item.data.i;
+			case CButeMgr::DwordType:	return item.data.dw;
+			case CButeMgr::ByteType:	return item.data.byte;
+			case CButeMgr::DoubleType:	return item.data.d;
+			case CButeMgr::FloatType:	return item.data.f;
+			default:					return 0.0;
+		}
+	}
+}
+
+void CButeMgr::SetFromItem( char const* pszTagName, char const* pszAttName, const CSymTabItem& item )
+{
+	// ButeMgr types a number by how it is written, so a mod's "150" over "150.0" would turn a
+	// double into an int and the game's GetDouble would fall back to its default
+	CSymTabItem* pHere = FindSymTabItem( pszTagName, pszAttName );
+	if( pHere && IsNumeric( pHere->SymType ) && IsNumeric( item.SymType ) && pHere->SymType != item.SymType )
+	{
+		const double v = NumberOf( item );
+		switch( pHere->SymType )
+		{
+			case IntType:		SetInt( pszTagName, pszAttName, (int)(v < 0 ? v - 0.5 : v + 0.5) ); return;
+			case DwordType:		SetDword( pszTagName, pszAttName, (DWORD)(v + 0.5) ); return;
+			case ByteType:		SetByte( pszTagName, pszAttName, (BYTE)(v + 0.5) ); return;
+			case DoubleType:	SetDouble( pszTagName, pszAttName, v ); return;
+			case FloatType:		SetFloat( pszTagName, pszAttName, (float)v ); return;
+			default:			break;
+		}
+	}
+	switch( item.SymType )
+	{
+		case IntType:		SetInt( pszTagName, pszAttName, item.data.i ); break;
+		case DwordType:		SetDword( pszTagName, pszAttName, item.data.dw ); break;
+		case ByteType:		SetByte( pszTagName, pszAttName, item.data.byte ); break;
+		case BoolType:		SetBool( pszTagName, pszAttName, item.data.b ); break;
+		case DoubleType:	SetDouble( pszTagName, pszAttName, item.data.d ); break;
+		case FloatType:		SetFloat( pszTagName, pszAttName, item.data.f ); break;
+		case StringType:	SetString( pszTagName, pszAttName, (const char*)*item.data.s ); break;
+		case RectType:		SetRect( pszTagName, pszAttName, *item.data.r ); break;
+		case PointType:		SetPoint( pszTagName, pszAttName, *item.data.point ); break;
+		case VectorType:	SetVector( pszTagName, pszAttName, *item.data.v ); break;
+		case RangeType:		SetRange( pszTagName, pszAttName, *item.data.range ); break;
+		default:			break;
+	}
+}
+
+bool CButeMgr::Merge(CButeMgr& overlay, int* pnChanged, int* pnAdded, char* szError, int nError)
+{
+	int nChanged = 0, nAdded = 0;
+	if( szError && nError > 0 ) szError[0] = 0;
+
+	// Check every Base first, so a bad one merges nothing
+	const int nTags = overlay.GetNumTagsInFileOrder();
+	for( int t = 0; t < nTags; ++t )
+	{
+		const char* pszTag = overlay.GetTagInFileOrder( t );
+		if( !overlay.Exist( pszTag, "Base" ))
+			continue;
+		const char* sBase = overlay.GetString( pszTag, "Base", "" );
+		const char* pszWhy = NULL;
+		if( Exist( pszTag ))
+			pszWhy = "is given for a tag that exists; Base only starts a new one";
+		else if( !Exist( sBase ))
+			pszWhy = "names no tag in the file it overlays";
+		if( pszWhy )
+		{
+			if( szError && nError > 0 )
+				snprintf( szError, nError, "[%s]: Base \"%s\" %s", pszTag, sBase, pszWhy );
+			return false;
+		}
+	}
+
+	for( int t = 0; t < nTags; ++t )
+	{
+		const char* pszTag = overlay.GetTagInFileOrder( t );
+		if( Exist( pszTag ))
+			++nChanged;
+		else
+		{
+			++nAdded;
+			AddTag( pszTag );
+			if( overlay.Exist( pszTag, "Base" ))
+			{
+				// Collect the base's keys before writing any
+				const std::string sBase = overlay.GetString( pszTag, "Base", "" );
+				MergeKeys base;
+				GetKeys( sBase.c_str(), CollectKey, &base );
+				for( size_t k = 0; k < base.keys.size(); ++k )
+					SetFromItem( pszTag, base.keys[k].c_str(), *base.items[k] );
+			}
+		}
+		MergeKeys mine;
+		overlay.GetKeys( pszTag, CollectKey, &mine );
+		for( size_t k = 0; k < mine.keys.size(); ++k )
+			if( mine.keys[k] != "Base" )
+				SetFromItem( pszTag, mine.keys[k].c_str(), *mine.items[k] );
+	}
+	if( pnChanged ) *pnChanged = nChanged;
+	if( pnAdded ) *pnAdded = nAdded;
+	return true;
 }

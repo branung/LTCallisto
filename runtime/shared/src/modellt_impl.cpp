@@ -194,14 +194,14 @@ LTRESULT ILTModel::GetSocket(HOBJECT hObj, const char *pSocketName, HMODELSOCKET
         RETURN_ERROR(1, ILTModel::GetSocket, LT_NOTINITIALIZED);
     }
 
+    // A missing name is an answer rather than an error. 
+	// Game code probes for optional sockets, nodes, pieces and weight sets every update and checks the result.
     if (pModel->FindSocket(pSocketName, &hSocket))
     {
         return LT_OK;
     }
-    else
-    {
-        RETURN_ERROR(1, ILTModel::GetSocket, LT_NOTFOUND);
-    }
+
+    return LT_NOTFOUND;
 }
 
 
@@ -222,14 +222,13 @@ LTRESULT ILTModel::GetNode(HOBJECT hObj, const char *pNodeName, HMODELNODE &hNod
         RETURN_ERROR(1, ILTModel::GetNode, LT_NOTINITIALIZED);
     }
 
+    // A missing name is an answer, as in GetSocket.
     if (pModel->FindNode(pNodeName, &hNode))
     {
         return LT_OK;
     }
-    else
-    {
-        RETURN_ERROR(1, ILTModel::GetNode, LT_NOTFOUND);
-    }
+
+    return LT_NOTFOUND;
 }
 
 LTRESULT ILTModel::GetNumPieces( HOBJECT hObj, uint32 & NumPieces )
@@ -261,14 +260,13 @@ LTRESULT ILTModel::GetPiece(HOBJECT hObj, const char *pName, HMODELPIECE &hPiece
         ERR(1, LT_NOTINITIALIZED);
     }
 
+    // A missing name is an answer, as in GetSocket.
     if (pModel->FindPiece(pName, &hPiece))
     {
         return LT_OK;
     }
-    else
-    {
-        ERR(1, LT_NOTFOUND);
-    }
+
+    return LT_NOTFOUND;
 }
 
 
@@ -289,14 +287,13 @@ LTRESULT ILTModel::FindWeightSet(HOBJECT hObj, const char *pName, HMODELWEIGHTSE
         ERR(1, LT_NOTINITIALIZED);
     }
 
+    // A missing name is an answer, as in GetSocket.
     if (pModel->FindWeightSet(pName, &hSet))
     {
         return LT_OK;
     }
-    else
-    {
-        ERR(1, LT_NOTFOUND);
-    }
+
+    return LT_NOTFOUND;
 }
 
 

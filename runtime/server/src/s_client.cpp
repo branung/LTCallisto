@@ -543,6 +543,13 @@ LTRESULT sm_ConnectClientToWorld(Client *pClient)
 		SendToClient(pClient, CPacket_Read(cPacket), false);
 	}
 
+	// The client resolves this id through its own file table, 
+	// so naming it here makes a client side lookup failure legible.
+	dsi_ConsolePrint("SMSG_LOADWORLD: client %d, world file id %d ('%s')",
+		(int)pClient->m_ClientID,
+		(int)g_pServerMgr->m_pWorldFile->m_FileID,
+		server_filemgr->GetUsedFilename(g_pServerMgr->m_pWorldFile));
+
 	CPacket_Write cPacket;
 	cPacket.Writeuint8(SMSG_LOADWORLD);
 	cPacket.Writefloat(g_pServerMgr->m_GameTime);
