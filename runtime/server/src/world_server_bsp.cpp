@@ -22,7 +22,7 @@ static IWorldSharedBSP *world_bsp_shared;
 define_holder(IWorldSharedBSP, world_bsp_shared);
 
 #include "compress.h"
-#include "world_v56.h"  // LT1CompPos
+#include "world_convert.h"  // LT1CompPos
 static ICompress* compress;
 define_holder(ICompress, compress);
 

@@ -14,7 +14,7 @@
 #include "bdefs.h"
 
 #include "clientshell.h"
-#include "world_v56.h"
+#include "world_convert.h"
 #include "de_world.h"
 #include "setupobject.h"
 #include "clientmgr.h"
@@ -700,7 +700,7 @@ void CClientShell::CloseWorlds()
     world_bsp_client->Term();
 }
 
-// Gives world_v56's texture lookup a way to open a game file
+// Gives the world converter's texture lookup a way to open a game file
 static ILTStream *cs_OpenGameFile(const char *pszName)
 {
 	if (!client_file_mgr) return LTNULL;
@@ -773,7 +773,7 @@ LTRESULT CClientShell::DoLoadWorld(const CPacket_Read &cPacket, bool bLocal)
 
 	// LithTech 1.0 levels are converted in memory before anything reads them
 	{
-		ILTStream *pV56 = world_v56_WrapStream(pStream, cs_OpenGameFile);
+		ILTStream *pV56 = world_WrapStream(pStream, cs_OpenGameFile);
 		if (pV56)
 		{
 			pStream->Release();

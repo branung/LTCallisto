@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "world_v56.h"
+#include "world_convert.h"
 
 static std::map<std::string, std::pair<uint32, uint32> > g_TexDims;
 

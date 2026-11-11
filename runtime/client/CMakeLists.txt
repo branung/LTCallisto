@@ -46,8 +46,10 @@ set(exec_src
 	../world/src/world_particle_blocker_data.cpp
 	../server/src/world_server_bsp.cpp
 	../world/src/world_shared_bsp.cpp
-	../world/src/world_v56.cpp
-	../world/src/world_v56_stream.cpp
+	../world/src/world_read_v56.cpp
+	../world/src/world_read_v66.cpp
+	../world/src/world_write_v85.cpp
+	../world/src/world_convert_stream.cpp
 	../model/src/animtracker.cpp
 	../shared/src/bdefs.cpp
 	../shared/src/classbind.cpp

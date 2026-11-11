@@ -1,8 +1,8 @@
-// Engine important LithTech 1.0 world loader elements
+// Engine important LithTech 1.0 and 2.x world loader elements
 
 #include "bdefs.h"
 
-#include "world_v56.h"
+#include "world_convert.h"
 #include "genltstream.h"
 #include "iltstream.h"
 
@@ -164,7 +164,7 @@ static bool V56TexDims(const char *pszName, uint32 *pWidth, uint32 *pHeight, voi
 }
 
 
-ILTStream *world_v56_WrapStream(ILTStream *pSrc, WorldV56OpenFn pOpen)
+ILTStream *world_WrapStream(ILTStream *pSrc, WorldV56OpenFn pOpen)
 {
 	if (!pSrc) return LTNULL;
 

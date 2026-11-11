@@ -1,10 +1,12 @@
 project(Test_WorldV56)
 
-# Regression test for the LithTech 1.0 world loader
+# Regression test for the world converter (v56 and v66)
 
 set(exec_src
 	main.cpp
-	../../runtime/world/src/world_v56.cpp)
+	../../runtime/world/src/world_read_v56.cpp
+	../../runtime/world/src/world_read_v66.cpp
+	../../runtime/world/src/world_write_v85.cpp)
 
 include_directories(
 	${CMAKE_SOURCE_DIR}/runtime/world/src

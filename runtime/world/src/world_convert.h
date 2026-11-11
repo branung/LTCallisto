@@ -1,10 +1,11 @@
-#ifndef __WORLD_V56_H__
-#define __WORLD_V56_H__
+#ifndef __WORLD_CONVERT_H__
+#define __WORLD_CONVERT_H__
 
-// Runtime support for LithTech 1.0 worlds (DAT version 56)
+// Runtime conversion of older worlds: LithTech 1.0's DAT v56 and LithTech 2.x's DAT v66
 
 // CWorldSharedBSP::Load requires an exact version match, so an original level is rejected before the geometry is even read.
-// This reads v56 and builds the v85 image the loader already consumes.
+// This reads the old format and builds the v85 image the loader already consumes.
+// Each format has its own reader (world_read_v56.cpp, world_read_v66.cpp), and both share the v85 writer (world_write_v85.cpp).
 
 #include "ltbasetypes.h"
 #include "ltcodes.h"
@@ -54,6 +55,6 @@ typedef ILTStream *(*WorldV56OpenFn)(const char *pszName);
 
 // If pSrc holds a v56 or v66 world, returns a new read-only stream over the v85 image, otherwise NULL.
 // The caller still owns pSrc. pOpen may be NULL, in which case every texture is treated as 128x128.
-ILTStream *world_v56_WrapStream(ILTStream *pSrc, WorldV56OpenFn pOpen);
+ILTStream *world_WrapStream(ILTStream *pSrc, WorldV56OpenFn pOpen);
 
-#endif // __WORLD_V56_H__
+#endif // __WORLD_CONVERT_H__

@@ -18,8 +18,10 @@ set(libsources
 	../shared/src/transformlt_impl.cpp
 	src/world_server_bsp.cpp
 	../world/src/world_shared_bsp.cpp
-	../world/src/world_v56.cpp
-	../world/src/world_v56_stream.cpp
+	../world/src/world_read_v56.cpp
+	../world/src/world_read_v66.cpp
+	../world/src/world_write_v85.cpp
+	../world/src/world_convert_stream.cpp
 	../shared/src/interface_linkage.cpp
 	../model/src/animtracker.cpp
 	../shared/src/bdefs.cpp

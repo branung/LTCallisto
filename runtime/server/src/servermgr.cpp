@@ -13,7 +13,7 @@
 // Includes....
 #include "bdefs.h"
 #include "servermgr.h"
-#include "world_v56.h"
+#include "world_convert.h"
 #include "sysdebugging.h"
 #include "geomroutines.h"
 #include "s_net.h"
@@ -2341,7 +2341,7 @@ void CServerMgr::SetGlobalLightObject(HOBJECT hObject)
 	}
 }
 
-// Supplies world_v56's texture lookup with a way to open a game file
+// Supplies the world converter's texture lookup with a way to open a game file
 static ILTStream *sm_OpenGameFile(const char *pszName)
 {
 	return server_filemgr ? server_filemgr->OpenFile(pszName) : LTNULL;
@@ -2650,7 +2650,7 @@ LTRESULT CServerMgr::DoStartWorld(const char *pWorldName, uint32 flags, uint32 n
 	// LithTech 1.0 levels are converted in memory before anything reads them.
 	// Done here because the blind object data below is read from the stream after CWorldSharedBSP::Load
 	{
-		ILTStream *pV56 = world_v56_WrapStream(pStream, sm_OpenGameFile);
+		ILTStream *pV56 = world_WrapStream(pStream, sm_OpenGameFile);
 		if (pV56)
 		{
 			pStream->Release();

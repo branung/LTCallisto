@@ -33,7 +33,7 @@ define_holder(IWorldServerBSP, world_bsp_server);
 
 //ICompress interface.
 #include "compress.h"
-#include "world_v56.h"  // LT1CompPos
+#include "world_convert.h"  // LT1CompPos
 static ICompress* compress;
 define_holder(ICompress, compress);
 
