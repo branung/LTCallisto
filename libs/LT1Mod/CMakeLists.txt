@@ -6,9 +6,11 @@ project(LIB_LT1Mod)
 add_library(${PROJECT_NAME} STATIC
 	lt1mod.cpp
 	lt1mod_attrib.cpp
+	lt1mod_classdefs.cpp
 	lt1mod_command.cpp
 	lt1mod_engine.cpp
-	lt1mod_startcmds.cpp)
+	lt1mod_startcmds.cpp
+	lt1mod_strings.cpp)
 
 # ButeMgr's headers want _NOMFC and see MFCStub, CryptMgr, stdlith and lith
 target_compile_definitions(${PROJECT_NAME} PRIVATE _NOMFC)
