@@ -194,6 +194,10 @@ if(BUILD_TRON)
     add_subdirectory(NOLF2/ObjectDLL/TRON)		# ObjectDLL
     add_subdirectory(NOLF2/ServerRes/TRON)		# ServerRes
 endif(BUILD_TRON)
+# The mod layer for Shogo and Blood II
+if(BUILD_SHOGO OR BUILD_BLOOD2)
+    add_subdirectory(libs/lua)                  # LIB_Lua, a mod's Mod\Script.lua
+endif()
 if(BUILD_SHOGO)
     # Shogo only needs game code and the engine SDK
     add_subdirectory(Shogo/ClientRes)           # CRes
