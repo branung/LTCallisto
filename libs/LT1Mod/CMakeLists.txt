@@ -7,8 +7,10 @@ add_library(${PROJECT_NAME} STATIC
 	lt1mod.cpp
 	lt1mod_attrib.cpp
 	lt1mod_classdefs.cpp
+	lt1mod_clientscript.cpp
 	lt1mod_command.cpp
 	lt1mod_engine.cpp
+	lt1mod_script.cpp
 	lt1mod_startcmds.cpp
 	lt1mod_strings.cpp)
 
@@ -16,6 +18,10 @@ add_library(${PROJECT_NAME} STATIC
 target_compile_definitions(${PROJECT_NAME} PRIVATE _NOMFC)
 if(MSVC)
 	target_compile_definitions(${PROJECT_NAME} PRIVATE _SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS)
+	# A Lua error longjmps out of the script's C++ frames, which MSVC unwinds through their cleanup
+	# tables. /EHsc lets those tables go stale at calls to C functions such as lua_error, and the
+	# unwind then destroys objects twice; /EHs keeps them exact at every C call
+	target_compile_options(${PROJECT_NAME} PRIVATE /EHs)
 endif(MSVC)
 target_include_directories(${PROJECT_NAME} PRIVATE
 	../ButeMgr
@@ -38,7 +44,8 @@ target_link_libraries(${PROJECT_NAME}
 	LIB_MFCStub
 	LIB_StdLith
 	LIB_LT1ModAlloc
-	LIB_Lith)
+	LIB_Lith
+	LIB_Lua)		# for lt1mod_script.cpp; no LT1Mod header includes Lua's
 
 if(LINUX)
 	set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "-fPIC")

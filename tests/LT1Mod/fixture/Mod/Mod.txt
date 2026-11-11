@@ -1,0 +1,9 @@
+// The fixture tools/demo_smoke hashes with both testLT1Mod --sig and
+// tools/lt1mod_sig.py.  It is a mod in form only: nothing in P1 reads past
+// the manifest.  The mixed-case names are deliberate -- both hashes must
+// ignore spelling.
+[Mod]
+Id      = "Fixture"
+Game    = "Shogo"
+Name    = "LT1Mod test fixture"
+Version = "1"

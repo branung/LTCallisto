@@ -1,0 +1,7 @@
+// Overlay-shaped, for when P2 reads tables.  Nothing reads it now.
+[PulseRifle]
+Damage = 20.0
+
+[KatoBurst]
+Damage = 125.0
+Clip   = 50

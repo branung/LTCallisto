@@ -1,2 +1,5 @@
 libs/libsmacker/** -text
 tools/linux/*.sh text eol=lf
+# A mod is signed by hashing every file under Mod\, so the fixture keeps its committed bytes
+# on every platform and matches its packed fixture.rez
+tests/LT1Mod/fixture/** -text
