@@ -348,17 +348,22 @@ int main(int argc, char **argv)
 
 	printf("%s (%ld bytes)\n", argv[1], nLen);
 
-	if (!world_v56_IsV56(pSrc, (uint32)nLen))
+	// Both readers share the synthesis, so one harness covers both
+	const bool bV56 = world_v56_IsV56(pSrc, (uint32)nLen);
+	const bool bV66 = world_v66_IsV66(pSrc, (uint32)nLen);
+	if (!bV56 && !bV66)
 	{
-		fprintf(stderr, "not a v56 world\n");
+		fprintf(stderr, "not a v56 or v66 world\n");
 		delete[] pSrc;
 		return 1;
 	}
-	printf("source is v56 (LithTech 1.0)\n");
+	printf("source is %s\n", bV56 ? "v56 (LithTech 1.0)" : "v66 (LithTech 2.x)");
 
 	uint8 *pImage = NULL;
 	uint32 nImageSize = 0;
-	LTRESULT nResult = world_v56_BuildV85Image(pSrc, (uint32)nLen, &pImage, &nImageSize, g_TexDims.empty() ? NULL : TexDims, NULL, Warn, NULL, nMaxBlockVerts);
+	LTRESULT nResult = bV56
+		? world_v56_BuildV85Image(pSrc, (uint32)nLen, &pImage, &nImageSize, g_TexDims.empty() ? NULL : TexDims, NULL, Warn, NULL, nMaxBlockVerts)
+		: world_v66_BuildV85Image(pSrc, (uint32)nLen, &pImage, &nImageSize, g_TexDims.empty() ? NULL : TexDims, NULL, Warn, NULL, nMaxBlockVerts);
 	delete[] pSrc;
 
 	if (nResult != LT_OK || !pImage)

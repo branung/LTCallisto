@@ -29,6 +29,16 @@ typedef void (*WorldV56WarnFn)(const char *pszMessage, void *pUser);
 LTRESULT world_v56_BuildV85Image(const uint8 *pSrc, uint32 nSrcSize, uint8 **ppImage, uint32 *pImageSize, WorldV56TexDimsFn pTexDims, 
     void *pUser, WorldV56WarnFn pWarn, void *pWarnUser, uint32 nMaxBlockVerts = kWorldV56MaxBlockVerts);
 
+// LithTech 2.x worlds (DAT v66)
+// Only the reader differs, the v85 synthesis is the one v56 uses.
+
+// True if the buffer starts with a v66 world header
+bool world_v66_IsV66(const uint8 *pData, uint32 nSize);
+
+// As world_v56_BuildV85Image, for a v66 source
+LTRESULT world_v66_BuildV85Image(const uint8 *pSrc, uint32 nSrcSize, uint8 **ppImage, uint32 *pImageSize, WorldV56TexDimsFn pTexDims,
+    void *pUser, WorldV56WarnFn pWarn, void *pWarnUser, uint32 nMaxBlockVerts = kWorldV56MaxBlockVerts);
+
 void world_v56_FreeImage(uint8 *pImage);
 
 // LT1CompPos: LT1's compressed world position, over the box of the last v56 world converted.
@@ -42,7 +52,7 @@ class ILTStream;
 // Passed in since the client and server reach their file managers through different globals.
 typedef ILTStream *(*WorldV56OpenFn)(const char *pszName);
 
-// If pSrc holds a v56 world, returns a new read-only stream over the v85 image, otherwise NULL.
+// If pSrc holds a v56 or v66 world, returns a new read-only stream over the v85 image, otherwise NULL.
 // The caller still owns pSrc. pOpen may be NULL, in which case every texture is treated as 128x128.
 ILTStream *world_v56_WrapStream(ILTStream *pSrc, WorldV56OpenFn pOpen);
 

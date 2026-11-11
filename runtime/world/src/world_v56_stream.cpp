@@ -174,12 +174,14 @@ ILTStream *world_v56_WrapStream(ILTStream *pSrc, WorldV56OpenFn pOpen)
 	if (pSrc->GetLen(&nLen) != LT_OK || nLen < 4) return LTNULL;
 
 	// Peek the version before reading the whole file.
-	// Anything but 56 returns LTNULL and the engine's loader reads it directly.
+	// LT1's 56 and LT2's 66 are converted. Anything else, Jupiter's own 85 included, returns LTNULL and the engine's loader reads it directly.
 	uint32 nVersion = 0;
 	if (pSrc->SeekTo(0) != LT_OK) return LTNULL;
 	if (pSrc->Read(&nVersion, 4) != LT_OK) return LTNULL;
 
-	if (nVersion != 56)
+	const bool bV56 = (nVersion == 56);
+	const bool bV66 = (nVersion == 66);
+	if (!bV56 && !bV66)
 	{
 		pSrc->SeekTo(0);
 		return LTNULL;
@@ -198,7 +200,9 @@ ILTStream *world_v56_WrapStream(ILTStream *pSrc, WorldV56OpenFn pOpen)
 
 	uint8 *pImage = LTNULL;
 	uint32 nImageSize = 0;
-	LTRESULT nResult = world_v56_BuildV85Image(pRaw, nLen, &pImage, &nImageSize, pOpen ? V56TexDims : LTNULL, (void *)pOpen, V56Warn, LTNULL);
+	LTRESULT nResult = bV56
+		? world_v56_BuildV85Image(pRaw, nLen, &pImage, &nImageSize, pOpen ? V56TexDims : LTNULL, (void *)pOpen, V56Warn, LTNULL)
+		: world_v66_BuildV85Image(pRaw, nLen, &pImage, &nImageSize, pOpen ? V56TexDims : LTNULL, (void *)pOpen, V56Warn, LTNULL);
 	delete[] pRaw;
 
 	if (nResult != LT_OK || !pImage)
