@@ -195,8 +195,16 @@ if(BUILD_TRON)
     add_subdirectory(NOLF2/ServerRes/TRON)		# ServerRes
 endif(BUILD_TRON)
 # The mod layer for Shogo and Blood II
+# It reads attribute files with ButeMgr, so it brings the
+# libraries NOLF2 builds, each added once whatever games are on.
 if(BUILD_SHOGO OR BUILD_BLOOD2)
+    foreach(lt1mod_lib MFCStub ButeMgr CryptMgr)
+        if(NOT TARGET LIB_${lt1mod_lib})
+            add_subdirectory(libs/${lt1mod_lib})
+        endif()
+    endforeach()
     add_subdirectory(libs/lua)                  # LIB_Lua, a mod's Mod\Script.lua
+    add_subdirectory(libs/LT1Mod)               # LIB_LT1Mod
 endif()
 if(BUILD_SHOGO)
     # Shogo only needs game code and the engine SDK
