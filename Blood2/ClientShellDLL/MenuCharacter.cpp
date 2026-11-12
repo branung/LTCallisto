@@ -12,6 +12,8 @@
 #include "MenuCommands.h"
 #include "BloodClientShell.h"
 #include "WeaponDefs.h"
+#include "CharacterValues.h"
+#include "BloodModCharacters.h"
 #include "VKDefs.h"
 #include <direct.h>
 #include <stdio.h>
@@ -19,41 +21,25 @@
 
 //*************************************************************************
 
-CharacterMenuInfo g_CharacterMenuInfo[MAX_CHARACTER_INFO] =
+// Built from gCharacterPictures (Shared/CharacterValues.cpp), retail's list as a table
+// that Mod\Characters.txt can add to: one entry per picture, character by character in id order.
+// With no mod it is retail's list.
+CharacterMenuInfo g_CharacterMenuInfo[MAX_CHARACTER_INFO];
+int g_nCharacterMenuInfo = 0;
+
+void BuildCharacterMenuInfo()
 {
-	{ "caleb_single.pcx", CHARACTER_CALEB, MULTIPLAY_SKIN_NORMAL, },
-	{ "caleb_red.pcx", CHARACTER_CALEB, MULTIPLAY_SKIN_RED, },
-	{ "caleb_blue.pcx", CHARACTER_CALEB, MULTIPLAY_SKIN_BLUE, },
-	{ "caleb_green.pcx", CHARACTER_CALEB, MULTIPLAY_SKIN_GREEN, },
-	{ "caleb_yellow.pcx", CHARACTER_CALEB, MULTIPLAY_SKIN_YELLOW, },
-	{ "ophelia_single.pcx", CHARACTER_OPHELIA, MULTIPLAY_SKIN_NORMAL, },
-	{ "ophelia_red.pcx", CHARACTER_OPHELIA, MULTIPLAY_SKIN_RED, },
-	{ "ophelia_blue.pcx", CHARACTER_OPHELIA, MULTIPLAY_SKIN_BLUE, },
-	{ "ophelia_green.pcx", CHARACTER_OPHELIA, MULTIPLAY_SKIN_GREEN, },
-	{ "ophelia_yellow.pcx", CHARACTER_OPHELIA, MULTIPLAY_SKIN_YELLOW, },
-	{ "ishmael_single.pcx", CHARACTER_ISHMAEL, MULTIPLAY_SKIN_NORMAL, },
-	{ "ishmael_red.pcx", CHARACTER_ISHMAEL, MULTIPLAY_SKIN_RED, },
-	{ "ishmael_blue.pcx", CHARACTER_ISHMAEL, MULTIPLAY_SKIN_BLUE, },
-	{ "ishmael_green.pcx", CHARACTER_ISHMAEL, MULTIPLAY_SKIN_GREEN, },
-	{ "ishmael_yellow.pcx", CHARACTER_ISHMAEL, MULTIPLAY_SKIN_YELLOW, },
-	{ "gabby_single.pcx", CHARACTER_GABREILLA, MULTIPLAY_SKIN_NORMAL, },
-	{ "gabby_red.pcx", CHARACTER_GABREILLA, MULTIPLAY_SKIN_RED, },
-	{ "gabby_blue.pcx", CHARACTER_GABREILLA, MULTIPLAY_SKIN_BLUE, },
-	{ "gabby_green.pcx", CHARACTER_GABREILLA, MULTIPLAY_SKIN_GREEN, },
-	{ "gabby_yellow.pcx", CHARACTER_GABREILLA, MULTIPLAY_SKIN_YELLOW, },
-
-#ifdef _ADDON
-	{ "interface_AO\\m_cultist1.pcx", CHARACTER_M_CULTIST, MULTIPLAY_SKIN_NORMAL, },
-	{ "interface_AO\\clown2.pcx", CHARACTER_M_CULTIST, MULTIPLAY_SKIN_RED, },
-	{ "interface_AO\\clown1.pcx", CHARACTER_M_CULTIST, MULTIPLAY_SKIN_BLUE, },
-	{ "interface_AO\\clown3.pcx", CHARACTER_M_CULTIST, MULTIPLAY_SKIN_GREEN, },
-	{ "interface_AO\\m_cultist3.pcx", CHARACTER_M_CULTIST, MULTIPLAY_SKIN_YELLOW, },
-	{ "interface_AO\\f_cultist1.pcx", CHARACTER_F_CULTIST, MULTIPLAY_SKIN_NORMAL, },
-	{ "interface_AO\\souldrudge1.pcx", CHARACTER_SOULDRUDGE, MULTIPLAY_SKIN_NORMAL, },
-	{ "interface_AO\\prophet.pcx", CHARACTER_PROPHET, MULTIPLAY_SKIN_NORMAL, },
-#endif
-
-};
+	g_nCharacterMenuInfo = 0;
+	for (int nChar = 0; nChar < BloodModCharacter_Count(); nChar++)
+		for (int nPic = 0; nPic < BLOOD2_CHARACTER_PICTURES; nPic++)
+			if (gCharacterPictures[nChar][nPic] && g_nCharacterMenuInfo < MAX_CHARACTER_INFO)
+			{
+				CharacterMenuInfo& info = g_CharacterMenuInfo[g_nCharacterMenuInfo++];
+				info.szFile		= gCharacterPictures[nChar][nPic];
+				info.nCharacter	= nChar;
+				info.nColor		= nPic;
+			}
+}
 
 //*************************************************************************
 
@@ -66,6 +52,8 @@ CMenuCharacter::CMenuCharacter()
 
 	m_PlayerIndex = 0;
 	m_ExtraPoints = 4;
+
+	if (!g_nCharacterMenuInfo) BuildCharacterMenuInfo();
 
 	m_Player.dwCharacter = g_CharacterMenuInfo[m_PlayerIndex].nCharacter;
 	m_Player.dwColor = g_CharacterMenuInfo[m_PlayerIndex].nColor;
@@ -530,7 +518,11 @@ DBOOL CMenuCharacter::SaveB2CFile(char *szFile)
 
 	sprintf(str1, "players\\%s.b2c", szFile);
 
+#ifdef _WIN32
 	if(file = fopen(str1, "wb"))
+#else
+	if(file = fopen(b2_path(str1).c_str(), "wb"))	// a path, not one name
+#endif
 	{
 		fwrite(&m_Player, sizeof(B2C), 1, file);
 		fclose(file);
@@ -550,7 +542,11 @@ DBOOL CMenuCharacter::LoadB2CFile(const char *szFile)
 
 	sprintf(str1, "players\\%s", szFile);
 
+#ifdef _WIN32
 	if(file = fopen(str1, "rb"))
+#else
+	if(file = fopen(b2_path(str1).c_str(), "rb"))	// as above
+#endif
 	{
 		fread(&m_Player, sizeof(B2C), 1, file);
 		fclose(file);
@@ -585,22 +581,14 @@ DBOOL CMenuCharacter::DeleteB2CFile(const char *szFile)
 
 void CMenuCharacter::ChangeCharacterPic(int index)
 {
-	if((index < 0) || (index >= MAX_CHARACTER_INFO))
+	if((index < 0) || (index >= g_nCharacterMenuInfo))
 		return;
 
+	// The table holds the whole path; retail prefixed the directory here to
+	// every name but the add-on's "_AO" ones
 	char file[128];
-	sprintf(file, "interface\\charscreen\\characterpics\\%s", g_CharacterMenuInfo[m_PlayerIndex].szFile);
-
-#ifdef _ADDON
-	char* sPic = g_CharacterMenuInfo[m_PlayerIndex].szFile;
-	if (sPic)
-	{
-		if (strstr(sPic, "_AO"))
-		{
-			strcpy(file, sPic);
-		}
-	}
-#endif
+	strncpy(file, g_CharacterMenuInfo[m_PlayerIndex].szFile, sizeof(file) - 1);
+	file[sizeof(file) - 1] = 0;
 
 	if(m_hCharacterPic)
 	{
@@ -640,7 +628,7 @@ void CMenuCharacter::UpdateCharacterStruct()
 void CMenuCharacter::SetPlayerIndexFromStruct()
 {
 	int i;
-	for (i= 0; i < MAX_CHARACTER_INFO; i++)
+	for (i= 0; i < g_nCharacterMenuInfo; i++)
 	{
 		if(m_Player.dwCharacter == g_CharacterMenuInfo[i].nCharacter)
 			if(m_Player.dwColor == g_CharacterMenuInfo[i].nColor)
@@ -741,7 +729,7 @@ void CMenuCharacter::OnLeft()
 		m_PlayerIndex--;
 
 		if(m_PlayerIndex < 0)
-			m_PlayerIndex = MAX_CHARACTER_INFO - 1;
+			m_PlayerIndex = g_nCharacterMenuInfo - 1;
 
 		ChangeCharacterPic(m_PlayerIndex);
 	}
@@ -795,7 +783,7 @@ void CMenuCharacter::OnRight()
 	{
 		m_PlayerIndex++;
 
-		if(m_PlayerIndex >= MAX_CHARACTER_INFO)
+		if(m_PlayerIndex >= g_nCharacterMenuInfo)
 			m_PlayerIndex = 0;
 
 		ChangeCharacterPic(m_PlayerIndex);

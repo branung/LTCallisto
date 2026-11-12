@@ -1,0 +1,12 @@
+// Caleb in every skin slot wears retail's burned skin
+// (skins\enemies\burned.dtx, a cultist's), so that a second BloodBath player
+// sees the server's table on the first.  Mount it on the server and on every
+// client: the connect check refuses a side without it.
+[CALEB]
+Skin         = "Skins\Enemies\burned.dtx"
+SkinRed      = "Skins\Enemies\burned.dtx"
+SkinBlue     = "Skins\Enemies\burned.dtx"
+SkinGreen    = "Skins\Enemies\burned.dtx"
+SkinYellow   = "Skins\Enemies\burned.dtx"
+SkinTeamBlue = "Skins\Enemies\burned.dtx"
+SkinTeamRed  = "Skins\Enemies\burned.dtx"

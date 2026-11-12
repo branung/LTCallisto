@@ -3721,6 +3721,13 @@ NetSession* NetStart_GetSessionList(CClientDE* pClientDE, char* pInfo)
 
 DBOOL NetStart_DoSettingsDialog()
 {
+#ifndef _WIN32
+	// No dialogs on Linux: LinuxCompat's DialogBox answers IDCANCEL, which would end a quick
+	// connect (+Connect <address>) before it started. The dialog only shows the name and team the
+	// console already gave (NetPlayerName, NetTeam), so a quick connect takes those as they are.
+	return(DTRUE);
+#endif
+
 	// Sanity checks...
 
 	if (!s_hInst) return(DFALSE);

@@ -16,6 +16,7 @@
 #include "StdIo.h"
 #include "ObjectUtilities.h"
 #include "PlayerObj.h"
+#include "BloodModCharacters.h"
 
 
 // Functions...
@@ -500,7 +501,8 @@ DBOOL CVoiceMgr::PlayEventSound(CPlayerObj* pPlayerObj, int iEvent)
 
 	// Get a random sound string to play...
 
-	int iCharacter = pPlayerObj->GetCharacter();
+	// A mod's new character speaks with its Base's voice
+	int iCharacter = BloodModCharacter_Retail(pPlayerObj->GetCharacter());
 
 	char* sSound = GetRandomGroupSoundString(iCharacter, iEvent);
 	if (!sSound) return(DFALSE);
@@ -549,7 +551,7 @@ DBOOL CVoiceMgr::PlayUniqueSound(CPlayerObj* pPlayerObj, int iUnique)
 
 	// Unique sounds are only for caleb...
 
-	int iCharacter = pPlayerObj->GetCharacter();
+	int iCharacter = BloodModCharacter_Retail(pPlayerObj->GetCharacter());	// as above
 
 	if (iCharacter != VMC_CALEB) return(DFALSE);
 

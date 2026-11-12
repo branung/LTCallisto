@@ -1,0 +1,6 @@
+// A new Blood 2 weapon.  A section naming no retail
+// weapon adds one on its Base: DemoShotgun starts as the sawed-off shotgun
+// and fires twice its pellets (retail 16).
+[DemoShotgun]
+Base         = "SHOTGUN"
+ShotsPerFire = 32

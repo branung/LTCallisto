@@ -1,0 +1,5 @@
+[Mod]
+Id      = "Blood2Announcer"
+Game    = "Blood2"
+Name    = "Announcer strings test"
+Version = "1"

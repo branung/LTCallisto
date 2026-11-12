@@ -35,6 +35,7 @@
 #include "cameraobj.h"
 #include "SoundTypes.h"
 #include "BloodModAI.h"
+#include "BloodModWeapons.h"
 #include "BloodModTable.h"
 #include <string>
 #include <string.h>
@@ -105,6 +106,8 @@ AI_Mgr::AI_Mgr() : CBaseCharacter(OT_MODEL)
     
 	m_AIPathList.Init(DFALSE);
 	m_nScriptCmdIndex	= 0;
+	m_nModArchetype		= -1;
+	m_szModSkin[0]		= '\0';
 
 	// Class pointers
     m_pAnim_Sound   = DNULL;
@@ -391,6 +394,14 @@ int AI_Mgr::StateStrToInt(const char *pState)
 
 DDWORD AI_Mgr::WeaponStrToInt(char *pWeapon)
 {
+	// A mod's new weapon, by its whole name, before the retail prefixes
+	// below: "DemoShotgun" would otherwise read as the Beretta, their
+	// fallback.  A retail name never matches here.
+	{
+		const int nMod = BloodModWeapon_Find(pWeapon);
+		if (nMod > (WEAP_MAXWEAPONTYPES))
+			return (DDWORD)nMod;
+	}
 
     DDWORD m_nRetWeapon = WEAP_BERETTA;
     
@@ -895,19 +906,37 @@ DBOOL AI_Mgr::ReadProp(ObjectCreateStruct *pStruct)
 // and BloodModAIValues does not compile
 template <class T> static void ModAI_Copy(T& dst, const T& src) { memcpy(&dst, &src, sizeof(T)); }
 
-// The class name the engine registered this object's class under
-static DBOOL ModAI_ClassName(ObjectCreateStruct *pStruct, char* pName, size_t nSize)
+// A class named after a mod's archetype (ModClassDefs.h) is the code of the class the archetype is
+// built on, so everything that keys on the class name (the class's AI.txt section, the trace) takes
+// that class's. Writes the archetype's name to pArch, or "" for a native class.
+static void ModAI_NativeClass(char* pName, size_t nSize, char* pArch, size_t nArch)
+{
+	if (pArch && nArch) pArch[0] = '\0';
+	if (BloodModAI_FindClass(pName) >= 0) return;
+	const int n = BloodModAI_FindArchetype(pName);
+	if (n < 0) return;
+	if (pArch && nArch) { strncpy(pArch, BloodModAI_ArchetypeName(n), nArch - 1); pArch[nArch - 1] = '\0'; }
+	strncpy(pName, BloodModAI_ArchetypeClass(n), nSize - 1);
+	pName[nSize - 1] = '\0';
+}
+
+// The class name the engine registered this object's class under: for a class named after an
+// archetype, the class it is built on, and pArch the archetype
+static DBOOL ModAI_ClassName(ObjectCreateStruct *pStruct, char* pName, size_t nSize, char* pArch = DNULL, size_t nArch = 0)
 {
 	CServerDE* pServerDE = DEBaseClass::GetServerDE();
 	pName[0] = '\0';
+	if (pArch && nArch) pArch[0] = '\0';
 	if (!pServerDE || !pStruct || !pStruct->m_hClass) return DFALSE;
-	return pServerDE->GetClassName(pStruct->m_hClass, pName, (uint32)nSize) == LT_OK && pName[0];
+	if (pServerDE->GetClassName(pStruct->m_hClass, pName, (uint32)nSize) != LT_OK || !pName[0]) return DFALSE;
+	ModAI_NativeClass(pName, nSize, pArch, nArch);
+	return DTRUE;
 }
 
 DBOOL AI_Mgr::ModAI_Apply(ObjectCreateStruct *pStruct, BloodModAIValues& ctor, BloodModAIValues& mod)
 {
-	char szClass[64];
-	if (!ModAI_ClassName(pStruct, szClass, sizeof(szClass))) return DFALSE;
+	char szClass[64], szClassArch[64];
+	if (!ModAI_ClassName(pStruct, szClass, sizeof(szClass), szClassArch, sizeof(szClassArch))) return DFALSE;
 
 #define X(key, member, kind) ModAI_Copy(ctor.member, member);
 	BLOODMOD_AI_FIELDS(X)
@@ -923,7 +952,43 @@ DBOOL AI_Mgr::ModAI_Apply(ObjectCreateStruct *pStruct, BloodModAIValues& ctor, B
 		BloodMod::PrintWrapped(std::string(szClass) + "'s constructor: " + sLine, "AI: ", ModAI_Print);
 	}
 
-	if (!BloodModAI_Apply(szClass, mod)) return DFALSE;
+	const int nClassKeys = BloodModAI_Apply(szClass, mod);
+
+	// A mod's new enemy type: the object's Archetype
+	// property, which a world file or a Spawner's string gives, names an
+	// AI.txt archetype built on this class.  Its values follow the class's.
+	m_nModArchetype = -1;
+	m_szModSkin[0] = '\0';
+	int nArchKeys = 0;
+	char szArch[64], szName[MAX_CS_FILENAME_LEN];
+	szArch[0] = szName[0] = '\0';
+	CServerDE* pServerDE = GetServerDE();
+	if (pServerDE)
+	{
+		pServerDE->GetPropString("Archetype", szArch, sizeof(szArch));
+		pServerDE->GetPropString("Name", szName, sizeof(szName));
+	}
+	// A class named after the archetype has it without the property.
+	if (!szArch[0] && szClassArch[0])
+		SAFE_STRCPY(szArch, szClassArch);
+	if (szArch[0])
+	{
+		const int nArch = BloodModAI_FindArchetype(szArch);
+		if (nArch < 0)
+			pServerDE->CPrint("AI: %s '%s': no archetype \"%s\" in Mod\\AI.txt", szClass, szName, szArch);
+		else if (BloodModAI_FindClass(BloodModAI_ArchetypeClass(nArch)) != BloodModAI_FindClass(szClass))
+			pServerDE->CPrint("AI: %s '%s': archetype %s is built on %s, not on %s; ignored", szClass, szName,
+							  BloodModAI_ArchetypeName(nArch), BloodModAI_ArchetypeClass(nArch), szClass);
+		else
+		{
+			m_nModArchetype = nArch;
+			nArchKeys = BloodModAI_ApplyArchetype(nArch, mod);
+		}
+	}
+	if (const char* pSkin = BloodModAI_Skin(szClass, m_nModArchetype))
+		SAFE_STRCPY(m_szModSkin, pSkin);
+
+	if (!nClassKeys && !nArchKeys && !m_szModSkin[0] && m_nModArchetype < 0) return DFALSE;
 #define X(key, member, kind) ModAI_Copy(member, mod.member);
 	BLOODMOD_AI_FIELDS(X)
 #undef X
@@ -955,7 +1020,10 @@ void AI_Mgr::ModAI_Report(ObjectCreateStruct *pStruct, const BloodModAIValues& c
 	char szName[MAX_CS_FILENAME_LEN];
 	szName[0] = '\0';
 	if (GetServerDE()) GetServerDE()->GetPropString("Name", szName, sizeof(szName));
-	BloodMod::PrintWrapped(std::string(szClass) + " '" + szName + "': " +
+	if (m_szModSkin[0])
+		sLine += std::string(sLine.empty() ? "" : ", ") + "Skin \"" + m_szModSkin + "\"";
+	const std::string sAs = m_nModArchetype >= 0 ? std::string(" as ") + BloodModAI_ArchetypeName(m_nModArchetype) : std::string();
+	BloodMod::PrintWrapped(std::string(szClass) + " '" + szName + "'" + sAs + ": " +
 						   (sLine.empty() ? std::string("the mod's values are the constructor's") : sLine),
 						   "AI: ", ModAI_Print);
 }
@@ -2144,6 +2212,16 @@ void AI_Mgr::InitialUpdate(int nData)
 		return;
 	}
 
+	// A mod's skin for this AI, over the one its class
+	// picked at MID_PRECREATE, which chains to AI_Mgr's before it picks.
+	if (m_szModSkin[0])
+	{
+		char szModel[MAX_CS_FILENAME_LEN + 1], szSkin[MAX_CS_FILENAME_LEN + 1];
+		szModel[0] = szSkin[0] = '\0';
+		m_pServerDE->GetModelFilenames(m_hObject, szModel, sizeof(szModel), szSkin, sizeof(szSkin));
+		m_pServerDE->SetModelFilenames(m_hObject, szModel, m_szModSkin);
+	}
+
 	m_InventoryMgr.SetStrength(m_nAIStrength);
 
 	for(int i =0; i < 5; i++)
@@ -2197,7 +2275,9 @@ void AI_Mgr::InitialUpdate(int nData)
 		char szClass[64];
 		BloodModAIValues probe;
 		memset(&probe, 0, sizeof(probe));
-		if (hClass && m_pServerDE->GetClassName(hClass, szClass, (uint32)sizeof(szClass)) == LT_OK && BloodModAI_Apply(szClass, probe))
+		const DBOOL bClass = hClass && m_pServerDE->GetClassName(hClass, szClass, (uint32)sizeof(szClass)) == LT_OK;
+		if (bClass) ModAI_NativeClass(szClass, sizeof(szClass), DNULL, 0);
+		if (bClass && BloodModAI_Apply(szClass, probe))
 		{
 			const char* pName = m_pServerDE->GetObjectName(m_hObject);
 			m_pServerDE->CPrint("AI: %s '%s' starts with %.1f hit points and %.1f armor", szClass, pName ? pName : "",
@@ -3345,7 +3425,7 @@ DBOOL AI_Mgr::Fire(DBOOL bAltFire)
 	if (!m_InventoryMgr.GetCurrentWeapon())
 		return DFALSE;
 
-	switch(m_InventoryMgr.GetCurrentWeapon()->GetType())
+	switch(BloodModWeapon_Retail(m_InventoryMgr.GetCurrentWeapon()->GetType()))	// a new weapon fires as its Base
 	{
 		case WEAP_PROXIMITYBOMB:
 		{
@@ -5805,7 +5885,7 @@ void AI_Mgr::MC_BestWeapon()
 
 			if(pW)
 			{
-				if(pW->GetType() <= WEAP_LASTPLAYERWEAPON)
+				if(BloodModWeapon_Retail(pW->GetType()) <= WEAP_LASTPLAYERWEAPON)
 				{
 					if(m_InventoryMgr.GetAmmoCount(pW->GetAmmoType(DFALSE)) <= 0.0)
 					{

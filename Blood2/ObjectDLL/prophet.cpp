@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include "Prophet.h"
 #include "cpp_server_de.h"
+#include "BloodModWeapons.h"	// a new weapon tests as its Base
 
 BEGIN_CLASS(Prophet)
     ADD_REALPROP(RandomHitPoints, 0.0f) \
@@ -207,8 +208,8 @@ DBOOL Prophet::Fire(DBOOL bAltFire)
 	DFLOAT fTargetVel = VEC_MAG(vTargetVel);
 	DFLOAT fVel = VEC_MAG(vVel);
 
-	if(fTargetVel <= 5.0f && fVel <= 5.0f && pW->GetType() != WEAP_ASSAULTRIFLE
-		&& pW->GetType() != WEAP_NAPALMCANNON && pW->GetType() != WEAP_SNIPERRIFLE)
+	if(fTargetVel <= 5.0f && fVel <= 5.0f && BloodModWeapon_Retail(pW->GetType()) != WEAP_ASSAULTRIFLE
+		&& BloodModWeapon_Retail(pW->GetType()) != WEAP_NAPALMCANNON && BloodModWeapon_Retail(pW->GetType()) != WEAP_SNIPERRIFLE)
 	{
 		if(m_InventoryMgr.GetAmmoCount(pW->GetAmmoType(DFALSE)) >= pW->GetAltAmmoUse())
 			bFire = DTRUE;
@@ -235,7 +236,7 @@ void Prophet::MC_Fire_Stand()
 		return;
 	}
 
-	if(pW->GetType() == WEAP_MELEE)
+	if(BloodModWeapon_Retail(pW->GetType()) == WEAP_MELEE)
 	{
 		if (m_bAnimating == DFALSE || m_nCurMetacmd != MC_FIRE_STAND)
 		{

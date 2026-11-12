@@ -19,6 +19,7 @@
 #include "BloodServerShell.h"
 #include <mbstring.h>
 #include "SoundTypes.h"
+#include "BloodModWeapons.h"	// a new weapon tests as its Base
 
 // ----------------------------------------------------------------------- //
 //
@@ -274,7 +275,7 @@ void PickupObject::PostPropRead(ObjectCreateStruct *pStruct)
 		m_hstrObjectName = g_pServerDE->CreateString(m_szObjectName);
 
 #ifdef _ADD_ON
-	if(m_nType == WEAP_COMBATSHOTGUN || m_nType == WEAP_FLAYER)
+	if(BloodModWeapon_Retail(m_nType) == WEAP_COMBATSHOTGUN || BloodModWeapon_Retail(m_nType) == WEAP_FLAYER)
 	{
 		if (m_szFile)
 		{

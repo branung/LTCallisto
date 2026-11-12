@@ -1,0 +1,5 @@
+[Mod]
+Id      = "Blood2NewWeapon"
+Game    = "Blood2"
+Name    = "New weapon test"
+Version = "1"

@@ -1,0 +1,15 @@
+// A new character, SCARLET, on Caleb, in retail's burned
+// skin (skins\enemies\burned.dtx, a cultist's) in every slot, so that the
+// other BloodBath player can tell it from Caleb.  No new art: its model,
+// voice, hands and menu pictures are Caleb's.  tests/Blood2Tables/b2c.py writes the
+// .b2c a client picks it with.  Mount it on the server and on every client:
+// the connect check refuses a side without it.
+[SCARLET]
+Base         = "CALEB"
+Skin         = "Skins\Enemies\burned.dtx"
+SkinRed      = "Skins\Enemies\burned.dtx"
+SkinBlue     = "Skins\Enemies\burned.dtx"
+SkinGreen    = "Skins\Enemies\burned.dtx"
+SkinYellow   = "Skins\Enemies\burned.dtx"
+SkinTeamBlue = "Skins\Enemies\burned.dtx"
+SkinTeamRed  = "Skins\Enemies\burned.dtx"

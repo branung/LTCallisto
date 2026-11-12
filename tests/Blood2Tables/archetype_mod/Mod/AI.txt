@@ -1,0 +1,25 @@
+// New enemy types.  Blood2/ModReference/AI.txt lists the
+// classes and keys.
+//
+// A RedCultist is a CultistAI with 200 hit points, a shotgun and retail's
+// burned skin.  map.json makes two of 01_SubwayA's cultists one (herm and
+// gak) by their Archetype property, and names a third (pete) after a type
+// that does not exist, which the server reports and ignores.  A Spawner at
+// the player's start makes one RedLeader, from "CultistAI Archetype
+// RedLeader": a RedCultist that runs faster.
+//
+// AIWeapon1 is a property CultistAI declares, so for the two the level
+// places, the level's BERETTA still wins; the spawned one has no world-file
+// properties and takes the shotgun.
+[RedCultist]
+Base      = "CultistAI"
+HitPoints = 200.0
+AIWeapon1 = "SHOTGUN"
+Skin      = "Skins\Enemies\burned.dtx"
+
+[RedLeader]
+Base      = "RedCultist"
+RunSpeed  = 300.0
+
+[Options]
+Trace = TRUE

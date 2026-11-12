@@ -257,6 +257,16 @@ void TestErrors()
 		{ "a 32-character weapon",			"[CultistAI]\nAIWeapon1 = \"SHOTGUNSHOTGUNSHOTGUNSHOTGUNSHOT\"\n", "longer than 31 characters" },
 		{ "an unknown option",				"[Options]\nVerbose = TRUE\n",			"has no option \"Verbose\"" },
 		{ "a Trace that is not a bool",		"[Options]\nTrace = 1\n",				"is not TRUE or FALSE" },
+		// New enemy types.
+		{ "a new section with no Base",		"[RedCultist]\nHitPoints = 1.0\n",		"names its Base" },
+		{ "a Base on a class",				"[CultistAI]\nBase = \"ShikariAI\"\n",	"is an AI class, so it has no Base" },
+		{ "a Base that is nothing",			"[RedCultist]\nBase = \"Cultist\"\n",		"is neither a Blood 2 AI class nor an archetype" },
+		{ "a Base chain that loops",		"[A1]\nBase = \"A2\"\n[A2]\nBase = \"A1\"\n", "Base chain loops" },
+		{ "a Base that is itself",			"[A1]\nBase = \"A1\"\n",				"is neither a Blood 2 AI class nor an archetype" },
+		{ "an empty Skin",					"[CultistAI]\nSkin = \"\"\n",			"Skin must be a file name" },
+		{ "a 100-character Skin",			"[CultistAI]\nSkin = \"SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS\"\n",
+											"Skin must be a file name" },
+		{ "a number for a Skin",			"[CultistAI]\nSkin = 3\n",				"is not a quoted string" },
 	};
 	for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); ++i)
 	{
@@ -303,6 +313,62 @@ void TestTrace()
 	LoadAI("[CultistAI]\nHitPoints = 1.0\n", err);
 	Check(!BloodModAI_Trace() && BloodModAI_FirstOfClass("ZealotAI"), "a later load without it turns it off and starts the classes again");
 	Unload();
+}
+
+std::string P(const char* p) { return p ? std::string(p) : std::string("<null>"); }
+
+// New enemy types: an archetype on a class, one on an
+// archetype, the order each applies in, and the skin.
+void TestArchetypes()
+{
+	printf("AI: new enemy types\n");
+	std::string err;
+	// The leader first: a Base may come later in the file.
+	const bool bLoaded = LoadAI("[RedLeader]\nBase = \"redcultist\"\nRunSpeed = 300.0\n"
+								"[CultistAI]\nHitPoints = 50.0\nWalkSpeed = 80.0\n"
+								"[RedCultist]\nBase = \"CultistAI\"\nHitPoints = 120.0\nAIWeapon1 = \"SHOTGUN\"\n"
+								"Skin = \"Skins\\Enemies\\m_Cultist3.dtx\"\n"
+								"[Plain]\nBase = \"ShikariAI\"\n", err);
+	Check(bLoaded && BloodModAI_FindArchetype("redleader") == 0 && BloodModAI_FindArchetype("RedCultist") == 1 &&
+		  BloodModAI_FindArchetype("Plain") == 2 && BloodModAI_FindArchetype("CultistAI") == -1 &&
+		  BloodModAI_FindArchetype("Nothing") == -1 && P(BloodModAI_ArchetypeClass(0)) == "CultistAI" &&
+		  P(BloodModAI_ArchetypeClass(2)) == "ShikariAI" && P(BloodModAI_ArchetypeName(1)) == "RedCultist" &&
+		  !BloodModAI_ArchetypeName(3),
+		  "three archetypes load, found without case, each with the class at the root of its chain" + (bLoaded ? std::string() : ": " + err));
+
+	// What AI_Mgr::ModAI_Apply does for a CultistAI with Archetype RedLeader:
+	// the class's section, then the chain root first.
+	BloodModAIValues v = Sentinel(), sentinel = Sentinel();
+	const int nClass = BloodModAI_Apply("CultistAI", v);
+	const int nArch = BloodModAI_ApplyArchetype(0, v);
+	Check(nClass == 2 && nArch == 3 && v.m_fAIHitPoints == 120.0f && v.m_fWalkSpeed == 80.0f && v.m_fRunSpeed == 300.0f &&
+		  !strcmp(v.m_szAIWeapon[0], "SHOTGUN") && v.m_fSeeingDist == sentinel.m_fSeeingDist &&
+		  !strcmp(v.m_szAIWeapon[1], sentinel.m_szAIWeapon[1]),
+		  "an archetype's values follow its class's, its Base's first: HitPoints 120 over 50, the class's WalkSpeed kept, "
+		  "the leader's RunSpeed, nothing else touched");
+	v = Sentinel();
+	Check(BloodModAI_ApplyArchetype(2, v) == 0 && !memcmp(&v, &sentinel, sizeof(v)) && BloodModAI_ApplyArchetype(3, v) == 0 &&
+		  BloodModAI_ApplyArchetype(-1, v) == 0,
+		  "an archetype with only a Base sets nothing, and no index sets nothing");
+	Check(P(BloodModAI_Skin("CultistAI", 0)) == "Skins\\Enemies\\m_Cultist3.dtx" &&
+		  P(BloodModAI_Skin("CultistAI", 1)) == "Skins\\Enemies\\m_Cultist3.dtx" && !BloodModAI_Skin("CultistAI", -1) &&
+		  !BloodModAI_Skin("ShikariAI", 2),
+		  "the skin is the chain's nearest; a plain CultistAI and an archetype without one have none");
+	const std::string sum = BloodModAI_Summary();
+	Check(sum == "CultistAI: WalkSpeed 80.0, HitPoints 50.0\n"
+				 "RedLeader: new archetype, Base redcultist (on CultistAI), RunSpeed 300.0\n"
+				 "RedCultist: new archetype, Base CultistAI, HitPoints 120.0, AIWeapon1 \"SHOTGUN\", Skin \"Skins\\Enemies\\m_Cultist3.dtx\"\n"
+				 "Plain: new archetype, Base ShikariAI",
+		  "the summary names each archetype, its Base and the class it is built on:\n" + sum);
+
+	// A class section's own skin, for every AI of the class.
+	Check(LoadAI("[ShikariAI]\nSkin = \"Skins\\Enemies\\Shikari2.dtx\"\n[Pale]\nBase = \"ShikariAI\"\n", err) &&
+		  P(BloodModAI_Skin("ShikariAI", -1)) == "Skins\\Enemies\\Shikari2.dtx" &&
+		  P(BloodModAI_Skin("ShikariAI", 0)) == "Skins\\Enemies\\Shikari2.dtx" && !BloodModAI_Skin("CultistAI", -1) &&
+		  BloodModAI_Summary() == "ShikariAI: Skin \"Skins\\Enemies\\Shikari2.dtx\"\nPale: new archetype, Base ShikariAI",
+		  "a class section's Skin is every AI's of that class, an archetype's included");
+	Unload();
+	Check(BloodModAI_FindArchetype("Pale") == -1 && !BloodModAI_Skin("ShikariAI", -1), "unloading removes them");
 }
 
 // The example mod, tests/Blood2Tables/ai_mod.
@@ -361,6 +427,7 @@ void AISelfTest()
 	TestErrors();
 	TestStrings();
 	TestTrace();
+	TestArchetypes();
 	TestAIMod();
 	TestReference();
 }

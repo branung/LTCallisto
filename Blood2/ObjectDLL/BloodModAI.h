@@ -29,6 +29,24 @@
 //
 // [Options] Trace = TRUE prints, the first time each class is created, the values its constructor
 // gave it, and then each object the mod changed.
+//
+// A section that names no class is an archetype, a new enemy type, and names its Base: a class, or
+// another archetype in the file:
+//
+//     [RedCultist]
+//     Base      = "CultistAI"
+//     HitPoints = 120.0
+//     AIWeapon1 = "SHOTGUN"
+//     Skin      = "Skins\Enemies\m_Cultist3.dtx"
+//
+// An AI of the root class with the property Archetype = "RedCultist" (every AI class declares it,
+// through AI_Mgr) is one: a level places it, and a Spawner makes one from
+// "CultistAI Archetype RedCultist". Its values apply after the class's own section, root first,
+// and before the level's own properties, which still win. Skin replaces the skin the class picks
+// at MID_PRECREATE, at MID_INITIALUPDATE; a class section may give one too. There is no Model key:
+// each class keeps its animations' indexes in a static shared by every instance, set from the
+// first one's model, so a second model could only be one with the same animations in the same
+// order.
 
 #ifndef __BLOODMODAI_H__
 #define __BLOODMODAI_H__
@@ -57,6 +75,16 @@ void BloodModAI_Clear();
 // Writes the mod's values for class pClass (a registered class name) into v. Returns the number
 // of keys written; 0 when the mod sets nothing for it.
 int BloodModAI_Apply(const char* pClass, BloodModAIValues& v);
+
+// Archetypes: the index of a name, or -1; its name and the class at the root of its chain; its
+// values, written into v root first; NULL for no index
+int BloodModAI_FindArchetype(const char* pName);
+const char* BloodModAI_ArchetypeName(int nArch);
+const char* BloodModAI_ArchetypeClass(int nArch);
+int BloodModAI_ApplyArchetype(int nArch, BloodModAIValues& v);
+// The skin a mod gives an AI of class pClass, as archetype nArch (-1 for none): its chain's
+// nearest, else its class section's; NULL for none
+const char* BloodModAI_Skin(const char* pClass, int nArch);
 
 bool BloodModAI_Trace();
 // The first call for each class answers true, once: the trace prints its constructor's values

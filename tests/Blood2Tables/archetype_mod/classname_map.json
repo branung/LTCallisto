@@ -1,0 +1,98 @@
+[
+  {
+    "op": "rename_class",
+    "match": {
+      "class": "CultistAI",
+      "name": "herm"
+    },
+    "to": "RedCultist"
+  },
+  {
+    "op": "add_object",
+    "class": "Spawner",
+    "props": [
+      {
+        "prop": "Name",
+        "type": "string",
+        "value": "ClassSpawner"
+      },
+      {
+        "prop": "Pos",
+        "type": "vector",
+        "value": [
+          -32,
+          192,
+          -2900
+        ]
+      },
+      {
+        "prop": "Rotation",
+        "type": "rotation",
+        "value": [
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      {
+        "prop": "SpawnObject",
+        "type": "string",
+        "value": "RedLeader"
+      },
+      {
+        "prop": "MinVelocity",
+        "type": "vector",
+        "value": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "prop": "MaxVelocity",
+        "type": "vector",
+        "value": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "prop": "Sound",
+        "type": "string",
+        "value": ""
+      },
+      {
+        "prop": "SoundRadius",
+        "type": "real",
+        "value": 500.0
+      },
+      {
+        "prop": "UseTriggerObjPos",
+        "type": "bool",
+        "value": false
+      },
+      {
+        "prop": "StartActive",
+        "type": "bool",
+        "value": true
+      },
+      {
+        "prop": "RespawnCount",
+        "type": "longint",
+        "value": 1
+      },
+      {
+        "prop": "RespawnRate",
+        "type": "real",
+        "value": 1.0
+      },
+      {
+        "prop": "CreateRiftEffect",
+        "type": "bool",
+        "value": false
+      }
+    ]
+  }
+]

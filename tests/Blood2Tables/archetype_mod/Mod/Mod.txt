@@ -1,0 +1,5 @@
+[Mod]
+Id      = "Blood2Archetypes"
+Game    = "Blood2"
+Name    = "New enemy types"
+Version = "1"

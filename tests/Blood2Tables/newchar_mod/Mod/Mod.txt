@@ -1,0 +1,5 @@
+[Mod]
+Id      = "Blood2NewCharacter"
+Game    = "Blood2"
+Name    = "A new character, seen by another player"
+Version = "1"

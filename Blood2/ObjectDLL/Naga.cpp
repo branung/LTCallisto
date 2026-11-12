@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include "Naga.h"
 #include "cpp_server_de.h"
+#include "BloodModWeapons.h"	// a new weapon tests as its Base
 
 BEGIN_CLASS(Naga)
     ADD_REALPROP(RandomHitPoints, 0.0f) \
@@ -480,7 +481,7 @@ DBOOL Naga::Fire(DBOOL bAltFire)
 	if (!m_InventoryMgr.GetCurrentWeapon())
 		return DFALSE;
 
-	switch(m_InventoryMgr.GetCurrentWeapon()->GetType())
+	switch(BloodModWeapon_Retail(m_InventoryMgr.GetCurrentWeapon()->GetType()))
 	{
 		case WEAP_NAGA_EYEBEAM:
 		{

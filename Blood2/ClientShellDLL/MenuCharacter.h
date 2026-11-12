@@ -17,14 +17,13 @@
 
 #include "MenuBase.h"
 #include "SharedDefs.h"
+#include "CharacterValues.h"
 
 //*************************************************************************
 
-#ifdef _ADDON
-#define		MAX_CHARACTER_INFO		28
-#else
-#define		MAX_CHARACTER_INFO		20
-#endif
+// Retail's 20 entries, 28 with the Nightmare Levels, are gCharacterPictures';
+// a mod's new characters add theirs after them, so there is room for every picture of every id
+#define		MAX_CHARACTER_INFO		(BLOOD2_CHARACTER_IDS * BLOOD2_CHARACTER_PICTURES)
 
 #define		MAX_ATTRIBUTE			5
 
@@ -44,6 +43,12 @@ typedef struct CharacterMenuInfo
 	DDWORD	nCharacter;
 	DDWORD	nColor;
 }	CharacterMenuInfo;
+
+// The menu's entries, g_nCharacterMenuInfo of them, built from the table; the
+// client shell rebuilds them once it has loaded a mod's characters.
+extern CharacterMenuInfo g_CharacterMenuInfo[MAX_CHARACTER_INFO];
+extern int g_nCharacterMenuInfo;
+void BuildCharacterMenuInfo();
 
 //*************************************************************************
 

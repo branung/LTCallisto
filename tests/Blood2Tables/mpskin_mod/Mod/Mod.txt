@@ -1,0 +1,5 @@
+[Mod]
+Id      = "Blood2MPSkin"
+Game    = "Blood2"
+Name    = "A character's skin, seen by another player"
+Version = "1"

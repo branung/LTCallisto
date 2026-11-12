@@ -8,6 +8,11 @@
 #ifndef __BLOODMODAIFIELDS_H__
 #define __BLOODMODAIFIELDS_H__
 
+// AI.txt's Skin key, at most this many characters: LT1's MAX_CS_FILENAME_LEN
+// (100) less the terminator, so a mod's skin fits the create struct and the
+// filename buffers either engine sizes from it.
+#define BLOODMOD_AI_MAX_SKIN	99
+
 struct BloodModAIValues
 {
 	float	m_fHearingDist;

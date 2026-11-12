@@ -23,6 +23,7 @@ add_library(${PROJECT_NAME} SHARED
 	BloodServerShell.cpp
 	ModCommands.cpp
 	BloodModAI.cpp
+	ModClassDefs.cpp
 	../Shared/BloodModCharacters.cpp
 	../Shared/CharacterValues.cpp
 	boneleech.cpp
@@ -162,6 +163,12 @@ add_library(${PROJECT_NAME} SHARED
 	../../sdk/inc/ltobjref.cpp
 	../../sdk/inc/ltquatbase.cpp
 	../../sdk/inc/LTEulerAngles.cpp)
+
+# A mod's AI.txt archetypes are class names (ModClassDefs.h): ltengineobjects.cpp's ObjectDLLSetup
+# appends them after the native classes. Only this directory's copy of the file sees the
+# definitions, so every other game's ObjectDLLSetup is DEFINE_CLASSES().
+set_source_files_properties(../../sdk/inc/ltengineobjects.cpp PROPERTIES COMPILE_DEFINITIONS
+	"LT_EXTRA_CLASSDEFS_FN=ModClassDefs_Append;LT_EXTRA_CLASSDEFS_ROOM=128")
 
 include_directories(./
 	../Shared

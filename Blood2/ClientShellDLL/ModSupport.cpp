@@ -5,6 +5,8 @@
 #include "SharedDefs.h"
 #include "lt1mod_engine.h"
 #include "BloodModWeapons.h"
+#include "BloodModCharacters.h"
+#include "MenuCharacter.h"
 #include "BloodModStrings.h"
 #include "BloodModTable.h"
 
@@ -29,6 +31,11 @@ void B2Mod_Init(CClientDE* pClientDE)
 	LT1Mod::EngineSource src(pClientDE, pClientDE->GetFileList, pClientDE->FreeFileList);
 	s_pPrintClient = pClientDE;
 	BloodModWeapons_LoadAndReport(src, PrintClientLine, "");
+
+	// The mod's characters, which the server loads too, so both number a new one alike; the
+	// client wants the ids and the menu's pictures
+	BloodModCharacters_LoadAndReport(src, PrintClientLine, "");
+	BuildCharacterMenuInfo();
 
 	// The mod's strings, which the engine's FormatString asks this shell for through
 	// ModStringsExport.cpp

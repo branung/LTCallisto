@@ -40,6 +40,8 @@
 #include "SoundTypes.h"
 #include "physics_lt.h"
 #include "iltcursor.h"
+#include "BloodModWeapons.h"	// a new weapon is its Base's class
+#include "BloodModCharacters.h"
 
 // A client that finds the server running other mod files answers with its own signature, then
 // waits this long before disconnecting so the answer is delivered and the server can tell its host
@@ -2053,7 +2055,12 @@ void CBloodClientShell::SendPlayerInitMessage(DBYTE messageID)
 
 					sprintf(filename, "players\\%s", pPlayerInfo->m_sConfig);
 
+#ifdef _WIN32
 					if(file = fopen(filename, "rb"))
+#else
+					// "players\x.b2c" is one file name to Linux's fopen, so b2_path makes it a path
+					if(file = fopen(b2_path(filename).c_str(), "rb"))
+#endif
 					{
 						fread(&b2cFile, sizeof(B2C), 1, file);
 						fclose(file);
@@ -4876,7 +4883,7 @@ void CBloodClientShell::OnMessage(DBYTE messageID, HMESSAGEREAD hMessage)
 				if (pKiller && pVictim)
 				{
 					DBYTE byFlags = 0;
-					switch(m_FragInfo.GetPlayerCharacter(nKiller))
+					switch(BloodModCharacter_Retail(m_FragInfo.GetPlayerCharacter(nKiller)))	// by the Base
 					{
 						case CHARACTER_GABREILLA:
 						case CHARACTER_OPHELIA:
@@ -4887,7 +4894,7 @@ void CBloodClientShell::OnMessage(DBYTE messageID, HMESSAGEREAD hMessage)
 							break;
 					}
 					
-					switch(m_FragInfo.GetPlayerCharacter(nVictim))
+					switch(BloodModCharacter_Retail(m_FragInfo.GetPlayerCharacter(nVictim)))
 					{
 						case CHARACTER_GABREILLA:
 						case CHARACTER_OPHELIA:
@@ -9310,7 +9317,9 @@ CViewWeapon* CBloodClientShell::CreateWeapon(DBYTE byType, DBOOL bLeftHand)
 	ClientDE *pClientDE = GetClientDE();
 	CViewWeapon *w = DNULL;
 
-	switch (byType)
+	// A mod's new weapon is its retail Base's class; Create below reads the
+	// table by the new id itself
+	switch (BloodModWeapon_Retail(byType))
 	{
 		case WEAP_BERETTA:
 			w = new CBeretta;
@@ -9608,7 +9617,8 @@ DBOOL CBloodClientShell::SetCharacterInfo(int nCharacter, int nSkin)
 	m_Config.nCharacter = nCharacter;
 	m_Config.nSkin      = nSkin;
 
-	switch (m_Config.nCharacter)
+	// A mod's new character has its Base's stats
+	switch (BloodModCharacter_Retail(m_Config.nCharacter))
 	{
 		case CHARACTER_CALEB:
 		{

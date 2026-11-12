@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include "GabriellaREV.h"
 #include "cpp_server_de.h"
+#include "BloodModWeapons.h"	// a new weapon tests as its Base
 
 BEGIN_CLASS(GabriellaREV)
 	ADD_STRINGPROP(AIState, "PASSIVE")     \
@@ -163,8 +164,8 @@ DBOOL GabriellaREV::Fire(DBOOL bAltFire)
 	DFLOAT fTargetVel = VEC_MAG(vTargetVel);
 	DFLOAT fVel = VEC_MAG(vVel);
 
-	if(fTargetVel <= 5.0f && fVel <= 5.0f && pW->GetType() != WEAP_ASSAULTRIFLE
-		&& pW->GetType() != WEAP_NAPALMCANNON && pW->GetType() != WEAP_SNIPERRIFLE)
+	if(fTargetVel <= 5.0f && fVel <= 5.0f && BloodModWeapon_Retail(pW->GetType()) != WEAP_ASSAULTRIFLE
+		&& BloodModWeapon_Retail(pW->GetType()) != WEAP_NAPALMCANNON && BloodModWeapon_Retail(pW->GetType()) != WEAP_SNIPERRIFLE)
 	{
 		if(m_InventoryMgr.GetAmmoCount(pW->GetAmmoType(DFALSE)) >= pW->GetAltAmmoUse())
 			bFire = DTRUE;
@@ -209,7 +210,7 @@ void GabriellaREV::MC_BestWeapon()
 		//Are we done?
 		if(m_pServerDE->GetModelPlaybackState(m_hObject) & MS_PLAYDONE)
         {
-			if(pW->GetType() == WEAP_MINIGUN)
+			if(BloodModWeapon_Retail(pW->GetType()) == WEAP_MINIGUN)
 			{
 				m_InventoryMgr.ChangeWeapon(WEAP_NAPALMCANNON);
 				pW = m_InventoryMgr.GetCurrentWeapon();

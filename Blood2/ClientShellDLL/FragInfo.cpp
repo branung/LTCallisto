@@ -6,6 +6,7 @@
 #include "cpp_client_de.h"
 #include "TeamMgr.h"
 #include "BloodClientShell.h"
+#include "BloodModCharacters.h"
 
 #define FRAG_NAME_PIXEL_WIDTH	145
 
@@ -558,7 +559,7 @@ void CFragInfo::UpdateFragTable()
 		char temp[100];
 
 		// Choose which icon to draw for this client
-		currentPic = pClient->byCharacter;
+		currentPic = BloodModCharacter_Retail(pClient->byCharacter);	// a new character's Base's
 
 		if(currentPic < 0 || currentPic > (NUM_FRAG_PICS-2))
 			currentPic = FRAG_PIC_UNKNOWN;
@@ -746,7 +747,7 @@ void CFragInfo::DrawTeamColumn(CTeam* pTeam, int xDraw, int yDraw, int nMax)
 		if (pClient && nCount < nMax)
 		{
 			// Choose which icon to draw for this client
-			DBYTE byPic = pClient->byCharacter;
+			DBYTE byPic = (DBYTE)BloodModCharacter_Retail(pClient->byCharacter);	// as above
 			if (byPic < 0 || byPic > (NUM_FRAG_PICS-2)) byPic = FRAG_PIC_UNKNOWN;
 
 			// Get the width and height of a the character pic

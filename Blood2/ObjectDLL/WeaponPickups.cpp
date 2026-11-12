@@ -14,6 +14,7 @@
 #include "generic_msg_de.h"
 #include "bloodservershell.h"
 #include "ClientServerShared.h"
+#include "BloodModWeapons.h"
 
 // *********************************************************************** //
 //
@@ -24,6 +25,10 @@
 // *********************************************************************** //
 
 
+// A mod's new weapon by name (Mod\Weapons.txt): a world-file pickup with a
+// ModWeapon property of "DemoShotgun" gives that weapon, and is otherwise unchanged.
+// Absent, empty or unknown, the pickup gives the class's own weapon.
+// Read in MID_PRECREATE and not declared, so the class's properties stay retail's.
 BEGIN_CLASS(WeaponPickup)
 END_CLASS_DEFAULT(WeaponPickup, PickupObject, NULL, NULL)
 
@@ -40,6 +45,22 @@ DDWORD WeaponPickup::EngineMessageFn(DDWORD messageID, void *pData, float fData)
 {
 	switch(messageID)
 	{
+		case MID_PRECREATE:
+		{
+			if (fData == PRECREATE_WORLDFILE || fData == PRECREATE_STRINGPROP)
+			{
+				char szWeapon[64];
+				szWeapon[0] = '\0';
+				g_pServerDE->GetPropString("ModWeapon", szWeapon, sizeof(szWeapon));
+				const int nMod = szWeapon[0] ? BloodModWeapon_Find(szWeapon) : 0;
+				if (nMod > (WEAP_MAXWEAPONTYPES))
+					SetModType((DBYTE)nMod);
+				else if (szWeapon[0])
+					g_pServerDE->CPrint("Weapons: a pickup's ModWeapon \"%s\" is no new weapon of this mod; it gives its own", szWeapon);
+			}
+			break;
+		}
+
 		case MID_INITIALUPDATE:
 		{
 			if( g_pBloodServerShell->IsMultiplayerGame( ))
@@ -500,7 +521,8 @@ HOBJECT SpawnWeaponPickup(DDWORD dwWeapType, HOBJECT hOwner, DVector *pvPos, DRo
 	HCLASS hClass = NULL;
 	HOBJECT hObject = NULL;
 
-	switch (dwWeapType)
+	// A mod's new weapon drops as its retail Base's pickup, which then gives the new weapon.
+	switch (BloodModWeapon_Retail(dwWeapType))
 	{
 		case WEAP_BERETTA: hClass = g_pServerDE->GetClass("BerettaPU"); break;
 		case WEAP_SHOTGUN: hClass = g_pServerDE->GetClass("ShotgunPU"); break;
@@ -553,6 +575,8 @@ HOBJECT SpawnWeaponPickup(DDWORD dwWeapType, HOBJECT hOwner, DVector *pvPos, DRo
 		pObject->SpawnItem(&vPos);
 		if( !bIncludeAmmo )
 			pObject->SetValue( 0.0f );
+		if (dwWeapType != (DDWORD)BloodModWeapon_Retail(dwWeapType))
+			pObject->SetModType((DBYTE)dwWeapType);
 	}
 	return hObject;
 }

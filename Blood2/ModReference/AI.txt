@@ -46,6 +46,12 @@
 //     Charges  FLOAT
 //     Fuel  FLOAT
 //     Proximity_Bombs  FLOAT
+//     Skin  STR, a skin file of at most 99 characters, which replaces
+//           the one the class picks
+//
+// A section with any other name is a new enemy type, an archetype, and names
+// its Base: a class below, or another archetype.  It takes the same keys.  An
+// AI of the Base's class with the property Archetype = "<name>" is one.
 //
 // The classes, one section each.
 

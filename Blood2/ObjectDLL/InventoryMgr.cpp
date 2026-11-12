@@ -11,6 +11,9 @@
 // Includes...
 #include <stdio.h>
 #include "InventoryMgr.h"
+#include "BloodModWeapons.h"
+#include <set>
+#include <string>
 #include "GameWeapons.h"
 #include "GameInvItems.h"
 #include "WeaponPickups.h"
@@ -20,6 +23,7 @@
 #include "ClientRes.h"
 
 #include "windows.h"
+#undef GetClassName	// winuser.h's, over ILTServer::GetClassName
 
 extern char msgbuf[255];
 
@@ -407,7 +411,11 @@ CViewWeaponModel* CInventoryMgr::CreateViewModel(HATTACHMENT *phAttachment)
 
 int CInventoryMgr::ObtainWeapon(DDWORD nWeapon, int slot)
 {
-	if(nWeapon >= WEAP_BASEINVENTORY)		// Need to use AddInventoryWeapon for these
+	// A mod's new weapon is made as its retail Base's class and then takes its own id.
+	// A retail id is its own root.
+	const DDWORD nRetail = (DDWORD)BloodModWeapon_Retail((int)nWeapon);
+
+	if(nRetail >= WEAP_BASEINVENTORY)		// Need to use AddInventoryWeapon for these
 		return CHWEAP_NOTAVAIL;
 
 	CWeapon *w;
@@ -467,13 +475,13 @@ int CInventoryMgr::ObtainWeapon(DDWORD nWeapon, int slot)
 	if (emptyslot == -1) return CHWEAP_NOAVAILSLOTS;
 
 #ifdef _DEMO
-	if (!IsDemoWeapon(nWeapon) && IsPlayer(m_hOwner))
+	if (!IsDemoWeapon(nRetail) && IsPlayer(m_hOwner))
 	{
 		return(CHWEAP_NOTAVAIL);
 	}
 #endif
 
-	switch(nWeapon)
+	switch(nRetail)
 	{
 		case WEAP_BERETTA:
 			w = new CBeretta;
@@ -733,6 +741,21 @@ int CInventoryMgr::ObtainWeapon(DDWORD nWeapon, int slot)
 		return iRet;
 	}
 */
+	if (nWeapon != nRetail)
+	{
+		w->SetModType((DBYTE)nWeapon);
+		// Logged once per new weapon and kind of holder.
+		static std::set<std::string> s_Made;
+		HCLASS hClass = m_hOwner ? g_pServerDE->GetObjectClass(m_hOwner) : DNULL;
+		char szClass[64];
+		szClass[0] = '\0';
+		if (hClass) g_pServerDE->GetClassName(hClass, szClass, (uint32)sizeof(szClass));
+		if (s_Made.insert(std::to_string((int)nWeapon) + szClass).second)
+		{
+			g_pServerDE->CPrint("Weapons: a %s obtains %s (%d), made as a %s, in slot %d", szClass[0] ? szClass : "holder",
+								BloodModWeapon_Name((int)nWeapon), (int)nWeapon, BloodModWeapon_Name((int)nRetail), emptyslot);
+		}
+	}
 	w->Init(m_hOwner, this, bLeftHand, m_hMuzzleFlash);
 	if (m_hClient)
 	{
@@ -773,7 +796,8 @@ int CInventoryMgr::ChangeWeapon(DDWORD nWeapon)
 {
 	CWeapon *w;
 
-	if(nWeapon <= WEAP_NONE || nWeapon >= WEAP_MAXWEAPONTYPES)
+	const DDWORD nRetail = (DDWORD)BloodModWeapon_Retail((int)nWeapon);
+	if(nRetail <= WEAP_NONE || nRetail >= WEAP_MAXWEAPONTYPES)
 		return CHWEAP_NOTAVAIL;
 
 	if(nWeapon == m_nCurWeapon)
@@ -1146,7 +1170,7 @@ int CInventoryMgr::DropCurrentWeapon()
 		return CHWEAP_WEAPONBUSY;
 
 	// Can't drop the melee weapon
-	if (m_pCurWeapon->GetType() == WEAP_MELEE)
+	if (BloodModWeapon_Retail(m_pCurWeapon->GetType()) == WEAP_MELEE)
 		return CHWEAP_NOMESSAGE;
 
 

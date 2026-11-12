@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include "OpheliaREV.h"
 #include "cpp_server_de.h"
+#include "BloodModWeapons.h"	// a new weapon tests as its Base
 
 BEGIN_CLASS(OpheliaREV)
 	ADD_STRINGPROP(AIState, "PASSIVE")
@@ -164,8 +165,8 @@ DBOOL OpheliaREV::Fire(DBOOL bAltFire)
 	DFLOAT fTargetVel = VEC_MAG(vTargetVel);
 	DFLOAT fVel = VEC_MAG(vVel);
 
-	if(fTargetVel <= 5.0f && fVel <= 5.0f && pW->GetType() != WEAP_ASSAULTRIFLE
-		&& pW->GetType() != WEAP_NAPALMCANNON && pW->GetType() != WEAP_SNIPERRIFLE)
+	if(fTargetVel <= 5.0f && fVel <= 5.0f && BloodModWeapon_Retail(pW->GetType()) != WEAP_ASSAULTRIFLE
+		&& BloodModWeapon_Retail(pW->GetType()) != WEAP_NAPALMCANNON && BloodModWeapon_Retail(pW->GetType()) != WEAP_SNIPERRIFLE)
 	{
 		if(m_InventoryMgr.GetAmmoCount(pW->GetAmmoType(DFALSE)) >= pW->GetAltAmmoUse())
 			bFire = DTRUE;
@@ -216,7 +217,7 @@ void OpheliaREV::MC_BestWeapon()
 		//Are we done?
 		if(m_pServerDE->GetModelPlaybackState(m_hObject) & MS_PLAYDONE)
         {
-			if(pW->GetType() == WEAP_TESLACANNON)
+			if(BloodModWeapon_Retail(pW->GetType()) == WEAP_TESLACANNON)
 			{
 				m_InventoryMgr.ChangeWeapon(WEAP_SNIPERRIFLE);
 				pW = m_InventoryMgr.GetCurrentWeapon();
@@ -337,7 +338,7 @@ void OpheliaREV::AI_STATE_AttackClose()
 					{
 						if(m_nDodgeFlags & FORWARD || m_nDodgeFlags & BACKWARD || m_fStimuli[HEALTH] < 0.5f 
 							|| m_nCurMetacmd == MC_FIRE_CROUCH || (fHeight > m_vDims.y && !bAbove)
-							|| pW->GetType() == WEAP_SNIPERRIFLE)
+							|| BloodModWeapon_Retail(pW->GetType()) == WEAP_SNIPERRIFLE)
 						{
 							MC_Fire_Crouch();
 						}
@@ -356,7 +357,7 @@ void OpheliaREV::AI_STATE_AttackClose()
 						Metacmd--;
 
 						if(!IsLedge(m_MoveObj.GetForwardVector()) && fHeight <= m_vDims.y
-							&& m_nCurMetacmd != MC_FIRE_CROUCH && pW->GetType() != WEAP_SNIPERRIFLE)
+							&& m_nCurMetacmd != MC_FIRE_CROUCH && BloodModWeapon_Retail(pW->GetType()) != WEAP_SNIPERRIFLE)
 						{
 							if(m_nInjuredLeg)
 								MC_Walk();
@@ -424,7 +425,7 @@ void OpheliaREV::AI_STATE_AttackFar()
 						|| m_nCurMetacmd == MC_FIRE_CROUCH || fHeight > m_vDims.y)
 					{
 						if((fHeight > m_vDims.y && !bAbove) || m_nCurMetacmd == MC_FIRE_CROUCH
-							|| m_fStimuli[HEALTH] < 0.5f || pW->GetType() == WEAP_SNIPERRIFLE)
+							|| m_fStimuli[HEALTH] < 0.5f || BloodModWeapon_Retail(pW->GetType()) == WEAP_SNIPERRIFLE)
 						{
 							MC_Fire_Crouch();
 						}
@@ -443,7 +444,7 @@ void OpheliaREV::AI_STATE_AttackFar()
 						Metacmd--;
 
 						if(!IsLedge(m_MoveObj.GetForwardVector()) && fHeight <= m_vDims.y
-							&& m_nCurMetacmd != MC_FIRE_CROUCH && pW->GetType() != WEAP_SNIPERRIFLE)
+							&& m_nCurMetacmd != MC_FIRE_CROUCH && BloodModWeapon_Retail(pW->GetType()) != WEAP_SNIPERRIFLE)
 						{
 							if(m_nInjuredLeg)
 								MC_Walk();

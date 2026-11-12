@@ -27,6 +27,8 @@ class PickupObject : public B2BaseClass
 		HSTRING			GetObjectName() { return m_hstrObjectName; }
 		HSTRING			GetDisplayName() { return m_hstrDisplayName; }
 		void			SetValue( DFLOAT fValue ) { m_fValue = fValue; }
+		// What the pickup gives: a mod's new weapon, on its Base's pickup class
+		void			SetModType( DBYTE nType ) { m_nType = nType; }
 
 	protected :
 

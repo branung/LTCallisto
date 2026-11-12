@@ -17,6 +17,7 @@
 #include "ClientUtilities.h"
 #include "BloodClientShell.h"
 #include "SoundTypes.h"
+#include "BloodModCharacters.h"
 
 
 // Externs...
@@ -485,6 +486,9 @@ void CVoiceMgr::Clear()
 
 DBOOL CVoiceMgr::PlayEventSound(int iCharacter, int iEvent)
 {
+	// A mod's new character speaks with its Base's voice
+	iCharacter = BloodModCharacter_Retail(iCharacter);
+
 	// Make sure it's ok to play...
 
 	if (!IsOkToPlaySound())
@@ -534,6 +538,8 @@ DBOOL CVoiceMgr::PlayEventSound(int iCharacter, int iEvent)
 
 DBOOL CVoiceMgr::PlayUniqueSound(int iCharacter, int iUnique)
 {
+	iCharacter = BloodModCharacter_Retail(iCharacter);	// as above
+
 	// Sanity check, unique sounds are only for caleb...
 
 	if (iCharacter != VMC_CALEB) return(DFALSE);

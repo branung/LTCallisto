@@ -39,6 +39,8 @@
 #include "TeamMgr.h"
 #include "FlagObjects.h"
 #include "SoundTypes.h"
+#include "BloodModWeapons.h"	// a new weapon tests as its Base
+#include "BloodModCharacters.h"	// a new character tests as its Base
 
 #define ALPHA_NORMAL		1.0f
 #define ALPHA_CLOAKED		0.99f
@@ -2117,7 +2119,7 @@ void CPlayerObj::ValidateAttributes()
 {
 	CServerDE* pServerDE = GetServerDE();
 
-	m_nCharacter		= DCLAMP(m_nCharacter, 0, MAX_CHARACTER);
+	m_nCharacter		= DCLAMP(m_nCharacter, 0, BloodModCharacter_Count() - 1);	// a mod's new ones too
 	m_nSkin				= DCLAMP(m_nSkin, MULTIPLAY_SKIN_MIN, MULTIPLAY_SKIN_MAX);
 	m_nAttribStrength	= DCLAMP(m_nAttribStrength, 1, 5);
 	m_nAttribSpeed		= DCLAMP(m_nAttribSpeed, 1, 5);
@@ -2182,11 +2184,19 @@ void CPlayerObj::ValidateAttributes()
 //
 // --------------------------------------------------------------------------- //
 
+// A mod's new character is its Base's sex.
+// Retail's test was inline in PlayerObj.h.
+DBOOL CPlayerObj::IsFemale()
+{
+	const int nRetail = BloodModCharacter_Retail(m_nCharacter);
+	return (nRetail == CHARACTER_OPHELIA || nRetail == CHARACTER_GABREILLA);
+}
+
 void CPlayerObj::SetCharacter(DBYTE nCharacter)
 {
 	CServerDE* pServerDE = GetServerDE();
 
-	if (nCharacter > MAX_CHARACTER) return;
+	if (nCharacter >= BloodModCharacter_Count()) return;
 	
 	m_nCharacter = nCharacter;
 
@@ -2202,6 +2212,16 @@ void CPlayerObj::SetCharacter(DBYTE nCharacter)
 
 	sprintf(msgbuf, "sounds\\chosen\\%s", gCharacterValues[m_nCharacter].szName);
 	m_Anim_Sound.SetSoundRoot(msgbuf);
+
+	// A mod's new character says which it is
+	if (BloodModCharacter_Base(m_nCharacter) >= 0)
+	{
+		const char* pPlayer = m_hstrPlayerName ? pServerDE->GetStringData(m_hstrPlayerName) : DNULL;
+		pServerDE->CPrint("Mod\\Characters.txt: %s is %s, new character %d on %s, model %s, skin %s",
+						  pPlayer ? pPlayer : "a player", BloodModCharacter_Name(m_nCharacter), (int)m_nCharacter,
+						  BloodModCharacter_Name(BloodModCharacter_Retail(m_nCharacter)),
+						  gCharacterValues[m_nCharacter].szModelName, gCharacterSkins[m_nCharacter][m_nSkin]);
+	}
 }
 
 
@@ -3086,7 +3106,8 @@ void CPlayerObj::SendVoiceMessage(TheVoice eVoiceType, D_WORD wIndex, DBYTE nAtt
 
 	DBYTE byFlags = 0;
 
-	switch (nAttackerCharacter)
+	// A mod's new character is its Base's sex
+	switch (BloodModCharacter_Retail(nAttackerCharacter))
 	{
 		case CHARACTER_GABREILLA:
 		case CHARACTER_OPHELIA:
@@ -3097,7 +3118,7 @@ void CPlayerObj::SendVoiceMessage(TheVoice eVoiceType, D_WORD wIndex, DBYTE nAtt
 			break;
 	}
 	
-	switch (nVictimCharacter)
+	switch (BloodModCharacter_Retail(nVictimCharacter))
 	{
 		case CHARACTER_GABREILLA:
 		case CHARACTER_OPHELIA:
@@ -6045,7 +6066,7 @@ void CPlayerObj::PlayWeaponVoiceSoundOnClient(int nWeaponType)
 
 	int iUnique = -1;
 
-	switch (nWeaponType)
+	switch (BloodModWeapon_Retail(nWeaponType))
 	{
 		case WEAP_HOWITZER:		iUnique = VMU_HOWITZER; break;
 		case WEAP_TESLACANNON:	iUnique = VMU_TESLACANNON; break;
@@ -7449,7 +7470,7 @@ void CPlayerObj::TweakSaveValuesForCharacterChange(int nNewCharacter)
 	int nRes = 1;
 	int nMag = 1;
 
-	switch (m_nCharacter)
+	switch (BloodModCharacter_Retail(m_nCharacter))
 	{
 		case CHARACTER_CALEB:
 		{

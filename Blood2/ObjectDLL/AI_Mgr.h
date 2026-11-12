@@ -28,6 +28,7 @@
 //#include <windows.h> 
 
 #define ADD_BASEAI_AGGREGATE() \
+	ADD_STRINGPROP(Archetype, "") \
 	ADD_STRINGPROP(SpotTriggerTarget, "") \
 	ADD_STRINGPROP(SpotTriggerMessage, "") \
 	ADD_STRINGPROP(TriggerRelayTarget, "") \
@@ -222,6 +223,10 @@ protected:
 
     char	m_szAIState[32];
     char	m_szAIWeapon[5][32];
+	// A mod's new enemy type, by its Archetype property, and the skin the
+	// mod gives this AI, applied at MID_INITIALUPDATE
+	int		m_nModArchetype;
+	char	m_szModSkin[BLOODMOD_AI_MAX_SKIN + 1];
 	DFLOAT	m_fAIBullets;
 	DFLOAT	m_fAIBMG;
 	DFLOAT	m_fAIShells;

@@ -17,6 +17,8 @@
 #include "ClientUtilities.h"
 #include "BloodClientShell.h"
 #include "SoundTypes.h"
+#include "BloodModWeapons.h"	// a new weapon tests as its Base
+#include "BloodModCharacters.h"
 
 
 DBYTE g_byRandomWeaponSeed;
@@ -1298,14 +1300,16 @@ void CViewWeapon::SetupViewModel()
 
 		// Get the character to use for the skin
 
+		// A mod's new character has its Base's hands
+		const int nRetailChar = BloodModCharacter_Retail(pShell->GetCharacter());
 #ifdef _ADDON
 		DBOOL bEnemyChar = DFALSE;
-		if (pShell->GetCharacter() >= CHARACTER_M_CULTIST)
+		if (nRetailChar >= CHARACTER_M_CULTIST)
 		{
 			bEnemyChar = DTRUE;
 		}
 #endif
-		switch(pShell->GetCharacter())
+		switch(nRetailChar)
 		{
 			case	CHARACTER_CALEB:		firstChar = 'C'; break;
 			case	CHARACTER_OPHELIA:		firstChar = 'O'; break;
@@ -1335,7 +1339,7 @@ void CViewWeapon::SetupViewModel()
 		if (change) change[0] = firstChar;
 
 		// Change the knife model to the correct character
-		if(m_nType == WEAP_MELEE)
+		if(BloodModWeapon_Retail(m_nType) == WEAP_MELEE)
 		{
 			change = strstr(createStruct.m_Filename, start);
 			if (change) change[0] = firstChar;
@@ -1344,7 +1348,7 @@ void CViewWeapon::SetupViewModel()
 		// Change to the generic orb skin if necessary
 
 #ifdef _ADDON
-		if (m_nType == WEAP_ORB && bEnemyChar)
+		if (BloodModWeapon_Retail(m_nType) == WEAP_ORB && bEnemyChar)
 		{
 			strcpy(createStruct.m_SkinName, "skins_ao\\weapons_ao\\generic_orb_pv_t.dtx");
 		}

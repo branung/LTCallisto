@@ -105,7 +105,7 @@ class CPlayerObj : public CBaseCharacter
 		DFLOAT		GetEyeLevel() { return m_fEyeLevel; }
 		int			GetFrags() { return m_Frags; }
 		void		SetFrags(int nFrags);
-		DBOOL		IsFemale() { return (m_nCharacter == CHARACTER_OPHELIA || m_nCharacter == CHARACTER_GABREILLA); }
+		DBOOL		IsFemale();		// by the Base, for a mod's new character (PlayerObj.cpp)
 		void		AddFrag(HSTRING hstrPlayerName, CPlayerObj* pVictim);
 		int			GetMeleeKills() { return m_MeleeKills; }
 		void		AddMeleeKill() { m_MeleeKills++; }

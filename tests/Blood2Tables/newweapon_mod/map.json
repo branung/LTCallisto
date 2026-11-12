@@ -1,0 +1,13 @@
+[
+  {"op": "set", "match": {"class": "CultistAI"}, "prop": "AIWeapon1",
+   "type": "string", "value": "DemoShotgun"},
+  {"op": "add_object", "class": "ShotgunPU", "props": [
+    {"prop": "Name", "type": "string", "value": "ModDemoShotgun"},
+    {"prop": "Pos", "type": "vector", "value": [-32, 192, -3128]},
+    {"prop": "Rotation", "type": "rotation", "value": [0, 0, 0, 1]},
+    {"prop": "ModWeapon", "type": "string", "value": "DemoShotgun"}]},
+  {"op": "add_object", "class": "ShellAmmoPU", "props": [
+    {"prop": "Name", "type": "string", "value": "ModDemoShells"},
+    {"prop": "Pos", "type": "vector", "value": [-32, 192, -3128]},
+    {"prop": "Rotation", "type": "rotation", "value": [0, 0, 0, 1]}]}
+]

@@ -36,6 +36,8 @@ class CWeapon
 		DBOOL		IsDualHanded()			{ return m_bDualHanded; } 
 
 		DBYTE		GetType()				{ return m_nType; }
+		// A mod's new weapon on this class: the new id and its table entry, before Init
+		void		SetModType(DBYTE nType);
 		DBYTE		GetFireType()			{ return m_nFireType; }
 		DFLOAT		GetReloadTime()			{ return m_fReloadTime; }
 		DDWORD		GetStrengthReq()		{ return m_dwStrengthReq; }
@@ -79,6 +81,7 @@ class CWeapon
 		void		SetupMuzzleFlash();
 
 	protected:
+		void		ReadWeaponData();	// m_nType's table entry into the fields (Weapon.cpp)
 
 		virtual	DBOOL		FireVector(DVector *vFire, DFLOAT dist, DBOOL bTracer = DFALSE);
 		virtual	CProjectile	*FireProjectile(DVector *vFire, DFLOAT dist, DBOOL bAltFire);

@@ -31,6 +31,10 @@
 #include "WeaponDefs.h"
 #include "Door.h"
 #include "BloodServerShell.h"
+#include "BloodModWeapons.h"	// a new weapon tests as its Base
+#include <set>
+#include <string>
+#include "BloodModCharacters.h"
 
 void BPrint(char*);
 
@@ -57,6 +61,70 @@ CWeapon::CWeapon(DBYTE dbWeapType)
 
 	m_pViewModel			= DNULL;
 
+	ReadWeaponData();
+	m_bLoopStatic			= DFALSE;
+
+	m_fLastShotTime			= 0;
+	m_fFireTime				= 0;
+	m_bLastFireAlt			= DFALSE;
+
+
+	m_fIdleStartTime		= 0.0f;
+	m_fIdleDelay			= 0.0f;
+	m_fMinIdleDelay			= 20.0f;
+	m_fMaxIdleDelay			= 60.0f;
+
+	// Create a muzzle flash
+	m_hFlash				= DNULL;
+	m_pViewModel			= DNULL;
+	m_pHandModel			= DNULL;
+	m_hHandAttachment		= DNULL;
+
+	m_bFlashShowing			= DFALSE;
+
+	m_nRestAnim				= INVALID_ANI;
+	m_nIdleAnim				= INVALID_ANI;
+	m_nDrawAnim				= INVALID_ANI;
+	m_nDrawDuelAnim			= INVALID_ANI;
+	m_nHolsterAnim			= INVALID_ANI;
+	m_nHolsterDuelAnim		= INVALID_ANI;
+	m_nStartFireAnim		= INVALID_ANI;
+	m_nFireAnim				= INVALID_ANI;
+	m_nStopFireAnim			= INVALID_ANI;
+	m_nStartAltFireAnim		= INVALID_ANI;
+	m_nAltFireAnim			= INVALID_ANI;
+	m_nStopAltFireAnim		= INVALID_ANI;
+
+	m_nDamageType			= DAMAGE_TYPE_NORMAL;
+
+	for (int i=0; i < MAX_FIRE_SOUNDS; i++)
+	{
+		m_hCurFireSounds[i] = DNULL;
+		m_fCurFireSoundsEndTime[i] = 0.0f;
+	}
+
+	m_nUpdateWait = 10;
+
+	m_nFlags				= DNULL;
+
+	m_szPic					= DNULL;
+	m_szPicH				= DNULL;
+
+	m_bAccuracyCheck		= DTRUE;
+	m_bMultiDamageBoost		= DFALSE;
+}
+
+// ----------------------------------------------------------------------- //
+//
+//	ROUTINE:	CWeapon::ReadWeaponData()
+//
+//	PURPOSE:	copies this weapon's fields from its table entry, m_nType's
+//				(moved out of the constructor unchanged, for SetModType)
+//
+// ----------------------------------------------------------------------- //
+
+void CWeapon::ReadWeaponData()
+{
 	WeaponData *wd			= &g_WeaponDefaults[m_nType-1];
 
 	m_nFireType				= wd->m_nFireType;
@@ -113,11 +181,6 @@ CWeapon::CWeapon(DBYTE dbWeapType)
 	m_bCumulativeKick		= wd->m_bCumulativeKick;		// Kick is Cumulative
 	m_bLoopAnim				= wd->m_bLoopAnim;
 	m_bAltLoopAnim			= wd->m_bAltLoopAnim;
-	m_bLoopStatic			= DFALSE;
-
-	m_fLastShotTime			= 0;
-	m_fFireTime				= 0;
-	m_bLastFireAlt			= DFALSE;
 
 	if (m_nAmmoType == AMMO_BULLET || m_nAmmoType == AMMO_SHELL)
 	{
@@ -127,50 +190,23 @@ CWeapon::CWeapon(DBYTE dbWeapType)
 	{
 		m_bEjectShell = DFALSE;
 	}
+}
 
-	m_fIdleStartTime		= 0.0f;
-	m_fIdleDelay			= 0.0f;
-	m_fMinIdleDelay			= 20.0f;
-	m_fMaxIdleDelay			= 60.0f;
+// ----------------------------------------------------------------------- //
+//
+//	ROUTINE:	CWeapon::SetModType()
+//
+//	PURPOSE:	makes this weapon a mod's new one: the
+//				object is its retail Base's class, built under the Base's id,
+//				and takes the new id and that id's table entry before Init.
+//				No class's constructor sets a field ReadWeaponData copies.
+//
+// ----------------------------------------------------------------------- //
 
-	// Create a muzzle flash
-	m_hFlash				= DNULL;
-	m_pViewModel			= DNULL;
-	m_pHandModel			= DNULL;
-	m_hHandAttachment		= DNULL;
-
-	m_bFlashShowing			= DFALSE;
-
-	m_nRestAnim				= INVALID_ANI;
-	m_nIdleAnim				= INVALID_ANI;
-	m_nDrawAnim				= INVALID_ANI;
-	m_nDrawDuelAnim			= INVALID_ANI;
-	m_nHolsterAnim			= INVALID_ANI;
-	m_nHolsterDuelAnim		= INVALID_ANI;
-	m_nStartFireAnim		= INVALID_ANI;
-	m_nFireAnim				= INVALID_ANI;
-	m_nStopFireAnim			= INVALID_ANI;
-	m_nStartAltFireAnim		= INVALID_ANI;
-	m_nAltFireAnim			= INVALID_ANI;
-	m_nStopAltFireAnim		= INVALID_ANI;
-
-	m_nDamageType			= DAMAGE_TYPE_NORMAL;
-
-	for (int i=0; i < MAX_FIRE_SOUNDS; i++)
-	{
-		m_hCurFireSounds[i] = DNULL;
-		m_fCurFireSoundsEndTime[i] = 0.0f;
-	}
-
-	m_nUpdateWait = 10;
-
-	m_nFlags				= DNULL;
-
-	m_szPic					= DNULL;
-	m_szPicH				= DNULL;
-
-	m_bAccuracyCheck		= DTRUE;
-	m_bMultiDamageBoost		= DFALSE;
+void CWeapon::SetModType(DBYTE nType)
+{
+	m_nType = nType;
+	ReadWeaponData();
 }
 
 
@@ -601,7 +637,7 @@ void CWeapon::UpdateWeaponFX(DDWORD &nFX, DDWORD &nExtras, WeaponFXExtras *ext, 
 			nFX |= WFX_BLOODSPURT;
 	}
 
-	if(m_nType == WEAP_MELEE)
+	if(BloodModWeapon_Retail(m_nType) == WEAP_MELEE)
 		nFX |= WFX_SOUND | WFX_SPARKS;
 
 	// Check the FX against the ammo type
@@ -609,13 +645,13 @@ void CWeapon::UpdateWeaponFX(DDWORD &nFX, DDWORD &nExtras, WeaponFXExtras *ext, 
 	{
 		nFX |= WFX_MARK | WFX_SOUND;
 
-		if(m_nType != WEAP_MINIGUN)
+		if(BloodModWeapon_Retail(m_nType) != WEAP_MINIGUN)
 			nFX |= WFX_MUZZLESMOKE;
 
 		if(eType == SURFTYPE_WOOD || eType == SURFTYPE_STONE)
 		{
 			nFX |= WFX_SMOKE | WFX_FLASH;
-			if(m_nType != WEAP_MINIGUN)
+			if(BloodModWeapon_Retail(m_nType) != WEAP_MINIGUN)
 				nFX |= WFX_FRAGMENTS;
 		}
 
@@ -729,7 +765,7 @@ DBOOL CWeapon::FireVector(DVector *vFire, DFLOAT dist, DBOOL bTracer)
 					AddImpact(&(iq.m_From), &(ii.m_Point), vFire, &(ii.m_Plane.m_Normal), nFX, nExtras, &ext);
 					SendSoundTrigger(m_hOwner, SOUND_GUNIMPACT, ii.m_Point, 200.0f);
 
-					if(eType != SURFTYPE_GLASS || m_nType == WEAP_MELEE) // Continue the vector for glass
+					if(eType != SURFTYPE_GLASS || BloodModWeapon_Retail(m_nType) == WEAP_MELEE) // Continue the vector for glass
 						return DTRUE;
 				}
 				// See if we should place a mark on a world object that was hit
@@ -929,6 +965,21 @@ DDWORD CWeapon::Fire()
 	}
 	else
 		dwShotsPerFire = 0;
+
+	// A mod's new weapon logs what it fires with, from its own table entry.
+	// Logged once per id and kind of holder, so a player's first shot is not hidden behind an AI's.
+	if (m_nType > (WEAP_MAXWEAPONTYPES) && m_nType < BLOOD2_WEAPON_IDS + 1 && dwShotsPerFire > 0)
+	{
+		static std::set<std::string> s_Fired;
+		HCLASS hClass = m_hOwner ? pServerDE->GetObjectClass(m_hOwner) : DNULL;
+		char szClass[64];
+		szClass[0] = '\0';
+		if (hClass) pServerDE->GetClassName(hClass, szClass, (uint32)sizeof(szClass));
+		if (s_Fired.insert(std::to_string((int)m_nType) + szClass).second)
+			pServerDE->CPrint("Weapons: a %s first fires %s (%d): %u shot%s, damage %.1f, range %.1f",
+							  szClass[0] ? szClass : "holder", BloodModWeapon_Name(m_nType), (int)m_nType,
+							  (unsigned)dwShotsPerFire, dwShotsPerFire == 1 ? "" : "s", m_fDamage, range);
+	}
 
 	//***** If no shots are available, play empty sound and exit the function *****//
 	if(dwShotsPerFire <= 0)
@@ -1545,7 +1596,9 @@ void CWeapon::SetupViewModel()
    		CPlayerObj	*pObj = (CPlayerObj*)pServerDE->HandleToObject(m_hOwner);
 		if(pObj)
 		{
-			switch(pObj->GetCharacter())
+			// A mod's new character has its Base's hands
+			const int nRetailChar = BloodModCharacter_Retail(pObj->GetCharacter());
+			switch(nRetailChar)
 			{
 				case	CHARACTER_CALEB:		firstChar = 'C'; break;
 				case	CHARACTER_OPHELIA:		firstChar = 'O'; break;
@@ -1562,7 +1615,7 @@ void CWeapon::SetupViewModel()
 			}
 
 #ifdef _ADDON
-			if (pObj->GetCharacter() >= CHARACTER_M_CULTIST)
+			if (nRetailChar >= CHARACTER_M_CULTIST)
 			{
 				bEnemyChar = DTRUE;
 			}
@@ -1578,7 +1631,7 @@ void CWeapon::SetupViewModel()
 		change[0] = firstChar;
 
 		// Change the knife model to the correct character
-		if(m_nType == WEAP_MELEE)
+		if(BloodModWeapon_Retail(m_nType) == WEAP_MELEE)
 		{
 			change = strstr(model, start);
 			change[0] = firstChar;
@@ -1587,7 +1640,7 @@ void CWeapon::SetupViewModel()
 		// Check for generic orb
 
 #ifdef _ADDON
-		if (m_nType == WEAP_ORB && bEnemyChar)
+		if (BloodModWeapon_Retail(m_nType) == WEAP_ORB && bEnemyChar)
 		{
 
 		}

@@ -1,0 +1,14 @@
+// The BloodBath announcer's start lines, renamed, so that
+// a mod's Strings.txt is seen on the comm link.  The server sends one of the
+// eight to each player as it joins (PlayerObj.cpp, CMSG_MULTIPLAYER_INIT,
+// VOICE_START_BB), picked at random; retail's first is "Let The Bloodbath
+// Begin!".  Mount it on the server and on every client: it is a mod, so the
+// connect check refuses a side without it.
+IDS_THEVOICE_1 = "MOD ANNOUNCER LINE 1"
+IDS_THEVOICE_2 = "MOD ANNOUNCER LINE 2"
+IDS_THEVOICE_3 = "MOD ANNOUNCER LINE 3"
+IDS_THEVOICE_4 = "MOD ANNOUNCER LINE 4"
+IDS_THEVOICE_5 = "MOD ANNOUNCER LINE 5"
+IDS_THEVOICE_6 = "MOD ANNOUNCER LINE 6"
+IDS_THEVOICE_7 = "MOD ANNOUNCER LINE 7"
+IDS_THEVOICE_8 = "MOD ANNOUNCER LINE 8"

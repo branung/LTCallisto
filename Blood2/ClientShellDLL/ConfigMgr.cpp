@@ -20,6 +20,7 @@
 #include "Io.h"
 #include "..\Shared\ClientRes.h"
 #include <mbstring.h>
+#include "BloodModCharacters.h"
 
 // Statics...
 
@@ -158,7 +159,12 @@ char* CConfig::GetCharacter()
 		case CHARACTER_PROPHET:		_mbscpy((unsigned char*)s_sText, (const unsigned char*)"Prophet"); break;
 #endif
 
-		default: _mbscpy((unsigned char*)s_sText, (const unsigned char*)"Caleb");
+		default:
+			// A mod's new character by its section name
+			if (BloodModCharacter_Base((int)m_B2c.dwCharacter) >= 0)
+				_mbscpy((unsigned char*)s_sText, (const unsigned char*)BloodModCharacter_Name((int)m_B2c.dwCharacter));
+			else
+				_mbscpy((unsigned char*)s_sText, (const unsigned char*)"Caleb");
 	}
 
 	return(s_sText);
