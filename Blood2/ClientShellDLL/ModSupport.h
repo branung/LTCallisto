@@ -7,8 +7,8 @@
 #include "client_de.h"
 
 // Loads the mod mounted with the game, if any, and makes it the client's active one; prints a
-// line to the console when one is present. Called from OnEngineInitialized, after the resource
-// trees are mounted.
+// line to the console when one is present. Then loads its Mod\Weapons.txt into g_WeaponDefaults.
+// Called from OnEngineInitialized, after the resource trees are mounted.
 void B2Mod_Init(CClientDE* pClientDE);
 
 // Handles MSG_MOD_SIGNATURE from the server: answers with this client's signature and returns

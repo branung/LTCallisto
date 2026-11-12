@@ -15,8 +15,8 @@
 
 
 
-// initial values for standard weapons
-WeaponData g_WeaponDefaults[WEAP_MAXWEAPONTYPES] = 
+// initial values for standard weapons, then room for a mod's (WeaponDefs.h)
+WeaponData g_WeaponDefaults[BLOOD2_WEAPON_IDS] = 
 {
 	// Beretta (Pistol)
 	{

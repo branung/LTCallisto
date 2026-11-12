@@ -36,7 +36,7 @@ option(ENABLE_OPENAL "Use OpenAL as audio backend" ON)
 option(ENABLE_DIRECTMUSIC OFF)
 endif(WIN32)
 option(FINAL_BUILD "Strip the developer console, counters and diagnostics" OFF)
-option(BUILD_TESTS "Build the offline checks (testDtxLT1, testModelABC, testWorldV56, testButeMerge, testCommands, testLT1Mod)" OFF)
+option(BUILD_TESTS "Build the offline checks (testDtxLT1, testModelABC, testWorldV56, testButeMerge, testCommands, testLT1Mod, testBlood2Tables)" OFF)
 option(USE_INTERNAL_ZLIB "Use bundled zlib" ON)			# eventually want default to be OFF
 option(USE_INTERNAL_FREETYPE "Use bundled freetype" ON)	# eventually want default to be OFF
 
@@ -324,6 +324,9 @@ if(BUILD_TESTS)
     if(TARGET LIB_LT1Mod)
         add_subdirectory(tests/Commands)        # testCommands: LT1Mod's port of NOLF1's CommandMgr
         add_subdirectory(tests/LT1Mod)          # testLT1Mod: the mod layer's self-test
+        if(BUILD_BLOOD2)
+            add_subdirectory(tests/Blood2Tables)    # testBlood2Tables: Blood II's mod tables
+        endif()
     endif()
 endif(BUILD_TESTS)
 

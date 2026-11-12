@@ -1,0 +1,22 @@
+// Blood II's weapon table. Each change is one a player can see in a minute, and
+// Blood2/ModReference/Weapons.txt has every retail value.
+//
+// The Beretta does double damage (retail 8 to 12, alt 10 to 20).
+[BERETTA]
+MinDamage    = 16.0
+MaxDamage    = 24.0
+MinAltDamage = 20.0
+MaxAltDamage = 40.0
+
+// The sawed-off fires half again its pellets (retail 16) in a tighter
+// cone (retail 200 x 100).
+[SHOTGUN]
+ShotsPerFire = 24
+SpreadH      = 150.0
+SpreadV      = 75.0
+
+// The Vulcan cannon's strength requirement is the Beretta's (retail 5).  Only
+// the character menu shows it: retail's strength check is commented out
+// (ObjectDLL/InventoryMgr.cpp, "Disabled strength check [gjk 10/23/98]").
+[MINIGUN]
+StrengthReq = 1

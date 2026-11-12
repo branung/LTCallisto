@@ -13,6 +13,7 @@
 #include "lt1mod_engine.h"
 #include "lt1mod_command.h"
 #include "lt1mod_startcmds.h"
+#include "BloodModWeapons.h"
 
 #include <stdlib.h>
 #include <string>
@@ -60,6 +61,18 @@ void PrintLines(const std::string& sPrefix, const std::string& sText)
 }
 
 } // namespace
+
+static void PrintServerLine(const char* pLine)
+{
+	if (g_pServerDE) g_pServerDE->CPrint("%s", pLine);
+}
+
+void ModWeapons_LoadFile()
+{
+	if (!g_pServerDE) return;
+	LT1Mod::EngineSource src(g_pServerDE, g_pServerDE->GetFileList, g_pServerDE->FreeFileList);
+	BloodModWeapons_LoadAndReport(src, PrintServerLine, "Server: ");
+}
 
 void ModCommands_LoadFile()
 {

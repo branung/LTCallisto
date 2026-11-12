@@ -105,6 +105,8 @@ add_library(${PROJECT_NAME} SHARED
 	# Shared with ObjectDLL
 	../Shared/TeamMgr.cpp
 	../Shared/WeaponDefs.cpp
+	../Shared/BloodModTable.cpp
+	../Shared/BloodModWeapons.cpp
 	../Misc/BareList.cpp
 	# The menu system, in place of the 1998 x86 LTGUIMgr.lib
 	../Misc/CoolFont.cpp

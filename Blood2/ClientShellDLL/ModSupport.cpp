@@ -3,6 +3,13 @@
 #include "ModSupport.h"
 #include "SharedDefs.h"
 #include "lt1mod_engine.h"
+#include "BloodModWeapons.h"
+
+static CClientDE* s_pPrintClient = 0;
+static void PrintClientLine(const char* pLine)
+{
+	if (s_pPrintClient) s_pPrintClient->CPrint("%s", pLine);
+}
 
 void B2Mod_Init(CClientDE* pClientDE)
 {
@@ -13,6 +20,12 @@ void B2Mod_Init(CClientDE* pClientDE)
 	LT1Mod::LoadActive(pClientDE, pClientDE->GetFileList, pClientDE->FreeFileList, "Blood2");
 	if (LT1Mod::Active().present)
 		pClientDE->CPrint("%s", LT1Mod::Describe(LT1Mod::Active()).c_str());
+
+	// The mod's weapon values, into this module's g_WeaponDefaults; the server shell loads the
+	// same file into its own
+	LT1Mod::EngineSource src(pClientDE, pClientDE->GetFileList, pClientDE->FreeFileList);
+	s_pPrintClient = pClientDE;
+	BloodModWeapons_LoadAndReport(src, PrintClientLine, "");
 }
 
 DBOOL B2Mod_OnServerSignature(CClientDE* pClientDE, HMESSAGEREAD hMessage)

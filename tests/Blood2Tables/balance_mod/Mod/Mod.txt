@@ -1,0 +1,5 @@
+[Mod]
+Id      = "Blood2Balance"
+Game    = "Blood2"
+Name    = "Weapon table test"
+Version = "1"

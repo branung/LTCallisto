@@ -136,7 +136,13 @@ inline WeaponFXExtras::WeaponFXExtras()
 
 
 
-// initial values for standard weapons
-extern WeaponData g_WeaponDefaults[WEAP_MAXWEAPONTYPES];
+// The table's room: ids 1 to 127, retail's (1 to WEAP_MAXWEAPONTYPES) and a mod's new weapons
+// after them. 127 because a weapon id travels as a byte whose top bit, DUAL_HAND_MASK, means
+// "two of them".
+#define BLOOD2_WEAPON_IDS		127
+
+// initial values for standard weapons; the entries past retail's are zero until a mod's
+// Weapons.txt adds one
+extern WeaponData g_WeaponDefaults[BLOOD2_WEAPON_IDS];
 
 #endif __WEAPONDEFS_H__

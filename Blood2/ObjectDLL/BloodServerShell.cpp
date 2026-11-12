@@ -144,6 +144,7 @@ LTRESULT CBloodServerShell::OnServerInitialized()
 	LT1Mod::LoadActive(g_pServerDE, g_pServerDE->GetFileList, g_pServerDE->FreeFileList, "Blood2");
 	if (LT1Mod::Active().present)
 		g_pServerDE->CPrint("Server: %s", LT1Mod::Describe(LT1Mod::Active()).c_str());
+	ModWeapons_LoadFile();
 	ModCommands_LoadFile();
 
 	// Blood 2's own engine vars, both shells' in one table (Shared/Blood2LT1Vars.h)

@@ -149,6 +149,8 @@ add_library(${PROJECT_NAME} SHARED
 	# Shared with ClientShellDLL
 	../Shared/TeamMgr.cpp
 	../Shared/WeaponDefs.cpp
+	../Shared/BloodModTable.cpp
+	../Shared/BloodModWeapons.cpp
 	../Misc/BareList.cpp
 	../../sdk/inc/ltmodule.cpp
 	../../sdk/inc/iltbaseclass.cpp

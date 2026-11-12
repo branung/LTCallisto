@@ -15,6 +15,9 @@
 #include "cpp_server_de.h"
 #include "B2BaseClass.h"
 
+// Reads Mod\Weapons.txt into g_WeaponDefaults after the mod is mounted; prints what changed, or
+// why nothing did. The client shell does the same into its own copy.
+void ModWeapons_LoadFile();
 // Reads Mod\Commands.txt through the engine, after the mod is mounted; prints what it read, or
 // why not
 void ModCommands_LoadFile();
