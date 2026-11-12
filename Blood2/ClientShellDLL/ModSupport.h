@@ -16,6 +16,9 @@ void B2Mod_Init(CClientDE* pClientDE);
 // the message dispatch.
 DBOOL B2Mod_OnServerSignature(CClientDE* pClientDE, HMESSAGEREAD hMessage);
 
+// Hands MSG_MOD_SCRIPT, the server script's message, to the client's script
+void B2Mod_OnScriptMessage(HMESSAGEREAD hMessage);
+
 // The text the shell puts in its message box on a mismatch
 const char* B2Mod_MismatchText();
 

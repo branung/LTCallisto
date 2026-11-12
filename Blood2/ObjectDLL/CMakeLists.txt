@@ -24,6 +24,7 @@ add_library(${PROJECT_NAME} SHARED
 	ModCommands.cpp
 	BloodModAI.cpp
 	ModClassDefs.cpp
+	ModScript.cpp
 	../Shared/BloodModCharacters.cpp
 	../Shared/CharacterValues.cpp
 	boneleech.cpp

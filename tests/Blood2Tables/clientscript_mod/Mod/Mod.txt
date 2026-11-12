@@ -1,0 +1,5 @@
+[Mod]
+Id      = "Blood2ClientScript"
+Game    = "Blood2"
+Name    = "Client script test"
+Version = "1"

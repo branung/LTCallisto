@@ -9,6 +9,7 @@
 # MAP=classname_map.json builds the class-name version instead: herm placed as class RedCultist
 # and a Spawner whose string is the bare class name RedLeader, with no Archetype property
 # anywhere, so they are archetypes only as class names.
+# MOD_EXTRA=<dir> copies a sibling mod's Mod\ files in too (script_mod).
 #
 # Needs two things this tree does not carry:
 #   B2_REZ        retail BLOOD2.REZ
@@ -28,6 +29,7 @@ done
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/tree/WORLDS"
 cp -r "$HERE/Mod" "$TMP/tree/"
+[ -n "${MOD_EXTRA:-}" ] && cp "$HERE/../$MOD_EXTRA/Mod/"* "$TMP/tree/Mod/"
 PY=${PYTHON:-python3}
 "$PY" -c "" 2>/dev/null || PY=python		# Windows' python3 can be the store stub
 "$PY" "$PATCH_LEVELS" "$HERE/${MAP:-map.json}" "$B2_REZ:WORLDS/01_SUBWAYA.DAT" "$TMP/tree/WORLDS/01_SubwayA.dat"

@@ -1,0 +1,4 @@
+// Scripting step 1: the command layer's SCRIPT verb reaches the
+// script's OnCommand, at every world's start.
+[Global]
+Start = "SCRIPT hello demo level"

@@ -1,0 +1,5 @@
+[Mod]
+Id      = "Blood2Stopwatch"
+Game    = "Blood2"
+Name    = "Stopwatch (an example of a mod's two scripts)"
+Version = "1"

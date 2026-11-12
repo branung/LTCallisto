@@ -12,6 +12,7 @@
 #include "lt1mod.h"
 #include "lt1mod_engine.h"
 #include "lt1mod_command.h"
+#include "lt1mod_script.h"		// SCRIPT, the script's OnCommand
 #include "lt1mod_startcmds.h"
 #include "BloodModWeapons.h"
 #include "BloodModCharacters.h"
@@ -45,6 +46,10 @@ public:
 	// Blood II has no float GetRandom; NOLF1's, from the same rand() stream
 	float RandomFloat(float lo, float hi) { return lo + (hi - lo) * ((float)rand() / (float)RAND_MAX); }
 	void Print(const char* pLine) { if (g_pServerDE) g_pServerDE->CPrint("%s", pLine); }
+	bool RunScript(const char* pName, const char* const* pArgs, int nArgs)
+	{
+		return LT1Mod::Script_Command(pName, pArgs, nArgs);
+	}
 };
 
 BloodCommandHost g_Host;
@@ -240,5 +245,87 @@ DDWORD Command::ObjectMessageFn(HOBJECT hSender, DDWORD messageID, HMESSAGEREAD 
 {
 	if (g_pServerDE && messageID == MID_TRIGGER && m_hstrCommand)
 		ModCommands_Process(g_pServerDE->GetStringData(m_hstrCommand));
+	return B2BaseClass::ObjectMessageFn(hSender, messageID, hRead);
+}
+
+
+// ----------------------------------------------------------------------- //
+//
+//	ScriptTrigger: a level object that calls a script function when it is
+//	triggered. Its Function property names a global function of the mod's
+//	Mod\Script.lua, called with the trigger message and the sender's name.
+//	A level editor wires a script with it the way it wires a Command object.
+//
+// ----------------------------------------------------------------------- //
+
+BEGIN_CLASS(ScriptTrigger)
+	ADD_STRINGPROP(Function, "")
+END_CLASS_DEFAULT(ScriptTrigger, B2BaseClass, NULL, NULL)
+
+ScriptTrigger::ScriptTrigger() : B2BaseClass()
+{
+	m_hstrFunction = DNULL;
+}
+
+ScriptTrigger::~ScriptTrigger()
+{
+	CServerDE* pServerDE = g_pServerDE;
+	if (pServerDE && m_hstrFunction) pServerDE->FreeString(m_hstrFunction);
+}
+
+DDWORD ScriptTrigger::EngineMessageFn(DDWORD messageID, void *pData, DFLOAT fData)
+{
+	CServerDE* pServerDE = g_pServerDE;
+	switch (messageID)
+	{
+		case MID_PRECREATE:
+		{
+			DDWORD dwRet = B2BaseClass::EngineMessageFn(messageID, pData, fData);
+			if (pServerDE && (fData == PRECREATE_WORLDFILE || fData == PRECREATE_STRINGPROP))
+			{
+				GenericProp genProp;
+				if (pServerDE->GetPropGeneric("Function", &genProp) == DE_OK && genProp.m_String[0])
+					m_hstrFunction = pServerDE->CreateString(genProp.m_String);
+			}
+			return dwRet;
+		}
+
+		case MID_SAVEOBJECT:
+		{
+			if (pServerDE) pServerDE->WriteToMessageHString((HMESSAGEWRITE)pData, m_hstrFunction);
+			break;
+		}
+
+		case MID_LOADOBJECT:
+		{
+			if (pServerDE)
+			{
+				if (m_hstrFunction) pServerDE->FreeString(m_hstrFunction);
+				m_hstrFunction = pServerDE->ReadFromMessageHString((HMESSAGEREAD)pData);
+			}
+			break;
+		}
+
+		default : break;
+	}
+	return B2BaseClass::EngineMessageFn(messageID, pData, fData);
+}
+
+DDWORD ScriptTrigger::ObjectMessageFn(HOBJECT hSender, DDWORD messageID, HMESSAGEREAD hRead)
+{
+	CServerDE* pServerDE = g_pServerDE;
+	if (pServerDE && messageID == MID_TRIGGER && m_hstrFunction)
+	{
+		// The message, read once; it rewinds at its end, as LT1's does, for the base class's read
+		HSTRING hMsg = pServerDE->ReadFromMessageHString(hRead);
+		const char* pMsg = hMsg ? pServerDE->GetStringData(hMsg) : DNULL;
+		const char* pFrom = hSender ? pServerDE->GetObjectName(hSender) : DNULL;
+		const std::string sMsg = pMsg ? pMsg : "", sFrom = pFrom ? pFrom : "";
+		if (hMsg) pServerDE->FreeString(hMsg);
+		const char* args[] = { sMsg.c_str(), sFrom.c_str() };
+		const char* pFunction = pServerDE->GetStringData(m_hstrFunction);
+		if (!LT1Mod::Script_Function(pFunction, args, 2))
+			pServerDE->CPrint("ScriptTrigger: the script has no function %s", pFunction);
+	}
 	return B2BaseClass::ObjectMessageFn(hSender, messageID, hRead);
 }

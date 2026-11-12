@@ -17,6 +17,7 @@
 #include "de_lt1defaults.h"
 #include "ModSupport.h"
 #include "lt1mod.h"
+#include "lt1mod_clientscript.h"	// a mod's Mod\ClientScript.lua
 #include "Blood2LT1Vars.h"
 #include "ViewWeapon.h"
 #include "Commands.h"
@@ -1568,6 +1569,8 @@ void CBloodClientShell::OnEnterWorld()
     
 	pClientDE->SetCameraFOV(m_hCamera, m_fovX, m_fovY);
 
+	LT1Mod::ClientScript_WorldStarted();	// OnWorldStart
+
 	// Initialize various variables
 	m_SpinAmount = 0;
 	m_bZeroXAngle = DFALSE;
@@ -2617,6 +2620,8 @@ void CBloodClientShell::Update()
 		return;
 	}
 
+	LT1Mod::ClientScript_Update();	// a mod's client script's timers
+
 	m_pMoveMgr->Update();
 
 	UpdateSoundReverb( );
@@ -2930,6 +2935,7 @@ void CBloodClientShell::PreLoadWorld(char *pWorldName)
 
 	g_bLevelChangeNoUpdate = DFALSE;
 
+	LT1Mod::ClientScript_PreLoadWorld(pWorldName);	// for OnWorldStart
 
 	// Re-Init the team manager...
 
@@ -3199,6 +3205,9 @@ void CBloodClientShell::PostUpdate()
 				pClientDE->ScaleSurfaceToSurfaceTransparent (hScreen, m_hCrosshair, &rcDest, NULL, NULL);
 			}
 		}
+
+		// A mod's client script draws over the HUD
+		LT1Mod::ClientScript_Draw();
 
 		// FlipScreen would end these too
 		pClientDE->EndOptimized2D();
@@ -4232,6 +4241,12 @@ void CBloodClientShell::OnMessage(DBYTE messageID, HMESSAGEREAD hMessage)
 
 	switch(messageID)
 	{
+		case MSG_MOD_SCRIPT:
+		{
+			B2Mod_OnScriptMessage(hMessage);	// the server's script to ours
+			break;
+		}
+
 		case MSG_MOD_SIGNATURE:
 		{
 			if (B2Mod_OnServerSignature(pClientDE, hMessage))

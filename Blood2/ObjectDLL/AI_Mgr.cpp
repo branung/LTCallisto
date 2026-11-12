@@ -35,6 +35,7 @@
 #include "cameraobj.h"
 #include "SoundTypes.h"
 #include "BloodModAI.h"
+#include "ModScript.h"		// a mod's Mod\Script.lua
 #include "BloodModWeapons.h"
 #include "BloodModTable.h"
 #include <string>
@@ -242,6 +243,8 @@ AI_Mgr::AI_Mgr() : CBaseCharacter(OT_MODEL)
 
 AI_Mgr::~AI_Mgr()
 {
+	// A script's reference to this AI dies with it
+	ModScript_Removed(this);
 	if (!m_pServerDE) return;
 
 	if (m_hstrSpotTriggerTarget)
@@ -715,6 +718,11 @@ DDWORD AI_Mgr::EngineMessageFn(DDWORD messageID, void *pData, DFLOAT fData)
 				m_bMoveToGround = DFALSE;
 
 			InitialUpdate((int)fData);
+			// A mod's script hears a new archetype AI. A restored one was created before the save.
+			if (fData != INITIALUPDATE_SAVEGAME && m_nModArchetype >= 0)
+				ModScript_Created(this, BloodModAI_ArchetypeName(m_nModArchetype));
+			else if (m_nModArchetype >= 0)
+				ModScript_Adopted(this, BloodModAI_ArchetypeName(m_nModArchetype));	// restored: known again, no event
 			break;
 		}
 
@@ -799,15 +807,35 @@ DDWORD AI_Mgr::ObjectMessageFn(HOBJECT hSender, DDWORD messageID, HMESSAGEREAD h
 		case MID_DAMAGE:
 		{
 			if (!m_pServerDE) break;
+			const DFLOAT fHPBefore = m_damage.GetHitPoints();
+			const DBOOL bWasDead = m_damage.IsDead();
 			
 			CBaseCharacter::ObjectMessageFn(hSender, messageID, hRead);
 			HandleDamage();
+			// A mod's script hears OnDamage with the hit points lost, and OnDeath for the killing blow
+			if (m_nModArchetype >= 0)
+			{
+				const char* pArch = BloodModAI_ArchetypeName(m_nModArchetype);
+				const DFLOAT fLost = fHPBefore - m_damage.GetHitPoints();
+				if (!bWasDead && fLost > 0.0f) ModScript_Damaged(this, pArch, fLost);
+				if (!bWasDead && m_damage.IsDead()) ModScript_Died(this, pArch);
+			}
 
 			return 0;
 		}
 
  		case MID_TRIGGER:
 		{
+			// An archetype's AI: the script hears it first. Reading the one string runs the
+			// message to its end, where it rewinds as LT1's does, so HandleTrigger reads it whole.
+			if (m_nModArchetype >= 0 && m_pServerDE)
+			{
+				HSTRING hMsg = m_pServerDE->ReadFromMessageHString(hRead);
+				const char* pMsg = hMsg ? m_pServerDE->GetStringData(hMsg) : DNULL;
+				std::string sMsg = pMsg ? pMsg : "";
+				if (hMsg) m_pServerDE->FreeString(hMsg);
+				ModScript_Triggered(this, BloodModAI_ArchetypeName(m_nModArchetype), sMsg.c_str(), hSender);
+			}
 			HandleTrigger(hSender, hRead);
 			break;
 		}
@@ -7106,6 +7134,11 @@ void AI_Mgr::Save(HMESSAGEWRITE hWrite, DDWORD dwSaveFlags)
 	m_curScriptCmd.Save(hWrite);
 	m_scriptCmdList.Save(hWrite);
 	m_AIPathList.Save(hWrite);
+
+	// The archetype this AI was made as, by name, so a restored one is still the mod's.
+	// Only while the mod has archetypes, so a retail save's bytes are unchanged.
+	if (BloodModAI_ArchetypeName(0))
+		pServerDE->WriteToMessageString(hWrite, (char*)(m_nModArchetype >= 0 ? BloodModAI_ArchetypeName(m_nModArchetype) : ""));
 }
 
 
@@ -7201,6 +7234,13 @@ void AI_Mgr::Load(HMESSAGEREAD hRead, DDWORD dwLoadFlags)
 	m_curScriptCmd.Load(hRead);
 	m_scriptCmdList.Load(hRead);
 	m_AIPathList.Load(hRead);
+
+	// As Save writes it.
+	if (BloodModAI_ArchetypeName(0))
+	{
+		char* pArch = pServerDE->ReadFromMessageString(hRead);
+		m_nModArchetype = (pArch && pArch[0]) ? BloodModAI_FindArchetype(pArch) : -1;
+	}
 }
 
 // ----------------------------------------------------------------------- //

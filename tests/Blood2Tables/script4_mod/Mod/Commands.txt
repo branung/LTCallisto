@@ -1,0 +1,3 @@
+// Scripting step 4: trigger the level's ScriptTrigger at the start.
+[Global]
+Start = "MSG st1 HELLO"

@@ -40,6 +40,7 @@
 #include "FlagObjects.h"
 #include "SoundTypes.h"
 #include "BloodModWeapons.h"	// a new weapon tests as its Base
+#include "ModScript.h"			// a mod's script
 #include "BloodModCharacters.h"	// a new character tests as its Base
 
 #define ALPHA_NORMAL		1.0f
@@ -1970,6 +1971,9 @@ void CPlayerObj::Respawn()
 
 	UpdateClientPhysics(); // (to make sure they have their model around)
 	TeleportClientToServerPos();
+
+	// A mod's script hears the player is in the world
+	ModScript_PlayerSpawned(this, m_hstrPlayerName && g_pServerDE ? g_pServerDE->GetStringData(m_hstrPlayerName) : "");
 }
 
 
@@ -5907,6 +5911,8 @@ void CPlayerObj::UpdateAirLevel()
 // ----------------------------------------------------------------------- //
 void CPlayerObj::HandleDeath()
 {
+	// A mod's script hears it
+	ModScript_PlayerDied(this, m_hstrPlayerName && g_pServerDE ? g_pServerDE->GetStringData(m_hstrPlayerName) : "");
 	// Sanity checks
 	if (!g_pBloodServerShell || !g_pServerDE) return;
 
@@ -6593,6 +6599,7 @@ void CPlayerObj::Save(HMESSAGEWRITE hWrite, DDWORD dwSaveFlags)
 	m_hClientSaveData = DNULL;
 
 	ModCommands_Save(hWrite);		// a mod's pending commands; nothing without one
+	ModScript_Save(hWrite);			// a mod's script's mod.save and timers; nothing without one
 }
 
 
@@ -6752,6 +6759,7 @@ void CPlayerObj::Load(HMESSAGEREAD hRead, DDWORD dwLoadFlags)
 	// A mod's pending commands, applied only for a saved game: a keep-alive load (flags set,
 	// below) comes after the new world's start commands
 	ModCommands_Load(hRead, dwLoadFlags == 0);
+	ModScript_Load(hRead, dwLoadFlags == 0);
 
 	// Flags set means this is a "keep alive" restore
 	// Set up the filenames

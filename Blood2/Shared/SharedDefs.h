@@ -140,6 +140,10 @@ enum ClientServerMsgs
 // client whose answer differs. With no mod on either side both say "none". A fixed number
 // outside both enums above, so appending to either can never move it; Shogo uses the same value.
 #define MSG_MOD_SIGNATURE	240
+// A message between the mod's two scripts: the name and the payload, two strings. Read with
+// ReadString into a buffer of its own, because ReadFromMessageString's 512 byte slots would cut a
+// 1 KB payload short.
+#define MSG_MOD_SCRIPT		241
 
 
 // Client data flags

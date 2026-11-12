@@ -4,6 +4,8 @@
 #include "ModSupport.h"
 #include "SharedDefs.h"
 #include "lt1mod_engine.h"
+#include "lt1mod_clientscript.h"
+#include "lt1mod_script.h"
 #include "BloodModWeapons.h"
 #include "BloodModCharacters.h"
 #include "MenuCharacter.h"
@@ -14,6 +16,27 @@ static CClientDE* s_pPrintClient = 0;
 static void PrintClientLine(const char* pLine)
 {
 	if (s_pPrintClient) s_pPrintClient->CPrint("%s", pLine);
+}
+
+// The client script's mod.server: MSG_MOD_SCRIPT, the name and the payload.
+static bool SendScriptMessage(const char* pName, const char* pPayload)
+{
+	if (!s_pPrintClient) return false;
+	HMESSAGEWRITE hWrite = s_pPrintClient->StartMessage(MSG_MOD_SCRIPT);
+	if (!hWrite) return false;
+	s_pPrintClient->WriteToMessageString(hWrite, const_cast<char*>(pName));
+	s_pPrintClient->WriteToMessageString(hWrite, const_cast<char*>(pPayload));
+	return s_pPrintClient->EndMessage(hWrite) == DE_OK;
+}
+
+void B2Mod_OnScriptMessage(HMESSAGEREAD hMessage)
+{
+	if (!hMessage) return;
+	// ReadString, not ReadFromMessageString, which would cut a 1 KB payload short
+	char szName[LT1Mod::kScriptMessageNameBuf], szPayload[LT1Mod::kScriptMessagePayloadBuf];
+	hMessage->ReadString(szName, sizeof(szName));
+	hMessage->ReadString(szPayload, sizeof(szPayload));
+	LT1Mod::ClientScript_ServerMessage(szName, szPayload);
 }
 
 void B2Mod_Init(CClientDE* pClientDE)
@@ -61,6 +84,9 @@ void B2Mod_Init(CClientDE* pClientDE)
 							  "read a mod's strings", pName ? pName : "a string", pGot ? "the original text" : "nothing");
 		if (hProbe) pClientDE->FreeString(hProbe);
 	}
+
+	// Its client script, if it has one: text in the typeface Blood 2's MessageMgr draws in
+	LT1Mod::ClientScript_Load(pClientDE, "Arial", SendScriptMessage);
 }
 
 DBOOL B2Mod_OnServerSignature(CClientDE* pClientDE, HMESSAGEREAD hMessage)

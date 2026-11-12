@@ -23,6 +23,8 @@
 #include "CultistAI.h"
 #include "lt1mod_engine.h"
 #include "ModCommands.h"
+#include "ModScript.h"
+#include "lt1mod_script.h"		// its messages' sizes
 
 #include <windows.h>  // For DebugBreak
 #include <winbase.h>
@@ -148,6 +150,8 @@ LTRESULT CBloodServerShell::OnServerInitialized()
 	ModCharacters_LoadFile();
 	ModAI_LoadFile();
 	ModCommands_LoadFile();
+	// ...and its script, Mod\Script.lua
+	ModScript_Load();
 
 	// Blood 2's own engine vars, both shells' in one table (Shared/Blood2LT1Vars.h)
 	DECompat_ApplyLT1ServerVars(g_pServerDE, BLOOD2_LT1_VARS);
@@ -355,6 +359,13 @@ DEBaseClass* CBloodServerShell::OnClientEnterWorld(HCLIENT hClient, void* pClien
 	// Add this client to our local list...
 	AddClientToList(hClient);
 
+	// A mod's script hears the player join
+	if (pObject)
+	{
+		CPlayerObj* pPlayer = (CPlayerObj*)pObject;
+		ModScript_PlayerJoined(pPlayer, pPlayer->GetPlayerName() ? g_pServerDE->GetStringData(pPlayer->GetPlayerName()) : "");
+	}
+
 	// All done...
 	return pObject;
 }
@@ -384,6 +395,7 @@ void CBloodServerShell::OnClientExitWorld(HCLIENT hClient)
 	CPlayerObj* pPlayer = (CPlayerObj*)g_pServerDE->GetClientUserData(hClient);
 	if (pPlayer) 
 	{
+		ModScript_PlayerLeft(pPlayer, pPlayer->GetPlayerName() ? g_pServerDE->GetStringData(pPlayer->GetPlayerName()) : "");
 		pPlayer->DropFlag(DFALSE);
 		g_pServerDE->RemoveObject(pPlayer->m_hObject);
 	}
@@ -405,6 +417,20 @@ void CBloodServerShell::OnMessage(HCLIENT hSender, DBYTE messageID, HMESSAGEREAD
 	if (!g_pServerDE) return;
 	switch(messageID)
 	{
+		case MSG_MOD_SCRIPT:
+		{
+			// A client script's message to ours, from the player that client is. Buffers are one
+			// byte past the limit, so an over-size message is seen and dropped.
+			char szName[LT1Mod::kScriptMessageNameBuf], szPayload[LT1Mod::kScriptMessagePayloadBuf];
+			hMessage->ReadString(szName, sizeof(szName));
+			hMessage->ReadString(szPayload, sizeof(szPayload));
+			CPlayerObj* pPlayer = (CPlayerObj*)g_pServerDE->GetClientUserData(hSender);
+			if (pPlayer)
+				ModScript_ClientMessage(pPlayer, pPlayer->GetPlayerName() ? g_pServerDE->GetStringData(pPlayer->GetPlayerName()) : "",
+										szName, szPayload);
+			break;
+		}
+
 		case MSG_MOD_SIGNATURE:
 		{
 			// A client's answer to the signature OnAddClient sent. A client that differs has
@@ -639,6 +665,8 @@ void CBloodServerShell::OnCommandOn(HCLIENT hClient, int command)
 
 void CBloodServerShell::PreStartWorld(DBOOL bSwitchingWorlds)
 {
+	// The last world's end, for a mod's script
+	ModScript_WorldEnded();
 	// Setup the teams for multiplayer
 	m_TeamMgr.Term();
 	m_TeamMgr.Init();
@@ -668,6 +696,8 @@ void CBloodServerShell::PostStartWorld()
 {
 	// A mod's start commands for this world; a restored save brings its pending commands back
 	ModCommands_WorldStarted(g_szModWorld[0] ? g_szModWorld : DNULL, g_bModRestoring);
+	// And the script's OnWorldStart, after them
+	ModScript_WorldStarted(g_szModWorld[0] ? g_szModWorld : DNULL, g_bModRestoring);
 	g_bModRestoring = DFALSE;
 
 	// Build the list of AI paths for this world...
@@ -1550,6 +1580,7 @@ void CBloodServerShell::Update(DFLOAT timeElapsed)
 	// A mod's pending commands, every frame of every game type: before the single player return
 	// below, which skips the rest of this function
 	if (g_pServerDE) ModCommands_Update(timeElapsed);
+	if (g_pServerDE) ModScript_Update();		// a mod's script's timers and OnUpdate
 
 	// Sanity checks...
 

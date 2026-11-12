@@ -1,0 +1,5 @@
+[Mod]
+Id      = "Blood2ScriptMessages"
+Game    = "Blood2"
+Name    = "Script messages test"
+Version = "1"

@@ -59,4 +59,19 @@ class Command : public B2BaseClass
 		DBOOL	m_bStarted;
 };
 
+
+// A level object that calls a script function when triggered: its Function
+// property names a global of the mod's Mod\Script.lua.
+class ScriptTrigger : public B2BaseClass
+{
+	public :
+		ScriptTrigger();
+		~ScriptTrigger();
+	protected :
+		DDWORD EngineMessageFn(DDWORD messageID, void *pData, DFLOAT fData);
+		DDWORD ObjectMessageFn(HOBJECT hSender, DDWORD messageID, HMESSAGEREAD hRead);
+	private :
+		HSTRING	m_hstrFunction;
+};
+
 #endif // __MOD_COMMANDS_H__
