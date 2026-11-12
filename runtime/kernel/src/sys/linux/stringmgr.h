@@ -21,6 +21,8 @@ void str_ShowAllStringsAllocated(StringShowFn fn, void *pUser);
 // bufferLen is set to the number of bytes in the string excluding the null terminator.
 // You MUST free the string returned by here with str_FreeStringBuffer.
 uint8* str_FormatString(CBindModuleType *hModule, int stringCode, va_list *marker, int *bufferLen);
+// The same formatting for a string the caller already holds, such as one the client shell answers
+uint8* str_FormatRawString(const char *pRaw, va_list *marker, int *bufferLen);
 void str_FreeStringBuffer(uint8 *pBuffer);
 
 HSTRING str_CreateString(uint8 *pBuffer);

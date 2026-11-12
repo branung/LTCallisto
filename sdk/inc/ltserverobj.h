@@ -428,6 +428,43 @@ so you don't have to add each object to the list.
             *nDefs = nClasses; \
             return __g_cpp_classlist; \
         }
+/*!
+DEFINE_CLASSES(), then extraFn(pServer, native list, native count, room after it, roomCount)
+appends classes built at run time (a mod's archetypes as class names) and returns how many.
+*/
+    #define DEFINE_CLASSES_WITH_EXTRA(extraFn, roomCount) \
+        ClassDef **__g_cpp_classlist=0;\
+        __cpp_classlist_auto_free __free_the_g_cpp_classlist;\
+        BEGIN_EXTERNC() \
+            MODULE_EXPORT ClassDef** ObjectDLLSetup(int *nDefs, ILTServer *pServer, int *version); \
+        END_EXTERNC() \
+        __ClassDefiner *__g_ClassDefinerHead=0;\
+        ClassDef** ObjectDLLSetup(int *nDefs, ILTServer *pServer, int *version) \
+        {\
+            int nClasses;\
+            __ClassDefiner *pCurDefiner;\
+            *version = SERVEROBJ_VERSION;\
+            g_pLTServer = pServer;\
+            nClasses=0;\
+            pCurDefiner = __g_ClassDefinerHead;\
+            while (pCurDefiner)\
+            {\
+                pCurDefiner = pCurDefiner->m_pNext;\
+                ++nClasses;\
+            }\
+            __g_cpp_classlist = (ClassDef**)malloc(sizeof(ClassDef*) * (nClasses + (roomCount)));\
+            nClasses=0;\
+            pCurDefiner = __g_ClassDefinerHead;\
+            while (pCurDefiner)\
+            {\
+                __g_cpp_classlist[nClasses] = pCurDefiner->m_pClass;\
+                pCurDefiner = pCurDefiner->m_pNext;\
+                ++nClasses;\
+            }\
+            nClasses += extraFn(pServer, __g_cpp_classlist, nClasses, __g_cpp_classlist + nClasses, (roomCount));\
+            *nDefs = nClasses; \
+            return __g_cpp_classlist; \
+        }
 /*#else
     #define DEFINE_CLASSES() \
         ClassDef **__g_cpp_classlist=0;\

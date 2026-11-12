@@ -1638,6 +1638,11 @@ void CConsole::PrintString(CONCOLOR theColor, int filterLevel, const char *pMsg)
 				pMsg = &pNewLine[1];
 			}
 
+			// A tab is a space on screen: no console font has a glyph for it, and Blood II's draws
+			// a 'k'. The log and stdout keep the tab.
+			for ( char* p = pLine->m_Text; *p; ++p )
+				if ( *p == '\t' ) *p = ' ';
+
 			// Add it to the end of the list
 			m_TextLines.AddTail( pLine );
 

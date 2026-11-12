@@ -34,7 +34,14 @@ static ILTCommon *ilt_common_server;
 define_holder_to_instance(ILTCommon, ilt_common_server, Server);
 
 // Define all the game classes and the gameservershell.
+// A game that adds classes at run time defines LT_EXTRA_CLASSDEFS_FN,
+// every other game's list is DEFINE_CLASSES()'s.
+#ifdef LT_EXTRA_CLASSDEFS_FN
+int LT_EXTRA_CLASSDEFS_FN(ILTServer* pServer, ClassDef** pNative, int nNative, ClassDef** pOut, int nRoom);
+DEFINE_CLASSES_WITH_EXTRA(LT_EXTRA_CLASSDEFS_FN, LT_EXTRA_CLASSDEFS_ROOM)
+#else
 DEFINE_CLASSES()
+#endif
 
 
 

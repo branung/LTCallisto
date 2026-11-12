@@ -122,10 +122,24 @@ uint8* str_FormatString(CBindModuleType *hModule, int stringCode, va_list *marke
 		return LTFALSE;
 	}
 
+	return str_FormatRawString(tempBuffer, marker, bufferLen);
+#else
+	if(g_bDebugStrings)
+		dsi_ConsolePrint("Linux doesn't support FormatMessage - string %d", stringCode);
+	return LTNULL;
+#endif
+}
+
+
+uint8* str_FormatRawString(const char *tempBuffer, va_list *marker, int *bufferLen)
+{
+#ifndef __LINUX
+	*bufferLen = 0;
+
 	// Format it.
 	uint8 *pBuffer = NULL;
 
-	nBytes = FormatMessage(FORMAT_MESSAGE_FROM_STRING|FORMAT_MESSAGE_ALLOCATE_BUFFER,
+	uint32 nBytes = FormatMessage(FORMAT_MESSAGE_FROM_STRING|FORMAT_MESSAGE_ALLOCATE_BUFFER,
 						tempBuffer,
 						0,
 						0,
@@ -141,7 +155,7 @@ uint8* str_FormatString(CBindModuleType *hModule, int stringCode, va_list *marke
 			LocalFree(pBuffer);
 
 		if(g_bDebugStrings)
-			dsi_ConsolePrint("FormatMessage error on string %d", stringCode);
+			dsi_ConsolePrint("FormatMessage error on string \"%s\"", tempBuffer);
 
 		return LTNULL;
 	}
@@ -156,7 +170,7 @@ uint8* str_FormatString(CBindModuleType *hModule, int stringCode, va_list *marke
 	}
 #else
 	if(g_bDebugStrings)
-		dsi_ConsolePrint("Linux doesn't support FormatMessage - string %d", stringCode);
+		dsi_ConsolePrint("Linux doesn't support FormatMessage - string \"%s\"", tempBuffer);
 	return LTNULL;
 #endif
 }

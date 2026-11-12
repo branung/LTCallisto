@@ -1788,6 +1788,21 @@ static LTRESULT cis_FillRect(HSURFACE hDest, LTRect *pRect, HLTCOLOR hColor)
 		theRect.bottom = pDest->m_Height;
 	}
 
+	// The screen: the rectangle is cleared on the device, as cis_ClearScreen clears it, rather
+	// than written through a lock, which waits for the GPU to finish the frame and reads it back.
+	// The pixels are the same, and the 2D blits around it are drawn at their call, so the order is
+	// too. The interface upscale's margins and a mod script's mod.hud.rect fill the screen this way.
+	if (pDest == &g_ScreenSurface && r_GetRenderStruct() && r_GetRenderStruct()->Clear)
+	{
+		LTRGBColor fill;
+		fill.rgb.a = 0;
+		fill.rgb.r = (uint8)GETR((uint32)hColor);
+		fill.rgb.g = (uint8)GETG((uint32)hColor);
+		fill.rgb.b = (uint8)GETB((uint32)hColor);
+		r_GetRenderStruct()->Clear(&theRect, CLEARSCREEN_SCREEN, fill);
+		return LT_OK;
+	}
+
 	request.m_pDest = (uint8*)cis_LockSurface(pDest, request.m_DestPitch, true);
 	if(request.m_pDest)
 	{

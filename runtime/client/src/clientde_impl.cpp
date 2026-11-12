@@ -11,6 +11,7 @@
 #include "impl_common.h"
 #include "console.h"
 #include "stringmgr.h"
+#include "bindmgr.h"
 #include "consolecommands.h"
 #include "sysinput.h"
 #include "setupobject.h"
@@ -1315,6 +1316,28 @@ HSTRING CLTClient::FormatString(int messageCode, ...)
 	int bufferLen;
 	va_list marker;
 	HSTRING ret;
+
+	// A client shell may answer a string id before any resource module, through an exported
+	// LT1Mod_ClientString (a mod's Strings.txt). Its text is formatted as a resource string is,
+	// so it takes the same inserts. A shell that exports nothing reaches the modules as before.
+	if (g_pClientMgr->m_hShellModule)
+	{
+		typedef const char* (*ShellStringFn)(int);
+		ShellStringFn pShellString = (ShellStringFn)bm_GetFunctionPointer(g_pClientMgr->m_hShellModule, "LT1Mod_ClientString");
+		const char *pRaw = pShellString ? pShellString(messageCode) : LTNULL;
+		if (pRaw)
+		{
+			va_start(marker, messageCode);
+			pBuffer = str_FormatRawString(pRaw, &marker, &bufferLen);
+			va_end(marker);
+			if (pBuffer)
+			{
+				ret = str_CreateString(pBuffer);
+				str_FreeStringBuffer(pBuffer);
+				return ret;
+			}
+		}
+	}
 
 	/* Check our localized module first */
 	if (g_pClientMgr->m_hLocalizedClientResourceModule)

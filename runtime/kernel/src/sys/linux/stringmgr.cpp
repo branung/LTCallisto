@@ -162,6 +162,14 @@ uint8* str_FormatString(CBindModuleType *hModule, int stringCode, va_list *marke
         return(LTNULL);
 	}
 
+    return str_FormatRawString(rawString, marker, bufferLen);
+}
+
+
+uint8* str_FormatRawString(const char *rawString, va_list *marker, int *bufferLen)
+{
+    *bufferLen = 0;
+
     // FormatMessage syntax as on Windows: the .rc strings say "%1!s! joined the game"
     const std::string formatted = fmtmessage::Format((const char *)rawString, *marker);
 

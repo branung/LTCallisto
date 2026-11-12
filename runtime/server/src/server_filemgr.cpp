@@ -118,14 +118,20 @@ ILTStream* IServerFileMgr::OpenFile2(const char *pFilename, int bAddUsedFile, sh
     }
 
 
-    // Now try all the file trees..
+    // Now try all the file trees, with the name formatted as OpenFile3 and the client do. A
+    // directory tree on Linux opens with fopen, which reads "Worlds\X.dat" as one name, so a
+    // folder mod could not replace a file the server opens. The used file table keeps the
+    // caller's spelling.
+    char formattedFilename[256];
+    CHelpers::FormatFilename(pFilename, formattedFilename, sizeof(formattedFilename));
+
     SERVERFILEMGR_ELEMENT *cur = file_tree_list.First();
     while (file_tree_list.IsHead(cur) == false) {
         //get the file tree handle.
         HLTFileTree *hTree = cur->Item();
 
         //try to open the file.
-        ILTStream *pRet = df_Open(hTree, pFilename, 0);
+        ILTStream *pRet = df_Open(hTree, formattedFilename, 0);
         if (pRet) {
             //found the file.
             if(bAddUsedFile) {

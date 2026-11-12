@@ -351,6 +351,15 @@ void df_BuildName(char *pPart1, char *pPart2, char *pOut)
 }
 
 
+// A folder tree's path for pName: the tree's base, then pName with each '\' made a '/', since
+// game code names files the Windows way and Linux reads a backslash as part of a name
+static void df_FolderPath(const FileTree *pTree, const char *pName, char *pOut, size_t nOut)
+{
+	snprintf(pOut, nOut, "%s/%s", pTree->m_BaseName, pName);
+	for (char *p = pOut; *p; ++p)
+		if (*p == '\\') *p = '/';
+}
+
 int df_GetFileInfo(HLTFileTree* hTree, const char *pName, LTFindInfo *pInfo)
 {
 	FileTree *pTree;
@@ -364,29 +373,19 @@ int df_GetFileInfo(HLTFileTree* hTree, const char *pName, LTFindInfo *pInfo)
 
 	if(pTree->m_TreeType == UnixTree)
 	{
-		sprintf(fullName, "%s/%s", pTree->m_BaseName, pName);
-		char* pLastSlash = strrchr(fullName, '/');
-		*(pLastSlash++) = '\0';
-
-		int numMatches;
-		dirent** namelist;
-		if ((numMatches = scandir(fullName, &namelist, 0, alphasort)) > 0)
-		{
-				for (int iMatch = 0; iMatch < numMatches; ++iMatch)
-			{
-				if (namelist[iMatch]->d_type != DT_DIR)
-				{
-					strncpy(pInfo->m_Name, namelist[iMatch]->d_name, 255);
-					pInfo->m_Type = FILE_TYPE;
-					//pInfo->m_Size = data.size;
-					//memcpy(&pInfo->m_Date, &data.time_write, 4);
-					return true;
-				}
-			}
-		}
-
-		// Didn't find any files...
-		return false;
+		// Whether this file is here, as df_Open will open it, matching the whole path as the
+		// Windows version does. The old answer was the first file of the directory, whatever its
+		// name, so a mod folder holding any file at its root claimed every file the game asked for.
+		df_FolderPath(pTree, pName, fullName, sizeof(fullName));
+		struct stat st;
+		if (stat(fullName, &st) != 0 || !S_ISREG(st.st_mode))
+			return false;
+		const char* pLeaf = strrchr(fullName, '/');
+		strncpy(pInfo->m_Name, pLeaf ? pLeaf + 1 : fullName, 255);
+		pInfo->m_Name[255] = '\0';
+		pInfo->m_Type = FILE_TYPE;
+		pInfo->m_Size = (unsigned long)st.st_size;
+		return true;
 	}
 	else
 	{
@@ -472,7 +471,7 @@ ILTStream* df_Open(HLTFileTree* hTree, const char *pName, int openMode)
 		return NULL;
 	}
 
-	sprintf(fullName, "%s/%s", pTree->m_BaseName, pName);
+	df_FolderPath(pTree, pName, fullName, sizeof(fullName));	// as df_GetFileInfo asks
 	CountAdder cntAdd(&g_PD_FOpen);
 	if (! (fp = fopen(fullName, "rb")) )
 		return NULL;
