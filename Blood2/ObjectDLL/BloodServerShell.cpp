@@ -22,12 +22,18 @@
 #include "CVarTrack.h"
 #include "CultistAI.h"
 #include "lt1mod_engine.h"
+#include "ModCommands.h"
 
 #include <windows.h>  // For DebugBreak
 #include <winbase.h>
 #include <stdio.h>
 #include <io.h>
 #include <fcntl.h>
+
+// The world the shell last asked LoadWorld for, and whether that was a restore, for the start
+// commands PostStartWorld runs
+static char  g_szModWorld[MAX_PATH] = "";
+static DBOOL g_bModRestoring = DFALSE;
 
 
 #define MAX_CLIENT_NAME_LENGTH		100
@@ -138,6 +144,7 @@ LTRESULT CBloodServerShell::OnServerInitialized()
 	LT1Mod::LoadActive(g_pServerDE, g_pServerDE->GetFileList, g_pServerDE->FreeFileList, "Blood2");
 	if (LT1Mod::Active().present)
 		g_pServerDE->CPrint("Server: %s", LT1Mod::Describe(LT1Mod::Active()).c_str());
+	ModCommands_LoadFile();
 
 	// Blood 2's own engine vars, both shells' in one table (Shared/Blood2LT1Vars.h)
 	DECompat_ApplyLT1ServerVars(g_pServerDE, BLOOD2_LT1_VARS);
@@ -656,6 +663,10 @@ void CBloodServerShell::PreStartWorld(DBOOL bSwitchingWorlds)
 
 void CBloodServerShell::PostStartWorld()
 {
+	// A mod's start commands for this world; a restored save brings its pending commands back
+	ModCommands_WorldStarted(g_szModWorld[0] ? g_szModWorld : DNULL, g_bModRestoring);
+	g_bModRestoring = DFALSE;
+
 	// Build the list of AI paths for this world...
 	m_PathMgr.BuildPathList();
 
@@ -1024,6 +1035,10 @@ DBOOL CBloodServerShell::LoadWorld(HMESSAGEREAD hMessage)
 
 		dwLoadFlags |= LOADWORLD_NORELOADGEOMETRY;
 
+		// For ModCommands_WorldStarted, which PostStartWorld calls from inside LoadWorld
+		strncpy(g_szModWorld, szPath, sizeof(g_szModWorld) - 1);
+		g_szModWorld[sizeof(g_szModWorld) - 1] = '\0';
+		g_bModRestoring = bRestoring;
 		res = g_pServerDE->LoadWorld(szPath, dwLoadFlags);
 		if (res != DE_OK)
 		{
@@ -1529,6 +1544,10 @@ void CBloodServerShell::SetupGameInfo()
 
 void CBloodServerShell::Update(DFLOAT timeElapsed)
 {
+	// A mod's pending commands, every frame of every game type: before the single player return
+	// below, which skips the rest of this function
+	if (g_pServerDE) ModCommands_Update(timeElapsed);
+
 	// Sanity checks...
 
 	if (!g_pServerDE || GetGameType() == GAMETYPE_SINGLE) return;

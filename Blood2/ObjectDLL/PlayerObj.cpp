@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <mbstring.h>
 #include "serverobj_de.h"
+#include "ModCommands.h"
 #include "BaseCharacter.h"
 #include "PlayerObj.h"
 #include "de_commandedges.h"
@@ -6752,6 +6753,8 @@ void CPlayerObj::Save(HMESSAGEWRITE hWrite, DDWORD dwSaveFlags)
 	}
 
 	m_hClientSaveData = DNULL;
+
+	ModCommands_Save(hWrite);		// a mod's pending commands; nothing without one
 }
 
 
@@ -6907,6 +6910,10 @@ void CPlayerObj::Load(HMESSAGEREAD hRead, DDWORD dwLoadFlags)
 			}
 		}
 	}
+
+	// A mod's pending commands, applied only for a saved game: a keep-alive load (flags set,
+	// below) comes after the new world's start commands
+	ModCommands_Load(hRead, dwLoadFlags == 0);
 
 	// Flags set means this is a "keep alive" restore
 	// Set up the filenames

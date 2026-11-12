@@ -1,0 +1,5 @@
+// A Script read from the mod's rez: retail's Script opened its file with fopen, which sees
+// loose files only. ModScript in map.json names this file and starts it two seconds into the level.
+START
+SUBTITLEDISPLAY 8.0, "Subtitle from Scripts\ModTest.txt, the mod's rez"
+END

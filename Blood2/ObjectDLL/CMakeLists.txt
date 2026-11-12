@@ -21,6 +21,7 @@ add_library(${PROJECT_NAME} SHARED
 	BaseCharacter.cpp
 	behemoth.cpp
 	BloodServerShell.cpp
+	ModCommands.cpp
 	boneleech.cpp
 	BulletImpactSFX.cpp
 	CalebAI.cpp

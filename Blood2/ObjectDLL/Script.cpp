@@ -24,6 +24,21 @@
 #include "SoundTypes.h"
 
 #include <mbstring.h>
+#include <string>
+#include "lt1mod_engine.h"
+#include "lt1mod_textfile.h"
+
+// The script being read, when the engine had it. Retail opened scripts with fopen, which sees
+// loose files only; the engine's trees see the game's rez and a mod's too. ProcessScript reads
+// the whole file before LoadScript's loop and nothing else reads it, so one text at a time is
+// enough. TextLines is fgets over it, with a text mode stream's CR LF.
+static LT1Mod::TextLines s_ScriptText;
+static bool s_bScriptFromEngine = false;
+
+static char* ScriptGets(char* buf, int n, FILE* pFallback)
+{
+	return s_bScriptFromEngine ? s_ScriptText.Gets(buf, n) : fgets(buf, n, pFallback);
+}
 
 // Subgroup commands
 // 015 :OBJECT
@@ -69,7 +84,7 @@ Script::Script() : B2BaseClass(OT_NORMAL)
 	memset(ScriptCamera, 0, sizeof(ScriptCamera));
 	memset(ScriptSound, 0, sizeof(ScriptSound));
 
-	for (int i=0; i<MAX_MOVEOBJS+1; i++)
+	for (int i=0; i<MAX_MOVEOBJS; i++)
 	{
 		m_nMoveObject[i] = -1;
 		m_nMoveCamera[i] = -1;
@@ -180,7 +195,15 @@ DBOOL Script::ProcessScript()
 	// Initial Update... Lets read in the Script File.
 	if (m_hstrScriptName)
 	{
-		if (!(infile = fopen(g_pServerDE->GetStringData(m_hstrScriptName), "r")))
+		// The engine's trees first (a mod's rez, then the game's), and retail's fopen of a loose
+		// file when they do not have it
+		const char* pName = g_pServerDE->GetStringData(m_hstrScriptName);
+		LT1Mod::EngineSource src(g_pServerDE, g_pServerDE->GetFileList, g_pServerDE->FreeFileList);
+		std::string sText;
+		s_bScriptFromEngine = pName && src.ReadFile(pName, sText);
+		s_ScriptText.Reset(sText);
+		infile = DNULL;
+		if (!s_bScriptFromEngine && !(infile = fopen(pName, "r")))
 		{
 			return DFALSE;
 		}
@@ -206,7 +229,10 @@ DBOOL Script::ProcessScript()
 	}
 
 	m_bScriptLoaded = DTRUE;
-	fclose(infile);
+	if (infile) fclose(infile);
+	infile = DNULL;
+	s_ScriptText.Reset(std::string());
+	s_bScriptFromEngine = false;
 
 	return DTRUE;
 }
@@ -286,8 +312,8 @@ DBOOL Script::Update(DVector *pMovement)
 	if (m_bCheckOverTime == DTRUE)
 	{
 		DBOOL bStillUpdate = DFALSE;
-		// Only Support MAX_MOVEOBJS at 1 time
-		for (int i=0; i<MAX_MOVEOBJS+1; i++)
+		// Only Support MAX_MOVEOBJS at 1 time (not + 1, which read past both arrays)
+		for (int i=0; i<MAX_MOVEOBJS; i++)
 		{
 			if (m_nMoveObject[i] != -1)
 			{
@@ -529,8 +555,13 @@ DBOOL Script::HandleTrigger( HOBJECT hSender, HMESSAGEREAD hRead )
 		m_bCheckStartTime = DTRUE;
 	}
 
-	// Dont Restart it...
-	if ( m_bScriptStarted == DTRUE )  return DFALSE;
+	// Dont Restart it... The string is freed first: once StartScript could mark a script
+	// started, this return leaked it for every later trigger
+	if ( m_bScriptStarted == DTRUE )
+	{
+		g_pServerDE->FreeString( hMsg );
+		return DFALSE;
+	}
 
 	if ( _mbsncmp((const unsigned char*)pCommand, (const unsigned char*)"SCRIPT_START", 12) == 0)
 	{
@@ -890,7 +921,7 @@ DBOOL Script::LoadScript(int &nEOF)
 	nEOF = 0;
 
 	// Get a line, check for End of File
-	if (fgets(line, 256, infile) == NULL)
+	if (ScriptGets(line, 256, infile) == NULL)
 	{
 		nEOF = 1;
 		return DTRUE;
@@ -1076,7 +1107,11 @@ DBOOL Script::AddArgScript(char *temparg)
     char* pData = szCopyArg;
     if (pData) 
     {
-        _mbsncpy((unsigned char*)pArg->data, (const unsigned char*)pData, MAXDATA_LEN);
+        // MAXDATA_LEN - 1 and a terminator: data is char[MAXDATA_LEN], so an argument of 50 or
+        // more characters was copied with no NUL. No retail world places a Script, so only a mod
+        // reaches it, and a longer argument is now cut at 49 characters.
+        _mbsncpy((unsigned char*)pArg->data, (const unsigned char*)pData, MAXDATA_LEN - 1);
+        pArg->data[MAXDATA_LEN - 1] = '\0';
 	    m_scriptCmdList.Add(pArg);
     }
     else

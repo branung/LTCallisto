@@ -1,0 +1,14 @@
+[
+  {"op": "add_object", "class": "Script", "props": [
+    {"prop": "Name", "type": "string", "value": "ModScript"},
+    {"prop": "Pos", "type": "vector", "value": [0, 0, 0]},
+    {"prop": "Rotation", "type": "rotation", "value": [0, 0, 0, 1]},
+    {"prop": "ScriptName", "type": "string", "value": "Scripts\\ModTest.txt"},
+    {"prop": "StartTime", "type": "real", "value": 2.0}]},
+  {"op": "add_object", "class": "Command", "props": [
+    {"prop": "Name", "type": "string", "value": "ModCommand"},
+    {"prop": "Pos", "type": "vector", "value": [0, 0, 0]},
+    {"prop": "Rotation", "type": "rotation", "value": [0, 0, 0, 1]},
+    {"prop": "Command", "type": "string", "value": "MSG nobody TRIGGERED"},
+    {"prop": "StartCommand", "type": "string", "value": "MSG nobody FROMCOMMAND"}]}
+]

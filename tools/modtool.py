@@ -100,6 +100,9 @@ def extract(lithrez, rez, dest):
 
 def check(path, build=None, out=print):
     tmp = None
+    if not os.path.exists(path):
+        out('error: %s does not exist' % path)
+        return 2
     try:
         if os.path.isfile(path):
             lithrez = find_binary('LithRez', build)

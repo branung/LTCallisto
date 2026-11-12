@@ -1,0 +1,11 @@
+// Blood II's command layer and Script object, played on retail 01_SubwayA. Trace prints
+// each message a command sends. "nobody" names no object, so nothing in the level changes; the
+// DELAY needs the server's frames, so its line proves the level is running.
+[Commands]
+Trace = TRUE
+
+[Global]
+Start = "MSG nobody HELLO; DELAY 0.5 (MSG nobody LATER)"
+
+[World_01_SubwayA]
+Start = "MSG nobody SUBWAY"

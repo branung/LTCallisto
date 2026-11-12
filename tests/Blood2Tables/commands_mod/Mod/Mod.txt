@@ -1,0 +1,5 @@
+[Mod]
+Id      = "Blood2Commands"
+Game    = "Blood2"
+Name    = "Commands and a Script, played"
+Version = "1"
