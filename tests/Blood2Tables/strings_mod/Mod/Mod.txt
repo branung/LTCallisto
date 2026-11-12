@@ -1,0 +1,5 @@
+[Mod]
+Id      = "Blood2Strings"
+Game    = "Blood2"
+Name    = "String table test"
+Version = "1"

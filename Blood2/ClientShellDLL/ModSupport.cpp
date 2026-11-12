@@ -1,9 +1,12 @@
 #include <string>
+#include <string.h>
 
 #include "ModSupport.h"
 #include "SharedDefs.h"
 #include "lt1mod_engine.h"
 #include "BloodModWeapons.h"
+#include "BloodModStrings.h"
+#include "BloodModTable.h"
 
 static CClientDE* s_pPrintClient = 0;
 static void PrintClientLine(const char* pLine)
@@ -26,6 +29,31 @@ void B2Mod_Init(CClientDE* pClientDE)
 	LT1Mod::EngineSource src(pClientDE, pClientDE->GetFileList, pClientDE->FreeFileList);
 	s_pPrintClient = pClientDE;
 	BloodModWeapons_LoadAndReport(src, PrintClientLine, "");
+
+	// The mod's strings, which the engine's FormatString asks this shell for through
+	// ModStringsExport.cpp
+	std::string sErr;
+	if (!BloodModStrings_Load(src, sErr))
+		pClientDE->CPrint("%s", sErr.c_str());
+	else
+		BloodMod::PrintWrapped(BloodModStrings_Summary(), "Mod\\Strings.txt: ", PrintClientLine);
+
+	// Whether the engine asks: it is engine code this shell cannot see, so ask once and say what
+	// came back. An engine that does not look the export up answers with CRes's text, and the
+	// mod's strings would be ignored.
+	const int nProbe = BloodModString_ProbeId();
+	if (nProbe >= 0)
+	{
+		HSTRING hProbe = pClientDE->FormatString(nProbe);
+		const char* pGot = hProbe ? pClientDE->GetStringData(hProbe) : DNULL;
+		const char* pName = BloodModString_Name(nProbe);
+		if (pGot && strcmp(pGot, BloodModString(nProbe)) == 0)
+			pClientDE->CPrint("Mod\\Strings.txt: the engine answers %s with the mod's text", pName ? pName : "a string");
+		else
+			pClientDE->CPrint("Mod\\Strings.txt: WARNING: the engine answers %s with %s: this engine does not "
+							  "read a mod's strings", pName ? pName : "a string", pGot ? "the original text" : "nothing");
+		if (hProbe) pClientDE->FreeString(hProbe);
+	}
 }
 
 DBOOL B2Mod_OnServerSignature(CClientDE* pClientDE, HMESSAGEREAD hMessage)

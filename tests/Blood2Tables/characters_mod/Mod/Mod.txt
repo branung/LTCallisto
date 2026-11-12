@@ -1,0 +1,5 @@
+[Mod]
+Id      = "Blood2Characters"
+Game    = "Blood2"
+Name    = "Character table test"
+Version = "1"

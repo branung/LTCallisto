@@ -488,18 +488,8 @@ class CPlayerObj : public CBaseCharacter
 };
 
 
-struct CharacterValues
-{
-	char*	szName;
-	char*	szModelName;
-	char*	szSkinName;
-	DFLOAT	fHeightStanding;
-	DFLOAT	fHeightCrouching;
-	DFLOAT	fHeightDead;
-	DFLOAT	fEyeLevelStanding;
-	DFLOAT	fEyeLevelCrouching;
-	DFLOAT	fEyeLevelDead;
-};
+// struct CharacterValues is in CharacterValues.h
+#include "CharacterValues.h"
 
 
 // Provide a global so that the start point is known.

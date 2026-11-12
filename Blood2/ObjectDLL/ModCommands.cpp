@@ -14,6 +14,8 @@
 #include "lt1mod_command.h"
 #include "lt1mod_startcmds.h"
 #include "BloodModWeapons.h"
+#include "BloodModCharacters.h"
+#include "BloodModAI.h"
 
 #include <stdlib.h>
 #include <string>
@@ -72,6 +74,20 @@ void ModWeapons_LoadFile()
 	if (!g_pServerDE) return;
 	LT1Mod::EngineSource src(g_pServerDE, g_pServerDE->GetFileList, g_pServerDE->FreeFileList);
 	BloodModWeapons_LoadAndReport(src, PrintServerLine, "Server: ");
+}
+
+void ModCharacters_LoadFile()
+{
+	if (!g_pServerDE) return;
+	LT1Mod::EngineSource src(g_pServerDE, g_pServerDE->GetFileList, g_pServerDE->FreeFileList);
+	BloodModCharacters_LoadAndReport(src, PrintServerLine, "Server: ");
+}
+
+void ModAI_LoadFile()
+{
+	if (!g_pServerDE) return;
+	LT1Mod::EngineSource src(g_pServerDE, g_pServerDE->GetFileList, g_pServerDE->FreeFileList);
+	BloodModAI_LoadAndReport(src, PrintServerLine, "Server: ");
 }
 
 void ModCommands_LoadFile()

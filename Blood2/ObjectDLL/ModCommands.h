@@ -18,6 +18,10 @@
 // Reads Mod\Weapons.txt into g_WeaponDefaults after the mod is mounted; prints what changed, or
 // why nothing did. The client shell does the same into its own copy.
 void ModWeapons_LoadFile();
+// Reads Mod\Characters.txt into gCharacterValues and gCharacterSkins, likewise
+void ModCharacters_LoadFile();
+// Reads Mod\AI.txt, likewise; AI_Mgr applies it to each AI as it is created
+void ModAI_LoadFile();
 // Reads Mod\Commands.txt through the engine, after the mod is mounted; prints what it read, or
 // why not
 void ModCommands_LoadFile();

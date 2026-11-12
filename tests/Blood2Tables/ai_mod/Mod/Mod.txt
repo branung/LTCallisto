@@ -1,0 +1,5 @@
+[Mod]
+Id      = "Blood2AI"
+Game    = "Blood2"
+Name    = "AI constants test"
+Version = "1"

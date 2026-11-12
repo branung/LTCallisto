@@ -1,0 +1,8 @@
+// Blood II's character table. Blood2/ModReference/Characters.txt has every retail value.
+//
+// Caleb's eye is near the top of his head instead of at his chest (retail stands it 36 units
+// above the object's center and crouches it to 12), so the first person view starts visibly
+// higher, and drops less on a crouch.
+[CALEB]
+EyeLevel          = 70.0
+EyeLevelCrouching = 30.0

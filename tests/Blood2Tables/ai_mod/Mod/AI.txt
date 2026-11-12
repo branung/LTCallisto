@@ -1,0 +1,16 @@
+// Blood II's AI constants. Blood2/ModReference/AI.txt lists the classes and keys.
+//
+// Cultists drop to one hit: retail's constructor gives a CultistAI 30 hit points and a
+// RandomHitPoints of 0 (AI_Mgr::InitialUpdate adds Random(1, RandomHitPoints) and scales the sum
+// by the difficulty).
+//
+// RandomHitPoints = 5 is here to be refused: CultistAI declares it as a property, so every world
+// file cultist's own value replaces the mod's, and the trace says so. A cultist made by code
+// would take it.
+[CultistAI]
+HitPoints       = 1.0
+RandomHitPoints = 5.0
+
+// Print each class's constructor values, and what the mod changed in each AI.
+[Options]
+Trace = TRUE

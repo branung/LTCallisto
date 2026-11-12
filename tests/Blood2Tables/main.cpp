@@ -2,11 +2,13 @@
 //
 //   testBlood2Tables --selftest
 //   testBlood2Tables --load-mod <dir>                  a mod folder's tables, as the shells load them
-//   testBlood2Tables --dump  weapons <out.txt>         Blood2/ModReference/Weapons.txt
-//   testBlood2Tables --check weapons <file>            0 if <file> is what --dump writes
+//   testBlood2Tables --dump  weapons|characters|ai|strings <out.txt>   Blood2/ModReference/<Table>.txt
+//   testBlood2Tables --check weapons|characters|ai|strings <file>      0 if <file> is what --dump writes
 //
-// Built from the game's own Shared/WeaponDefs.cpp and the Shared/BloodMod*.cpp loaders, which both
-// modules compile. --selftest, for the weapons:
+// Built from the game's own tables (Shared/WeaponDefs.cpp, Shared/CharacterValues.cpp) and the
+// BloodMod*.cpp loaders, which the modules compile. characters.cpp tests Mod\Characters.txt, ai.cpp
+// the server's Mod\AI.txt and strings.cpp the client's Mod\Strings.txt, against the built string
+// module. --selftest, for the weapons:
 //
 //   names         every weapon id from 1 to WEAP_MAXWEAPONTYPES has one section name, and the
 //                 name finds it.
@@ -27,6 +29,9 @@
 #include "server_de.h"
 #include "WeaponDefs.h"
 #include "BloodModWeapons.h"
+#include "BloodModCharacters.h"
+#include "BloodModAI.h"
+#include "BloodModStrings.h"
 #include "lt1mod_startcmds.h"
 #include "lt1mod_script.h"
 #include "harness.h"
@@ -661,13 +666,17 @@ int SelfTest()
 	TestBalanceMod(retail);
 	TestNewWeapons(retail);
 	Check(memcmp(retail, g_WeaponDefaults, sizeof(retail)) == 0, "and the table is byte for byte retail's at the end");
+	CharactersSelfTest();
+	AISelfTest();
+	StringsSelfTest();
 	printf("passed %d, failed %d\n", g_nPass, g_nFail);
 	return g_nFail ? 1 : 0;
 }
 
 } // namespace
 
-// --load-mod <dir>: a mod folder's every table, <dir>/Mod/*.txt, loaded as the shells load them,
+// --load-mod <dir>: a mod folder's every table, <dir>/Mod/*.txt, loaded as the shells load them
+// (the weapons, characters, AI and commands as the server does, the strings as the client does),
 // and the two scripts, each printing the summary the console would, the manifest's line first.
 // Exit 1 if the manifest is invalid or any table refuses its file. tools/modtool.py check runs it.
 static int LoadMod(const char* pDir)
@@ -689,7 +698,10 @@ static int LoadMod(const char* pDir)
 	const Table kTables[] =
 	{
 		{ "Mod\\Weapons.txt",		BloodModWeapons_Load,		BloodModWeapons_Summary },
+		{ "Mod\\Characters.txt",	BloodModCharacters_Load,	BloodModCharacters_Summary },
+		{ "Mod\\AI.txt",			BloodModAI_Load,			BloodModAI_Summary },
 		{ "Mod\\Commands.txt",		LT1Mod::StartCommands_Load,	LT1Mod::StartCommands_Summary },
+		{ "Mod\\Strings.txt",		BloodModStrings_Load,		BloodModStrings_Summary },
 	};
 	bool bOk = true;
 	for (size_t t = 0; t < sizeof(kTables) / sizeof(kTables[0]); ++t)
@@ -715,14 +727,36 @@ int main(int argc, char** argv)
 {
 	// A line at a time, so a crash still leaves the checks before it in the log
 	setvbuf(stdout, NULL, _IONBF, 0);	// the UCRT refuses _IOLBF with no size
+	// The string module the build put beside this binary, under BLOOD2_GAME_DIR (Games/Blood2, or
+	// Games/Blood2NM for the add-on's harness); BLOOD2_CRES overrides it
+	{
+		std::string dir(argv[0]);
+		const size_t slash = dir.find_last_of("/\\");
+		dir = slash == std::string::npos ? std::string(".") : dir.substr(0, slash);
+#ifdef _WIN32
+		g_CResPath = dir + "\\" BLOOD2_GAME_DIR "\\CRes.dll";
+#else
+		g_CResPath = dir + "/" BLOOD2_GAME_DIR "/libCRes.so";
+#endif
+		if (getenv("BLOOD2_CRES")) g_CResPath = getenv("BLOOD2_CRES");
+	}
 	if (argc == 2 && !strcmp(argv[1], "--selftest"))
 		return SelfTest();
 	if (argc == 3 && !strcmp(argv[1], "--load-mod"))
 		return LoadMod(argv[2]);
 	const bool bWeapons = argc == 4 && !strcmp(argv[2], "weapons");
-	if (bWeapons && (!strcmp(argv[1], "--dump") || !strcmp(argv[1], "--check")))
+	const bool bCharacters = argc == 4 && !strcmp(argv[2], "characters");
+	const bool bAI = argc == 4 && !strcmp(argv[2], "ai");
+	const bool bStrings = argc == 4 && !strcmp(argv[2], "strings");
+	if ((bWeapons || bCharacters || bAI || bStrings) && (!strcmp(argv[1], "--dump") || !strcmp(argv[1], "--check")))
 	{
-		const std::string text = Dump();
+		std::map<int, std::string> retail;
+		if (bStrings && !StringsRetail(retail))
+		{
+			fprintf(stderr, "no string module at %s (BLOOD2_CRES names another)\n", g_CResPath.c_str());
+			return 1;
+		}
+		const std::string text = bWeapons ? Dump() : bCharacters ? CharactersDump() : bAI ? AIDump() : StringsDump(retail);
 		if (!strcmp(argv[1], "--dump"))
 		{
 			FILE* f = fopen(argv[3], "wb");
@@ -743,6 +777,6 @@ int main(int argc, char** argv)
 		if (lf != text) { fprintf(stderr, "%s is stale: testBlood2Tables --dump %s it\n", argv[3], argv[2]); return 1; }
 		return 0;
 	}
-	fprintf(stderr, "usage: testBlood2Tables --selftest | --load-mod <dir> | --dump weapons <out> | --check weapons <file>\n");
+	fprintf(stderr, "usage: testBlood2Tables --selftest | --load-mod <dir> | --dump weapons|characters|ai|strings <out> | --check weapons|characters|ai|strings <file>\n");
 	return 2;
 }

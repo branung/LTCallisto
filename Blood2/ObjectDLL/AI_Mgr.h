@@ -12,6 +12,7 @@
 #ifndef __AI_MGR_H__
 #define __AI_MGR_H__
 
+#include "BloodModAIFields.h"
 #include "basecharacter.h"
 #include "cpp_aggregate_de.h"
 #include "InventoryMgr.h"
@@ -363,6 +364,10 @@ protected :
 	DDWORD			ObjectMessageFn(HOBJECT hSender, DDWORD messageID, HMESSAGEREAD hRead);
 					
 	DBOOL			ReadProp(ObjectCreateStruct *pStruct);
+	// A mod's Mod\AI.txt values for this class, after the constructor's and before ReadProp's.
+	// Apply answers whether to report, which Report does after ReadProp.
+	DBOOL			ModAI_Apply(ObjectCreateStruct *pStruct, BloodModAIValues& ctor, BloodModAIValues& mod);
+	void			ModAI_Report(ObjectCreateStruct *pStruct, const BloodModAIValues& ctor, const BloodModAIValues& mod);
 	void			OnStringKey(ArgList* pArgList);
 	DBOOL			HandleTrigger( HOBJECT hSender, HMESSAGEREAD hRead );
 	virtual DBOOL	HandleDamage();

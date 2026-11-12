@@ -34,8 +34,18 @@
 #include "VoiceMgrDefs.h"
 #include "cameraobj.h"
 #include "SoundTypes.h"
+#include "BloodModAI.h"
+#include "BloodModTable.h"
+#include <string>
+#include <string.h>
+
+static void ModAI_Print(const char* pLine)
+{
+	if (g_pServerDE) g_pServerDE->CPrint("%s", pLine);
+}
 
 #include "windows.h"
+#undef GetClassName	// winuser.h's, over ILTServer::GetClassName
 #include <mbstring.h>
 
 #undef PlaySound
@@ -699,8 +709,14 @@ DDWORD AI_Mgr::EngineMessageFn(DDWORD messageID, void *pData, DFLOAT fData)
 
 		case MID_PRECREATE:
 		{
+			// The constructor has set the class's constants; a mod's replace them here, and the
+			// level's own properties replace the mod's
+			BloodModAIValues ctor, mod;
+			const DBOOL bReport = fData != PRECREATE_SAVEGAME && ModAI_Apply((ObjectCreateStruct*)pData, ctor, mod);
 			if (fData == PRECREATE_WORLDFILE || fData == PRECREATE_STRINGPROP)
 				ReadProp((ObjectCreateStruct*)pData);
+			if (bReport)
+				ModAI_Report((ObjectCreateStruct*)pData, ctor, mod);
 			break;
 		}
 
@@ -869,6 +885,80 @@ DBOOL AI_Mgr::ReadProp(ObjectCreateStruct *pStruct)
 	return DTRUE;
 }
 
+
+// ----------------------------------------------------------------------- //
+// ROUTINE		: AI_Mgr::ModAI_Apply
+// DESCRIPTION	: a mod's Mod\AI.txt values for this object's class (BloodModAI.h)
+// ----------------------------------------------------------------------- //
+
+// Copies one member; T is deduced from both sides, so a member whose type differs between AI_Mgr
+// and BloodModAIValues does not compile
+template <class T> static void ModAI_Copy(T& dst, const T& src) { memcpy(&dst, &src, sizeof(T)); }
+
+// The class name the engine registered this object's class under
+static DBOOL ModAI_ClassName(ObjectCreateStruct *pStruct, char* pName, size_t nSize)
+{
+	CServerDE* pServerDE = DEBaseClass::GetServerDE();
+	pName[0] = '\0';
+	if (!pServerDE || !pStruct || !pStruct->m_hClass) return DFALSE;
+	return pServerDE->GetClassName(pStruct->m_hClass, pName, (uint32)nSize) == LT_OK && pName[0];
+}
+
+DBOOL AI_Mgr::ModAI_Apply(ObjectCreateStruct *pStruct, BloodModAIValues& ctor, BloodModAIValues& mod)
+{
+	char szClass[64];
+	if (!ModAI_ClassName(pStruct, szClass, sizeof(szClass))) return DFALSE;
+
+#define X(key, member, kind) ModAI_Copy(ctor.member, member);
+	BLOODMOD_AI_FIELDS(X)
+#undef X
+	mod = ctor;
+
+	const bool bTrace = BloodModAI_Trace();
+	if (bTrace && BloodModAI_FirstOfClass(szClass))
+	{
+		std::string sLine;
+		for (int i = 0; BloodModAI_Key(i); ++i)
+			sLine += std::string(i ? ", " : "") + BloodModAI_Key(i) + " " + BloodModAI_Value(ctor, i);
+		BloodMod::PrintWrapped(std::string(szClass) + "'s constructor: " + sLine, "AI: ", ModAI_Print);
+	}
+
+	if (!BloodModAI_Apply(szClass, mod)) return DFALSE;
+#define X(key, member, kind) ModAI_Copy(member, mod.member);
+	BLOODMOD_AI_FIELDS(X)
+#undef X
+	return bTrace ? DTRUE : DFALSE;
+}
+
+// After ReadProp: what the mod changed in this object, and where the level's own property replaced
+// the mod's value
+void AI_Mgr::ModAI_Report(ObjectCreateStruct *pStruct, const BloodModAIValues& ctor, const BloodModAIValues& mod)
+{
+	char szClass[64];
+	if (!ModAI_ClassName(pStruct, szClass, sizeof(szClass))) return;
+
+	BloodModAIValues now;
+#define X(key, member, kind) ModAI_Copy(now.member, member);
+	BLOODMOD_AI_FIELDS(X)
+#undef X
+
+	std::string sLine;
+	for (int i = 0; BloodModAI_Key(i); ++i)
+	{
+		const std::string sCtor = BloodModAI_Value(ctor, i), sMod = BloodModAI_Value(mod, i), sNow = BloodModAI_Value(now, i);
+		if (sMod == sCtor) continue;
+		sLine += std::string(sLine.empty() ? "" : ", ") + BloodModAI_Key(i) + " " + sCtor + " -> " + sMod;
+		if (sNow != sMod) sLine += " (the level's " + sNow + " wins)";
+	}
+	// The object's name: a world file's Name property, which the create struct does not hold yet
+	// at MID_PRECREATE
+	char szName[MAX_CS_FILENAME_LEN];
+	szName[0] = '\0';
+	if (GetServerDE()) GetServerDE()->GetPropString("Name", szName, sizeof(szName));
+	BloodMod::PrintWrapped(std::string(szClass) + " '" + szName + "': " +
+						   (sLine.empty() ? std::string("the mod's values are the constructor's") : sLine),
+						   "AI: ", ModAI_Print);
+}
 
 // ----------------------------------------------------------------------- //
 // ROUTINE		: AI_Mgr::OnStringKey
@@ -2098,6 +2188,22 @@ void AI_Mgr::InitialUpdate(int nData)
 	m_damage.SetHitPoints(fHP);
 	m_damage.SetMaxHitPoints(m_damage.GetHitPoints());
 	m_damage.SetMaxMegaHitPoints(m_damage.GetHitPoints());
+
+	// The mod's trace (BloodModAI.h): the hit points the damage aggregate now holds, after the
+	// difficulty, for an AI whose class the mod sets
+	if (BloodModAI_Trace())
+	{
+		HCLASS hClass = m_pServerDE->GetObjectClass(m_hObject);
+		char szClass[64];
+		BloodModAIValues probe;
+		memset(&probe, 0, sizeof(probe));
+		if (hClass && m_pServerDE->GetClassName(hClass, szClass, (uint32)sizeof(szClass)) == LT_OK && BloodModAI_Apply(szClass, probe))
+		{
+			const char* pName = m_pServerDE->GetObjectName(m_hObject);
+			m_pServerDE->CPrint("AI: %s '%s' starts with %.1f hit points and %.1f armor", szClass, pName ? pName : "",
+								m_damage.GetHitPoints(), m_fAIArmorPoints);
+		}
+	}
 
 	//Set armor point
 	switch(GetGameDifficulty())

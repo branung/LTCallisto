@@ -1,0 +1,5 @@
+// Blood II's strings. Blood2/ModReference/Strings.txt has every retail string. Two main menu
+// items, renamed, which the menu draws from FormatString as it starts (MenuMain.cpp); retail's
+// are SINGLE PLAYER and QUIT.
+IDS_MENU_MAIN_SINGLEPLAYER = "MODDED GAME"
+IDS_MENU_MAIN_QUIT         = "LEAVE"

@@ -33,4 +33,17 @@ std::string Other(const std::string& key, const std::string& v);
 std::string Join(const std::vector<std::string>& v);
 std::string Slurp(const char* pPath);
 
+// characters.cpp: the selftest, and the reference file's text
+void CharactersSelfTest();
+std::string CharactersDump();
+// ai.cpp: likewise for Mod\AI.txt
+void AISelfTest();
+std::string AIDump();
+// strings.cpp: Mod\Strings.txt, whose retail half is the built string module at g_CResPath (main
+// sets it); StringsRetail is false without one
+extern std::string g_CResPath;
+void StringsSelfTest();
+bool StringsRetail(std::map<int, std::string>& out);
+std::string StringsDump(const std::map<int, std::string>& retail);
+
 #endif // __BLOOD2TABLES_HARNESS_H__

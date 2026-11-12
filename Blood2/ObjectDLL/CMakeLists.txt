@@ -22,6 +22,9 @@ add_library(${PROJECT_NAME} SHARED
 	behemoth.cpp
 	BloodServerShell.cpp
 	ModCommands.cpp
+	BloodModAI.cpp
+	../Shared/BloodModCharacters.cpp
+	../Shared/CharacterValues.cpp
 	boneleech.cpp
 	BulletImpactSFX.cpp
 	CalebAI.cpp
