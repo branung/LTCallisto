@@ -165,9 +165,11 @@ include_directories(./
 	../../libs/DECompat/lt1      # LT1 include names
 	${SDL2_INCLUDE_DIRS})
 
+# LIB_LT1Mod: the mod layer, which brings ButeMgr and its support libraries behind its own headers
 target_link_libraries(${PROJECT_NAME}
 	LIB_DECompat
 	LIB_LTMem
+	LIB_LT1Mod
 	${SDL2_LIBRARIES})
 
 set_target_properties(${PROJECT_NAME}

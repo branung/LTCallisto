@@ -13,6 +13,7 @@ add_library(${PROJECT_NAME} SHARED
 	BaseLineSystemFX.cpp
 	BaseParticleSystemFX.cpp
 	BloodClientShell.cpp
+	ModSupport.cpp
 	BloodSplatFX.cpp
 	BloodTrailFX.cpp
 	BloodTrailSegmentFX.cpp
@@ -143,8 +144,10 @@ include_directories(.
 	../../libs/DECompat/lt1      # LT1 include names
 	${SDL2_INCLUDE_DIRS})
 
+# LIB_LT1Mod: the mod layer, which both halves of the game load
 target_link_libraries(${PROJECT_NAME}
 	LIB_DECompatClient
+	LIB_LT1Mod
 	${SDL2_LIBRARIES})
 
 if(WIN32)

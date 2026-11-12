@@ -14,6 +14,36 @@
 #include "ClientUtilities.h"
 #include "time.h"
 #include <mbstring.h>
+#include <string.h>
+#include "lt1mod.h"
+
+// An active mod's saves are its own, in Save\<Id>\: every path below is built as retail built
+// it and then mapped, so with no mod each is retail's. The server maps g_szSavePath the same way,
+// and mapping twice is mapping once.
+static void ModSavePath(char* szPath)
+{
+	const std::string s = LT1Mod::SavePath(szPath);
+	strncpy(szPath, s.c_str(), MAX_PATH - 1);
+	szPath[MAX_PATH - 1] = '\0';
+}
+
+// Creates the mod's Save\<Id> after the game has made Save itself; DFALSE, after the same
+// message, when it cannot
+static DBOOL MakeModSaveDir()
+{
+	const std::string sDir = LT1Mod::SaveDir();
+	if (sDir.empty()) return DTRUE;
+	WIN32_FIND_DATA fileinfo;
+	HANDLE hRc = FindFirstFile(sDir.c_str(), &fileinfo);
+	FindClose(hRc);
+	if (hRc == INVALID_HANDLE_VALUE && CreateDirectory(sDir.c_str(), NULL) == 0)
+	{
+		DDWORD dwError = GetLastError();
+		PrintError("File error #%d creating directory.", dwError);
+		return DFALSE;
+	}
+	return DTRUE;
+}
 
 // Declare the static data
 SavedInfo CSavedGameInfo::gQuickSaveInfo;
@@ -37,12 +67,12 @@ CSavedGameInfo::CSavedGameInfo()
 	// Initialize the slot list and fill it with a placeholder title
 	for (int nIndex=0; nIndex < MAX_SAVESLOTS; nIndex++)
 	{
-		memset(&gSaveSlotInfo[nIndex], sizeof(SavedInfo), 0);
+		memset(&gSaveSlotInfo[nIndex], 0, sizeof(SavedInfo));
 		_mbscpy((unsigned char*)gSaveSlotInfo[nIndex].szName, (const unsigned char*)g_szEmptySlot);
 	}
-	memset(&gCurrentSaveInfo, sizeof(SavedInfo), 0);
+	memset(&gCurrentSaveInfo, 0, sizeof(SavedInfo));
 	_mbscpy((unsigned char*)gCurrentSaveInfo.szName, (const unsigned char*)g_szEmptySlot);
-	memset(&gQuickSaveInfo, sizeof(SavedInfo), 0);
+	memset(&gQuickSaveInfo, 0, sizeof(SavedInfo));
 	_mbscpy((unsigned char*)gQuickSaveInfo.szName, (const unsigned char*)g_szEmptySlot);
 
 	m_nReservedSlot = SLOT_NONE;
@@ -81,6 +111,7 @@ void CSavedGameInfo::LoadInfo()
 			PrintError("File error #%d creating directory.", dwError);
 			return;
 		}
+		if (!MakeModSaveDir()) return;
 
 
 		// See if this save slot directory exists
@@ -90,6 +121,7 @@ void CSavedGameInfo::LoadInfo()
 			_mbscpy((unsigned char*)szPath, (const unsigned char*)"Save\\Current");
 		else
 			sprintf(szPath, "Save\\Save%d", nIndex);
+		ModSavePath(szPath);
 		hRc = FindFirstFile (szPath, &fileinfo );
 		FindClose(hRc);
 		if (hRc != INVALID_HANDLE_VALUE && fileinfo.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
@@ -164,6 +196,7 @@ void CSavedGameInfo::SaveInfo(int nIndex, int nGameType, int nCharacter)
 		PrintError("File error #%d creating directory.", dwError);
 		return;
 	}
+	if (!MakeModSaveDir()) return;
 
 	// See if this save slot directory exists
 	if (nIndex >=0 && nIndex <= MAX_SAVESLOTS)
@@ -189,6 +222,7 @@ void CSavedGameInfo::SaveInfo(int nIndex, int nGameType, int nCharacter)
 		gCurrentSaveInfo.nCharacter = nCharacter;
 		memcpy(&savedinfo, &gCurrentSaveInfo, (unsigned)sizeof(SavedInfo));
 	}
+	ModSavePath(szPath);
 
 	hRc = FindFirstFile( szPath, &fileinfo );
 	FindClose(hRc);
@@ -257,6 +291,7 @@ void CSavedGameInfo::ClearSaveSlot(int nIndex)
 		_mbscpy((unsigned char*)szBasePath, (const unsigned char*)"SAVE\\CURRENT\\");
 	else 
 		return;
+	ModSavePath(szBasePath);
 
 	_mbscpy((unsigned char*)szFilePath, (const unsigned char*)szBasePath);
 	_mbscat((unsigned char*)szFilePath, (const unsigned char*)"*.*");
@@ -343,6 +378,9 @@ void CSavedGameInfo::CopySlot(int nSrcIndex, int nDestIndex)
 	}
 	else
 		return;
+
+	ModSavePath(szSrcPath);
+	ModSavePath(szDestPath);
 
 	if (siSrc && siDest)
 		memcpy(siDest, siSrc, (unsigned)sizeof(SavedInfo));

@@ -12,8 +12,11 @@
 // includes...
 #include <stdarg.h>
 #include <stdio.h>
+#include <chrono>
 #include "BloodClientShell.h"
 #include "de_lt1defaults.h"
+#include "ModSupport.h"
+#include "lt1mod.h"
 #include "Blood2LT1Vars.h"
 #include "ViewWeapon.h"
 #include "Commands.h"
@@ -37,6 +40,11 @@
 #include "SoundTypes.h"
 #include "physics_lt.h"
 #include "iltcursor.h"
+
+// A client that finds the server running other mod files answers with its own signature, then
+// waits this long before disconnecting so the answer is delivered and the server can tell its host
+static const std::chrono::milliseconds kModMismatchWait(1000);
+static std::chrono::steady_clock::time_point s_ModMismatchAt;
 
 PhysicsState	  g_normalPhysicsState;
 PhysicsState	  g_waterPhysicsState;
@@ -497,6 +505,7 @@ CBloodClientShell::CBloodClientShell()
 
 	m_bPaused = DFALSE;
 	m_bInMessageBox = DFALSE;
+	m_bModMismatch = DFALSE;
 
 	m_eMusicLevel			= CMusic::MUSICLEVEL_SILENCE;
 
@@ -875,6 +884,16 @@ DRESULT CBloodClientShell::OnEngineInitialized(RMode *pMode, DGUID *pAppGuid)
 
 	// The shared LT1 engine defaults
 	DECompat_ApplyLT1ClientDefaults(pClientDE);
+
+	// The mod mounted with the game, if any; the trees are mounted before this shell is loaded
+	B2Mod_Init(pClientDE);
+	// A mod's saves are its own (Save\<Id>\), and the constructor read the slots from retail's
+	// Save\ before any mod was known: start them empty again and read the mod's
+	if (LT1Mod::IsActive())
+	{
+		m_SavedGameInfo = CSavedGameInfo();
+		m_SavedGameInfo.LoadInfo();
+	}
 
 	// Blood 2's own engine vars, both shells' in one table (Shared/Blood2LT1Vars.h)
 	DECompat_ApplyLT1ClientVars(pClientDE, BLOOD2_LT1_VARS);
@@ -2580,6 +2599,17 @@ void CBloodClientShell::Update()
 		return;
 	}
 
+	// The server is running other mod files (MSG_MOD_SIGNATURE), once the answer has had time
+	// to arrive
+	if (m_bModMismatch && pClientDE && std::chrono::steady_clock::now() - s_ModMismatchAt >= kModMismatchWait)
+	{
+		m_bModMismatch = DFALSE;
+		pClientDE->Disconnect();
+		SetGameState(GS_MENU);
+		DoMessageBox(B2Mod_MismatchText(), DTRUE);
+		return;
+	}
+
 	m_pMoveMgr->Update();
 
 	UpdateSoundReverb( );
@@ -4195,6 +4225,16 @@ void CBloodClientShell::OnMessage(DBYTE messageID, HMESSAGEREAD hMessage)
 
 	switch(messageID)
 	{
+		case MSG_MOD_SIGNATURE:
+		{
+			if (B2Mod_OnServerSignature(pClientDE, hMessage))
+			{
+				m_bModMismatch = DTRUE;
+				s_ModMismatchAt = std::chrono::steady_clock::now();
+			}
+			break;
+		}
+
 		case SMSG_BOOTED:
 		{
 			CSPrint(IDS_BOOTED);

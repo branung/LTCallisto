@@ -71,6 +71,7 @@ class CBloodServerShell : public CServerShellDE
 		void		Update(DFLOAT timeElapsed);
 		void		UpdateClientPingTimes();
 		void		OnRemoveClient(HCLIENT hClient);
+		void		OnAddClient(HCLIENT hClient);
 
 		DBOOL		LoadWorld(HMESSAGEREAD hMessage);
 		DBOOL		SaveGame(DBYTE bySaveType, DBOOL bSavePlayers, DBOOL bSaveConsole);

@@ -135,6 +135,12 @@ enum ClientServerMsgs
 	CMSG_RESETPLAYERINVENTORY
 };
 
+// Server <-> client, both directions: the mod signature. The server sends its own when a client
+// is added; the client answers with its own and disconnects on a mismatch; the server kicks a
+// client whose answer differs. With no mod on either side both say "none". A fixed number
+// outside both enums above, so appending to either can never move it; Shogo uses the same value.
+#define MSG_MOD_SIGNATURE	240
+
 
 // Client data flags
 #define CDATA_SHOWGUN		1	// Tells the player obj to hide it's view weapon

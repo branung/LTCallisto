@@ -21,6 +21,7 @@
 #include "CameraObj.h"
 #include "CVarTrack.h"
 #include "CultistAI.h"
+#include "lt1mod_engine.h"
 
 #include <windows.h>  // For DebugBreak
 #include <winbase.h>
@@ -41,6 +42,15 @@ char g_szVarWorldName[]			= "GAME_WORLDNAME";
 char g_szVarDifficulty[]		= "GAME_DIFFICULTY";
 char g_szVarGameType[]			= "GAME_GAMETYPE";
 char g_szSavePath[]				= "Save\\Current\\";
+
+// g_szSavePath for the active mod, Save\<Id>\Current\, and retail's with none. The client's
+// LoadSave.cpp maps the slots it copies this directory to and from the same way.
+static const char* ModSavePath()
+{
+	static std::string s;
+	s = LT1Mod::SavePath(g_szSavePath);
+	return s.c_str();
+}
 char g_szAutoSaveFile[]			= "Auto.sav";
 char g_szCurrentSaveFile[]		= "Current.sav";
 
@@ -123,6 +133,12 @@ LTRESULT CBloodServerShell::OnServerInitialized()
 	// The shared LT1 engine defaults. Each side has its own copy of the engine variables
 	DECompat_ApplyLT1ServerDefaults(g_pServerDE);
 
+	// The mod mounted with the game, if any. The server reads the trees the client passed it, so
+	// it sees the same Mod\ the client shell did; with no Mod\Mod.txt nothing changes.
+	LT1Mod::LoadActive(g_pServerDE, g_pServerDE->GetFileList, g_pServerDE->FreeFileList, "Blood2");
+	if (LT1Mod::Active().present)
+		g_pServerDE->CPrint("Server: %s", LT1Mod::Describe(LT1Mod::Active()).c_str());
+
 	// Blood 2's own engine vars, both shells' in one table (Shared/Blood2LT1Vars.h)
 	DECompat_ApplyLT1ServerVars(g_pServerDE, BLOOD2_LT1_VARS);
 
@@ -182,6 +198,27 @@ void CBloodServerShell::OnAddClient(HCLIENT hClient)
 {
 }
 */	
+
+// ----------------------------------------------------------------------- //
+//
+//	ROUTINE:	CBloodServerShell::OnAddClient()
+//
+//	PURPOSE:	Called when a client connects to the server
+//
+// ----------------------------------------------------------------------- //
+
+void CBloodServerShell::OnAddClient(HCLIENT hClient)
+{
+	// The mod signature, for the client to check against its own and answer. The local client
+	// gets it too and always agrees, having mounted the same trees.
+	HMESSAGEWRITE hWrite = g_pServerDE->StartMessage(hClient, MSG_MOD_SIGNATURE);
+	if (hWrite)
+	{
+		std::string sig = LT1Mod::Signature(LT1Mod::Active());
+		g_pServerDE->WriteToMessageString(hWrite, (char*)sig.c_str());
+		g_pServerDE->EndMessage(hWrite);
+	}
+}
 
 // ----------------------------------------------------------------------- //
 //
@@ -358,6 +395,22 @@ void CBloodServerShell::OnMessage(HCLIENT hSender, DBYTE messageID, HMESSAGEREAD
 	if (!g_pServerDE) return;
 	switch(messageID)
 	{
+		case MSG_MOD_SIGNATURE:
+		{
+			// A client's answer to the signature OnAddClient sent. A client that differs has
+			// already disconnected itself; this tells the server's console too. A client that
+			// never answers is not waited for.
+			char* pSig = g_pServerDE->ReadFromMessageString(hMessage);
+			std::string mine = LT1Mod::Signature(LT1Mod::Active());
+			if (pSig && mine != pSig)
+			{
+				g_pServerDE->CPrint("Mod mismatch: a client has \"%s\", this server has \"%s\"; disconnecting it",
+									pSig, mine.c_str());
+				g_pServerDE->KickClient(hSender);
+			}
+			break;
+		}
+
 		case CMSG_NEXTLEVEL:
 		{
 			g_bNextLevel = DTRUE;
@@ -942,7 +995,7 @@ DBOOL CBloodServerShell::LoadWorld(HMESSAGEREAD hMessage)
 
 		// See if there is a save file for this level
 		char szSavePath[MAX_PATH];
-		_mbscpy((unsigned char*)szSavePath, (const unsigned char*)g_szSavePath);
+		_mbscpy((unsigned char*)szSavePath, (const unsigned char*)ModSavePath());
 		_mbscat((unsigned char*)szSavePath, (const unsigned char*)pFilename);
 		_mbscat((unsigned char*)szSavePath, (const unsigned char*)".sav");
 
@@ -1032,7 +1085,7 @@ DBOOL CBloodServerShell::SaveGame(DBYTE bySaveType, DBOOL bSavePlayers, DBOOL bS
 
 	char szSavePath[MAX_PATH];
 	
-	_mbscpy((unsigned char*)szSavePath, (const unsigned char*)g_szSavePath);
+	_mbscpy((unsigned char*)szSavePath, (const unsigned char*)ModSavePath());
 	if (bySaveType == SAVETYPE_CURRENT)
 		_mbscat((unsigned char*)szSavePath, (const unsigned char*)g_szCurrentSaveFile);
 	else if (bySaveType == SAVETYPE_AUTO)
@@ -1101,7 +1154,7 @@ DBOOL CBloodServerShell::RestoreGame(DBYTE bySaveType)
 
 	char szSavePath[MAX_PATH];
 	
-	_mbscpy((unsigned char*)szSavePath, (const unsigned char*)g_szSavePath);
+	_mbscpy((unsigned char*)szSavePath, (const unsigned char*)ModSavePath());
 	if (bySaveType == SAVETYPE_CURRENT)
 		_mbscat((unsigned char*)szSavePath, (const unsigned char*)g_szCurrentSaveFile);
 	else if (bySaveType == SAVETYPE_AUTO)
@@ -1134,7 +1187,7 @@ DBOOL CBloodServerShell::BuildSavePath(char *pBuffer, char *pFilename)
 	while(*pFilename == '\\' || *pFilename == '/')
 		pFilename++;
 
-	_mbscpy((unsigned char*)pBuffer, (const unsigned char*)g_szSavePath);
+	_mbscpy((unsigned char*)pBuffer, (const unsigned char*)ModSavePath());
 
 	// Keep track of the position that the filename will be appended to
 	char *pEnd = (char *)(pBuffer + _mbstrlen(pBuffer));
@@ -1169,7 +1222,7 @@ DBOOL CBloodServerShell::KeepAliveSave()
 	char szSavePath[MAX_PATH];
 
 #ifndef _DEMO
-	_mbscpy((unsigned char*)szSavePath, (const unsigned char*)g_szSavePath);
+	_mbscpy((unsigned char*)szSavePath, (const unsigned char*)ModSavePath());
 	_mbscat((unsigned char*)szSavePath, (const unsigned char*)"Keep.sav");
 #else
 	_mbscpy((unsigned char*)szSavePath, (const unsigned char*)"Keep.sav");
@@ -1217,7 +1270,7 @@ DBOOL CBloodServerShell::KeepAliveLoad()
 	char szSavePath[MAX_PATH];
 
 #ifndef _DEMO
-	_mbscpy((unsigned char*)szSavePath, (const unsigned char*)g_szSavePath);
+	_mbscpy((unsigned char*)szSavePath, (const unsigned char*)ModSavePath());
 	_mbscat((unsigned char*)szSavePath, (const unsigned char*)"Keep.sav");
 #else
 	_mbscpy((unsigned char*)szSavePath, (const unsigned char*)"Keep.sav");

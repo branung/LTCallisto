@@ -628,6 +628,10 @@ class CBloodClientShell : public CClientShellDE
 		CLTGUIFont			m_messageFont;
 		DBOOL				m_bInMessageBox;
 
+		// The server's mod signature differed from ours. Acted on in Update, so the disconnect
+		// never runs inside the engine's message dispatch
+		DBOOL				m_bModMismatch;
+
 		// This is used to ignore a keyboard message while doing
 		// the key configuration stuff.
 		DBOOL			m_bIgnoreKeyboardMessage;
