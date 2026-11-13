@@ -21,6 +21,10 @@
 //                 values are the Base's but for its own keys, it is numbered
 //                 after retail's, a chain ends at a retail character, and the
 //                 arrays are full at BLOOD2_CHARACTER_IDS.
+//   start         the attributes and start lists (gCharacterStart)
+//                 answer retail's code as it was before the table took it
+//                 over, a switch value of 0 is the character's own, and a
+//                 bad name or attribute loads nothing.
 
 #include "server_de.h"
 #include "SharedDefs.h"
@@ -45,6 +49,7 @@ namespace
 CharacterValues	g_RetailValues[BLOOD2_CHARACTER_IDS];
 char*			g_RetailSkins[BLOOD2_CHARACTER_IDS][MULTIPLAY_SKIN_MAX + 1];
 char*			g_RetailPictures[BLOOD2_CHARACTER_IDS][BLOOD2_CHARACTER_PICTURES];
+CharacterStart	g_RetailStart[BLOOD2_CHARACTER_IDS];
 
 bool LoadCharacters(const std::string& text, std::string& err)
 {
@@ -59,8 +64,8 @@ void Unload()
 
 // ---------------------------------------------------------------------------
 // The members, transcribed from CharacterValues.h independently of the
-// loader's key table: CharacterValues' nine, the seven skin slots, then the
-// menu's five pictures.
+// loader's key table: CharacterValues' nine, the seven skin slots, the
+// menu's five pictures, then CharacterStart's eleven.
 
 enum MKind { M_STR, M_POD };
 struct Member { const char* pName; int nArray; size_t nOffset, nSize; MKind eKind; };
@@ -68,6 +73,8 @@ struct Member { const char* pName; int nArray; size_t nOffset, nSize; MKind eKin
 #define P(m) { #m, 0, offsetof(CharacterValues, m), sizeof(DFLOAT), M_POD }
 #define K(n) { "skin" #n, 1, (n) * sizeof(char*), sizeof(char*), M_STR }
 #define I(n) { "picture" #n, 2, (n) * sizeof(char*), sizeof(char*), M_STR }
+#define A(m, n) { #m #n, 3, offsetof(CharacterStart, m) + (n) * sizeof(int), sizeof(int), M_POD }
+#define L(m) { #m, 3, offsetof(CharacterStart, m), sizeof(char*), M_STR }
 const Member kMembers[] =
 {
 	S(szName), S(szModelName), S(szSkinName),
@@ -75,11 +82,16 @@ const Member kMembers[] =
 	P(fEyeLevelStanding), P(fEyeLevelCrouching), P(fEyeLevelDead),
 	K(0), K(1), K(2), K(3), K(4), K(5), K(6),
 	I(0), I(1), I(2), I(3), I(4),
+	A(nAttrib, 0), A(nAttrib, 1), A(nAttrib, 2), A(nAttrib, 3),
+	A(nSwitch, 0), A(nSwitch, 1), A(nSwitch, 2), A(nSwitch, 3),
+	L(szWeapons), L(szItems), L(szAmmo),
 };
 #undef S
 #undef P
 #undef K
 #undef I
+#undef A
+#undef L
 const int kNumMembers = (int)(sizeof(kMembers) / sizeof(kMembers[0]));
 
 const char* At(int nId, const Member& m, bool bRetail)
@@ -88,6 +100,8 @@ const char* At(int nId, const Member& m, bool bRetail)
 		return (const char*)&(bRetail ? g_RetailValues : gCharacterValues)[nId] + m.nOffset;
 	if (m.nArray == 1)
 		return (const char*)(bRetail ? g_RetailSkins : gCharacterSkins)[nId] + m.nOffset;
+	if (m.nArray == 3)
+		return (const char*)&(bRetail ? g_RetailStart : gCharacterStart)[nId] + m.nOffset;
 	return (const char*)(bRetail ? g_RetailPictures : gCharacterPictures)[nId] + m.nOffset;
 }
 
@@ -243,6 +257,15 @@ void TestErrors()
 		{ "a string for a number",			"[CALEB]\nHeight = \"82\"\n",				"is not a number" },
 		{ "a negative eye level",			"[CALEB]\nEyeLevel = -1.0\n",				"EyeLevel is out of range" },
 		{ "a 100-character skin",			0,											"longer than 99 characters" },
+		{ "a strength of 6",				"[CALEB]\nStrength = 6\n",					"[CALEB]:Strength is out of range (1-5" },
+		{ "a magic of 0",					"[CALEB]\nMagic = 0\n",						"[CALEB]:Magic is out of range (1-5" },
+		{ "a switch speed of 6",			"[OPHELIA]\nSwitchSpeed = 6\n",				"[OPHELIA]:SwitchSpeed is out of range (0-5" },
+		{ "a weapon nothing names",		"[CALEB]\nStartWeapons = \"MELEE LASER\"\n",	"StartWeapons: \"LASER\" is no weapon" },
+		{ "a bomb as a weapon",			"[CALEB]\nStartWeapons = \"PROXIMITYBOMB\"\n",	"\"PROXIMITYBOMB\" is a bomb, which StartItems gives" },
+		{ "an item nothing names",		"[CALEB]\nStartItems = \"KEY\"\n",				"StartItems: \"KEY\" is no item" },
+		{ "ammo without a count",			"[CALEB]\nStartAmmo = \"BULLET 50 SHELL\"\n",	"StartAmmo: \"SHELL\" wants a count" },
+		{ "a negative count",				"[CALEB]\nStartAmmo = \"BULLET -5\"\n",			"StartAmmo: \"BULLET\" wants a count" },
+		{ "ammo nothing names",			"[CALEB]\nStartAmmo = \"ROCKET 5\"\n",			"StartAmmo: \"ROCKET\" is no ammo" },
 	};
 	const std::string sLong = "[OPHELIA]\nSkinBlue = \"" + std::string(100, 'x') + "\"\n";
 	for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); ++i)
@@ -425,6 +448,79 @@ void TestNewCharacters()
 		  "and with the mod gone the new ones are gone");
 }
 
+// The attributes and start lists: retail's, as SetCharacterInfo, TweakSaveValuesForCharacterChange
+// and ResetPlayerInventory wrote them before the table took them over, and a mod's.
+void TestStart()
+{
+	printf("characters: attributes and start lists\n");
+	std::string err;
+	Unload();
+	struct Retail { int nChar; int a[4]; int s[4]; };
+	const Retail kRetail[] =
+	{
+		{ CHARACTER_CALEB,     { 5, 3, 3, 1 }, { 5, 3, 3, 1 } },
+		{ CHARACTER_OPHELIA,   { 2, 5, 1, 4 }, { 2, 5, 1, 4 } },
+		{ CHARACTER_ISHMAEL,   { 1, 3, 3, 5 }, { 1, 3, 3, 5 } },
+		{ CHARACTER_GABREILLA, { 5, 1, 5, 1 }, { 5, 1, 5, 1 } },
+#ifdef _ADD_ON
+		// The switch has no case for these, and starts from 1s.
+		{ CHARACTER_M_CULTIST,  { 5, 3, 3, 1 }, { 1, 1, 1, 1 } },
+		{ CHARACTER_F_CULTIST,  { 2, 5, 1, 4 }, { 1, 1, 1, 1 } },
+		{ CHARACTER_SOULDRUDGE, { 1, 3, 3, 5 }, { 1, 1, 1, 1 } },
+		{ CHARACTER_PROPHET,    { 5, 1, 5, 1 }, { 1, 1, 1, 1 } },
+#endif
+	};
+	bool bSame = sizeof(kRetail) / sizeof(kRetail[0]) == (size_t)MAX_CHARACTERS;
+	for (size_t i = 0; bSame && i < sizeof(kRetail) / sizeof(kRetail[0]); ++i)
+	{
+		int a[4], s[4];
+		BloodModCharacter_Attributes(kRetail[i].nChar, false, a);
+		BloodModCharacter_Attributes(kRetail[i].nChar, true, s);
+		bSame = !memcmp(a, kRetail[i].a, sizeof(a)) && !memcmp(s, kRetail[i].s, sizeof(s));
+		std::vector<int> w, it;
+		std::vector<BloodModAmmo> am;
+		bSame = bSame && BloodModCharacter_StartWeapons(kRetail[i].nChar, w) && w.size() == 2 &&
+				w[0] == WEAP_MELEE && w[1] == WEAP_BERETTA &&
+				BloodModCharacter_StartItems(kRetail[i].nChar, it) && it.empty() &&
+				BloodModCharacter_StartAmmo(kRetail[i].nChar, am) && am.size() == 1 &&
+				am[0].nType == AMMO_BULLET && am[0].fCount == 50.0f;
+		if (!bSame)
+			printf("        %s: %d %d %d %d / %d %d %d %d\n", BloodModCharacter_Name(kRetail[i].nChar), a[0], a[1], a[2], a[3],
+				   s[0], s[1], s[2], s[3]);
+	}
+	Check(bSame, "with no mod every character has retail's menu and switch attributes, MELEE BERETTA, no items and "
+				 "50 bullets");
+	int nOut[4];
+	BloodModCharacter_Attributes(MAX_CHARACTERS, false, nOut);
+	Check(nOut[0] == 1 && nOut[3] == 1, "a character there is not has retail's default, 1s");
+
+	// A mod's attribute is the switch's too unless it says otherwise.
+	Check(LoadCharacters("[CALEB]\nStrength = 4\nResistance = 4\n"
+						 "[ISHMAEL]\nSwitchMagic = 3\n", err), "attributes load" + err);
+	int a[4], s[4], i2[4], j2[4];
+	BloodModCharacter_Attributes(CHARACTER_CALEB, false, a);
+	BloodModCharacter_Attributes(CHARACTER_CALEB, true, s);
+	BloodModCharacter_Attributes(CHARACTER_ISHMAEL, false, i2);
+	BloodModCharacter_Attributes(CHARACTER_ISHMAEL, true, j2);
+	Check(a[0] == 4 && a[2] == 4 && s[0] == 4 && s[2] == 4 && s[1] == 3,
+		  "Strength and Resistance move the menu's and, at switch 0, the switch's");
+	Check(i2[3] == 5 && j2[3] == 3 && j2[0] == 1, "a SwitchMagic moves the switch's magic alone");
+
+	// The lists, by name, without case, in order; a new character keeps its Base's.
+	Check(LoadCharacters("[GABREILLA]\nStartWeapons = \"melee Beretta MINIGUN\"\n"
+						 "StartItems = \"FLASHLIGHT TheEye\"\nStartAmmo = \"BULLET 200 SHELL 100 FOCUS 400\"\n"
+						 "[TANK]\nBase = \"GABREILLA\"\n", err), "start lists load" + err);
+	std::vector<int> w, it;
+	std::vector<BloodModAmmo> am;
+	const int nTank = BloodModCharacter_Find("TANK");
+	const bool bLists = BloodModCharacter_StartWeapons(nTank, w) && BloodModCharacter_StartItems(nTank, it) &&
+						BloodModCharacter_StartAmmo(nTank, am);
+	Check(bLists && w.size() == 3 && w[2] == WEAP_MINIGUN && it.size() == 2 && it[0] == INV_FLASHLIGHT &&
+		  it[1] == INV_THEEYE && am.size() == 3 && am[1].nType == AMMO_SHELL && am[2].fCount == 400.0f,
+		  "names are matched without case, kept in order, and a new character has its Base's");
+	Unload();
+}
+
 } // namespace
 
 std::string CharactersDump()
@@ -446,8 +542,13 @@ std::string CharactersDump()
 		"// sound directory, sounds\\chosen\\<Name>; Height sets only the first\n"
 		"// dims; Skin .. SkinTeamRed are the multiplayer skins, by\n"
 		"// MULTIPLAY_SKIN_, Skin the single-player one; Picture .. PictureYellow\n"
-		"// the character menu's, \"\" for none.  Every number is 0 or more; a\n"
-		"// string is at most 99 characters.\n"
+		"// the character menu's, \"\" for none.  Strength .. Magic are the\n"
+		"// attributes the menu gives, 1-5, and the Switch ones an add-on level's\n"
+		"// switch's, 0 for the character's own; StartWeapons, StartItems and\n"
+		"// StartAmmo are what that switch leaves the player holding, by WEAP_,\n"
+		"// INV_ and AMMO_ name without the prefix, and StartAmmo a single-player\n"
+		"// respawn's too.  Every other number is 0 or more; a string is at most\n"
+		"// 99 characters.\n"
 		"//\n"
 		"// A section naming no character adds one, on a Base (a character here\n"
 		"// or a new one above it) as the mod leaves that one:\n"
@@ -465,7 +566,11 @@ void CharactersSelfTest()
 	memcpy(g_RetailValues, gCharacterValues, sizeof(g_RetailValues));
 	memcpy(g_RetailSkins, gCharacterSkins, sizeof(g_RetailSkins));
 	memcpy(g_RetailPictures, gCharacterPictures, sizeof(g_RetailPictures));
-	Check(kNumMembers == 21, "kMembers lists CharacterValues' 9 members, the 7 skin slots and the 5 pictures");
+	memcpy(g_RetailStart, gCharacterStart, sizeof(g_RetailStart));
+	Check(kNumMembers == 32, "kMembers lists CharacterValues' 9 members, the 7 skin slots, the 5 pictures and "
+							 "CharacterStart's 11");
+	Check(sizeof(CharacterStart) == 8 * sizeof(int) + 3 * sizeof(char*),
+		  "and CharacterStart is those eleven");
 	Check(sizeof(CharacterValues) == 3 * sizeof(char*) + 6 * sizeof(DFLOAT) ||
 		  sizeof(CharacterValues) == 4 * sizeof(char*) + 6 * sizeof(DFLOAT),
 		  "and CharacterValues is those nine (at most padding after them)");
@@ -476,6 +581,7 @@ void CharactersSelfTest()
 	TestStrings();
 	TestCharactersMod();
 	TestMenu();
+	TestStart();
 	TestNewCharacters();
 	Check(memcmp(g_RetailValues, gCharacterValues, sizeof(g_RetailValues)) == 0 &&
 		  memcmp(g_RetailSkins, gCharacterSkins, sizeof(g_RetailSkins)) == 0 &&

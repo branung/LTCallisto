@@ -148,6 +148,10 @@ LTRESULT CBloodServerShell::OnServerInitialized()
 		g_pServerDE->CPrint("Server: %s", LT1Mod::Describe(LT1Mod::Active()).c_str());
 	ModWeapons_LoadFile();
 	ModCharacters_LoadFile();
+	ModAmmo_LoadFile();
+	ModRules_LoadFile();
+	ModProjectiles_LoadFile();
+	ModWeaponClasses_LoadFile();
 	ModAI_LoadFile();
 	ModCommands_LoadFile();
 	// ...and its script, Mod\Script.lua

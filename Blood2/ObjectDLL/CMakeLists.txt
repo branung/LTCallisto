@@ -23,10 +23,15 @@ add_library(${PROJECT_NAME} SHARED
 	BloodServerShell.cpp
 	ModCommands.cpp
 	BloodModAI.cpp
+	BloodModProjectiles.cpp
+	BloodModWeaponClasses.cpp
 	ModClassDefs.cpp
 	ModScript.cpp
 	../Shared/BloodModCharacters.cpp
 	../Shared/CharacterValues.cpp
+	../Shared/AmmoValues.cpp
+	../Shared/BloodModAmmo.cpp
+	../Shared/BloodModRules.cpp
 	boneleech.cpp
 	BulletImpactSFX.cpp
 	CalebAI.cpp

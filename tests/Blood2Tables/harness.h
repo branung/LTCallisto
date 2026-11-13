@@ -38,6 +38,17 @@ void CharactersSelfTest();
 std::string CharactersDump();
 // ai.cpp: likewise for Mod\AI.txt
 void AISelfTest();
+// Every class ObjectDLL registers with pParent as its parent (ai.cpp).
+#include <set>
+std::set<std::string> ScanClasses(const char* pDir, std::string& sWhy, const char* pParent);
+void AmmoSelfTest();
+void ProjectilesSelfTest();
+void WeaponClassesSelfTest();
+std::string WeaponClassesDump();
+void RulesSelfTest();
+std::string RulesDump();
+std::string ProjectilesDump();
+std::string AmmoDump();
 std::string AIDump();
 // strings.cpp: Mod\Strings.txt, whose retail half is the built string module at g_CResPath (main
 // sets it); StringsRetail is false without one

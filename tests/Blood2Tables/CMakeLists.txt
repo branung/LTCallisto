@@ -7,13 +7,22 @@ set(BLOOD2TABLES_SRC
 	main.cpp
 	characters.cpp
 	ai.cpp
+	ammo.cpp
+	projectiles.cpp
+	weaponclasses.cpp
+	rules.cpp
 	strings.cpp
 	../../Blood2/Shared/WeaponDefs.cpp
 	../../Blood2/Shared/BloodModTable.cpp
 	../../Blood2/Shared/BloodModWeapons.cpp
 	../../Blood2/Shared/CharacterValues.cpp
 	../../Blood2/Shared/BloodModCharacters.cpp
+	../../Blood2/Shared/AmmoValues.cpp
+	../../Blood2/Shared/BloodModAmmo.cpp
+	../../Blood2/Shared/BloodModRules.cpp
 	../../Blood2/ObjectDLL/BloodModAI.cpp
+	../../Blood2/ObjectDLL/BloodModProjectiles.cpp
+	../../Blood2/ObjectDLL/BloodModWeaponClasses.cpp
 	../../Blood2/Shared/BloodModStrings.cpp)
 set(BLOOD2TABLES_INC
 	# Before DECompat: the stub server_de.h, scalar types only

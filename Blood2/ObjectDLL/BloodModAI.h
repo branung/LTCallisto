@@ -99,6 +99,7 @@ const char* BloodModAI_DeathFX(int nKind);
 bool BloodModAI_BulletGib();			// [Options] BulletGib, TRUE unless the mod says
 // An OBJFX_ name without its prefix, any case -> its id; -1 for none.
 int BloodModAI_ObjFX(const char* pName);
+const char* BloodModAI_ObjFXName(int nId);	// the name of an OBJFX_ id, or NULL
 
 // [Options] DifficultyDamage, DifficultyHitPoints and DifficultyArmor, each <easy, medium, hard>:
 // the scales AI_Mgr::InitialUpdate applies by difficulty. The scale for nDifficulty (0 easy, 1

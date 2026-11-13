@@ -15,6 +15,8 @@
 #include "bloodservershell.h"
 #include "ClientServerShared.h"
 #include "BloodModWeapons.h"
+#include "BloodModWeaponClasses.h"	// a pickup's ammo and name
+#include "BloodModAI.h"				// its trace
 
 // *********************************************************************** //
 //
@@ -47,6 +49,23 @@ DDWORD WeaponPickup::EngineMessageFn(DDWORD messageID, void *pData, float fData)
 	{
 		case MID_PRECREATE:
 		{
+			// The mod's PickupAmmo and PickupName over the constructor's (Mod\WeaponClasses.txt), before a
+			// ModWeapon property makes the pickup another weapon's. On a restore too: Load then replaces the
+			// saved value.
+			if (BloodModAI_Trace() && BloodModWeaponClass_FirstOf(m_nType, true))
+				g_pServerDE->CPrint("Weapon: %s's pickup's constructor: PickupAmmo %s, PickupName \"%s\"%s%s",
+									BloodModWeapon_Name(m_nType),
+									BloodModWeaponClass_Format(WK_PickupAmmo, m_fValue, 0, 0).c_str(),
+									m_szObjectName ? m_szObjectName : "",
+									BloodModWeaponClass_Set(m_nType, WK_PickupAmmo) || BloodModWeaponClass_Set(m_nType, WK_PickupName) ?
+										"; the mod's: " : "",
+									(BloodModWeaponClass_Set(m_nType, WK_PickupAmmo) || BloodModWeaponClass_Set(m_nType, WK_PickupName)) ?
+										BloodModWeaponClass_Summary(m_nType).c_str() : "");
+			if (BloodModWeaponClass_Set(m_nType, WK_PickupAmmo))
+				m_fValue = BloodModWeaponClass_ModFloat(m_nType, WK_PickupAmmo);
+			if (BloodModWeaponClass_Set(m_nType, WK_PickupName))
+				m_szObjectName = (char*)BloodModWeaponClass_ModString(m_nType, WK_PickupName);
+
 			if (fData == PRECREATE_WORLDFILE || fData == PRECREATE_STRINGPROP)
 			{
 				char szWeapon[64];

@@ -66,6 +66,7 @@ class CCombatShotgun : public CWeapon
 		DBYTE GetAmmoType(DBOOL bAltFire = DFALSE) 
 		{ 
 			if (!bAltFire) return m_nAmmoType;
+			else if (m_nModAltAmmo) return m_nModAltAmmo;	// a mod's AltAmmoType
 			else return AMMO_DIEBUGDIE;
 		}
 
@@ -102,6 +103,7 @@ class CAssaultRifle : public CWeapon
 		DBYTE GetAmmoType(DBOOL bAltFire = DFALSE) 
 		{ 
 			if (!bAltFire) return m_nAmmoType;
+			else if (m_nModAltAmmo) return m_nModAltAmmo;	// a mod's AltAmmoType
 			else return AMMO_DIEBUGDIE;
 		}
 };

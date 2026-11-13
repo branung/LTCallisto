@@ -24,6 +24,9 @@
 #include "SfxMsgIds.h"
 #include <mbstring.h>
 #include "SoundTypes.h"
+#include "BloodModProjectiles.h"	// Mod\Projectiles.txt
+#include "BloodModAI.h"			// its trace, which the projectiles share
+#include "BloodModTable.h"		// PrintWrapped
 
 void BPrint(char*);
 
@@ -155,6 +158,9 @@ DDWORD CProjectile::EngineMessageFn(DDWORD messageID, void *pData, DFLOAT fData)
 
 			DDWORD dwRet = DEBaseClass::EngineMessageFn(messageID, pData, fData);
 
+			// The mod's values, on a restore too: what Load reads replaces them.
+			ModApply((ObjectCreateStruct*)pData);
+
 			if (fData != PRECREATE_SAVEGAME)
 				PostPropRead((ObjectCreateStruct*)pData);
 
@@ -263,6 +269,60 @@ void CProjectile::Setup(DVector *vDir, DBYTE nType, DFLOAT fDamage, DFLOAT fVelo
 //	PURPOSE:	Update properties
 //
 // ----------------------------------------------------------------------- //
+
+static void ModProjectile_Print(const char* pLine)
+{
+	CServerDE* pServerDE = DEBaseClass::GetServerDE();
+	if (pServerDE) pServerDE->CPrint("%s", pLine);
+}
+
+// ----------------------------------------------------------------------- //
+//
+//	ROUTINE:	CProjectile::ModApply()
+//
+//	PURPOSE:	A mod's Mod\Projectiles.txt over the constructor's values
+//				(BloodModProjectiles.h)
+//
+// ----------------------------------------------------------------------- //
+
+void CProjectile::ModApply(ObjectCreateStruct *pStruct)
+{
+	CServerDE* pServerDE = DEBaseClass::GetServerDE();
+	char szClass[64];
+	if (!pServerDE || !pStruct || !pStruct->m_hClass ||
+		pServerDE->GetClassName(pStruct->m_hClass, szClass, (uint32)sizeof(szClass)) != LT_OK)
+		return;
+	const int nClass = BloodModProjectile_FindClass(szClass);
+	if (nClass < 0) return;
+
+	// With AI.txt's [Options] Trace, once per class: what its constructor gave it, and what the mod
+	// changes.
+	const bool bTrace = BloodModAI_Trace() && BloodModProjectile_FirstOfClass(nClass);
+	std::string sCtor;
+	if (bTrace)
+		sCtor = "DamageType " + BloodModProjectile_Format(PK_DamageType, 0, m_nDamageType) +
+				", LifeTime " + BloodModProjectile_Format(PK_LifeTime, m_fLifeTime, 0) +
+				", Gravity " + BloodModProjectile_Format(PK_Gravity, 0, (m_dwFlags & FLAG_GRAVITY) ? 1 : 0) +
+				", TrailFX " + BloodModProjectile_Format(PK_TrailFX, 0, (int)m_dwTrailFXID) +
+				", Explosion " + BloodModProjectile_Format(PK_Explosion, 0, m_bExplosion ? 1 : 0);
+
+	unsigned int dwTrail = (unsigned int)m_dwTrailFXID, bExplosion = m_bExplosion ? 1 : 0;
+	int nGravity = -1;
+	int nKeys = BloodModProjectile_Apply(nClass, m_nDamageType, m_fLifeTime, nGravity, dwTrail, bExplosion);
+	m_dwTrailFXID = dwTrail;
+	m_bExplosion = bExplosion ? DTRUE : DFALSE;
+	if (nGravity == 1) m_dwFlags |= FLAG_GRAVITY;
+	else if (nGravity == 0) m_dwFlags &= ~FLAG_GRAVITY;
+	nKeys += ModApplyClass(nClass, bTrace ? &sCtor : DNULL);
+
+	if (bTrace)
+	{
+		BloodMod::PrintWrapped(std::string(szClass) + "'s constructor: " + sCtor, "Projectile: ", ModProjectile_Print);
+		if (nKeys)
+			BloodMod::PrintWrapped(std::string(szClass) + " takes the mod's " + BloodModProjectile_ClassSummary(nClass) +
+								   " (" + std::to_string(nKeys) + " keys)", "Projectile: ", ModProjectile_Print);
+	}
+}
 
 void CProjectile::PostPropRead(ObjectCreateStruct *pStruct)
 {

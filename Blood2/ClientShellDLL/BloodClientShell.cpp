@@ -9632,85 +9632,15 @@ DBOOL CBloodClientShell::SetCharacterInfo(int nCharacter, int nSkin)
 	m_Config.nCharacter = nCharacter;
 	m_Config.nSkin      = nSkin;
 
-	// A mod's new character has its Base's stats
-	switch (BloodModCharacter_Retail(m_Config.nCharacter))
-	{
-		case CHARACTER_CALEB:
-		{
-			m_Config.nStrength   = 5;
-			m_Config.nSpeed      = 3;
-			m_Config.nResistance = 3;
-			m_Config.nMagic      = 1;
-			break;
-		}
-
-		case CHARACTER_OPHELIA:
-		{
-			m_Config.nStrength   = 2;
-			m_Config.nSpeed      = 5;
-			m_Config.nResistance = 1;
-			m_Config.nMagic      = 4;
-			break;
-		}
-
-		case CHARACTER_ISHMAEL:
-		{
-			m_Config.nStrength   = 1;
-			m_Config.nSpeed      = 3;
-			m_Config.nResistance = 3;
-			m_Config.nMagic      = 5;
-			break;
-		}
-
-		case CHARACTER_GABREILLA:
-		{
-			m_Config.nStrength   = 5;
-			m_Config.nSpeed      = 1;
-			m_Config.nResistance = 5;
-			m_Config.nMagic      = 1;
-			break;
-		}
-
-#ifdef _ADDON
-		case CHARACTER_M_CULTIST:
-		{
-			m_Config.nStrength   = 5;
-			m_Config.nSpeed      = 3;
-			m_Config.nResistance = 3;
-			m_Config.nMagic      = 1;
-			break;
-		}
-
-		case CHARACTER_F_CULTIST:
-		{
-			m_Config.nStrength   = 2;
-			m_Config.nSpeed      = 5;
-			m_Config.nResistance = 1;
-			m_Config.nMagic      = 4;
-			break;
-		}
-
-		case CHARACTER_SOULDRUDGE:
-		{
-			m_Config.nStrength   = 1;
-			m_Config.nSpeed      = 3;
-			m_Config.nResistance = 3;
-			m_Config.nMagic      = 5;
-			break;
-		}
-
-		case CHARACTER_PROPHET:
-		{
-			m_Config.nStrength   = 5;
-			m_Config.nSpeed      = 1;
-			m_Config.nResistance = 5;
-			m_Config.nMagic      = 1;
-			break;
-		}
-#endif
-
-		default: return(DFALSE);
-	}
+	// The attributes are Mod\Characters.txt's (CharacterValues.cpp's gCharacterStart), and a mod's
+	// new character has its Base's there
+	if (m_Config.nCharacter >= BloodModCharacter_Count()) return(DFALSE);
+	int nAttrib[4];
+	BloodModCharacter_Attributes(m_Config.nCharacter, false, nAttrib);
+	m_Config.nStrength   = (DBYTE)nAttrib[0];
+	m_Config.nSpeed      = (DBYTE)nAttrib[1];
+	m_Config.nResistance = (DBYTE)nAttrib[2];
+	m_Config.nMagic      = (DBYTE)nAttrib[3];
 
 
 	// All done...

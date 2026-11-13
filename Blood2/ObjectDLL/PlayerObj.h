@@ -127,6 +127,7 @@ class CPlayerObj : public CBaseCharacter
 
 		// Player reset functions
 		void		ResetPlayerInventory();
+		void		SetStartAmmo();
 
 		// ADDED BY ANDY 9-20-98
 		void		Slow(DFLOAT time);

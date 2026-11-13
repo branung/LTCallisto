@@ -19,6 +19,7 @@
 #include "ClientTracer.h"
 #include "GameWeapons.h"
 #include "ObjectUtilities.h"
+#include "BloodModWeaponClasses.h"	// Mod\WeaponClasses.txt
 #include "ClientLaserFX.h"
 #include "ViewWeaponModel.h"
 #include "ClientServerShared.h"
@@ -560,11 +561,10 @@ DBOOL CVoodooDoll::FireVector(DVector *vFire, DFLOAT dist, DBOOL bTracer)
 
 	switch(m_nHitFX)
 	{
-		case	0:		m_nHitType = DAMAGE_TYPE_NORMAL;		break;
-		case	1:		m_nHitType = DAMAGE_TYPE_NORMAL;		break;
-		case	2:		m_nHitType = DAMAGE_TYPE_BLIND;			break;
-		case	3:		m_nHitType = DAMAGE_TYPE_DROPWEAPON;	break;
-		case	4:		m_nHitType = DAMAGE_TYPE_SLOW;			break;
+		// Retail's NORMAL, NORMAL, BLIND, DROPWEAPON and SLOW, or a mod's VoodooHits
+		// (Mod\WeaponClasses.txt)
+		case	0: case 1: case 2: case 3: case 4:
+						m_nHitType = (DBYTE)BloodModWeaponClass_VoodooHit(m_nHitFX);	break;
 		default:		m_nHitType = DAMAGE_TYPE_NORMAL;		break;
 	}
 
@@ -575,7 +575,7 @@ DBOOL CVoodooDoll::FireVector(DVector *vFire, DFLOAT dist, DBOOL bTracer)
 	else if(m_eState == WS_ALT_FIRING)
 	{
 		m_nHitFX = 5;
-		m_nHitType = DAMAGE_TYPE_VISION;	// Wonkie vision (violet)
+		m_nHitType = (DBYTE)BloodModWeaponClass_VoodooAltHit();	// Wonkie vision (violet): retail's VISION
 
 		m_fDamage = pServerDE->Random(m_fMinAltDamage, m_fMaxAltDamage);
 
@@ -910,7 +910,7 @@ DBOOL CVoodooDoll::WonkyThemAll(DFLOAT fWonkyTime)
 					pServerDE->WriteToMessageVector(hMessage, &offset);
 					pServerDE->WriteToMessageFloat(hMessage, 0.0f);
 					pServerDE->WriteToMessageDWord(hMessage, 0);
-					pServerDE->WriteToMessageDWord(hMessage, OBJFX_VOODOO_6);
+					pServerDE->WriteToMessageDWord(hMessage, (DDWORD)BloodModWeaponClass_VoodooFX());	// retail OBJFX_VOODOO_6
 					pServerDE->WriteToMessageDWord(hMessage, 0);
 
 					pServerDE->EndMessage2(hMessage, MESSAGE_GUARANTEED | MESSAGE_NAGGLEFAST);
@@ -1450,12 +1450,13 @@ CProjectile* CWeapProximityBomb::FireProjectile(DVector *vFire, DFLOAT dist, DBO
 
 		pServerDE->WriteToMessageVector(hMessage, &vPos);
 		pServerDE->WriteToMessageVector(hMessage, &vNormal);
-		pServerDE->WriteToMessageDWord(hMessage, EXP_DEFAULT_SMALL);
+		pServerDE->WriteToMessageDWord(hMessage, (DDWORD)BloodModWeaponClass_HandExplosionType(WEAP_PROXIMITYBOMB));	// retail EXP_DEFAULT_SMALL
 
 		pServerDE->EndMessage2(hMessage, MESSAGE_GUARANTEED | MESSAGE_NAGGLEFAST);
 
 		// Play an explosion sound
-		PlaySoundFromPos(&vPos, "Sounds\\Weapons\\time\\explode.wav", 1000.0f, SOUNDPRIORITY_MISC_MEDIUM);
+		PlaySoundFromPos(&vPos, (char*)BloodModWeaponClass_HandExplosionSound(WEAP_PROXIMITYBOMB),
+						 BloodModWeaponClass_HandExplosionSoundRadius(WEAP_PROXIMITYBOMB), SOUNDPRIORITY_MISC_MEDIUM);
 
 		// Damage yourself
 		SendDamageMsg(m_hOwner, vPos, &vNormal, m_fDamage);
@@ -1571,12 +1572,13 @@ CProjectile* CWeapTimeBomb::FireProjectile(DVector *vFire, DFLOAT dist, DBOOL bA
 
 		pServerDE->WriteToMessageVector(hMessage, &vPos);
 		pServerDE->WriteToMessageVector(hMessage, &vNormal);
-		pServerDE->WriteToMessageDWord(hMessage, EXP_DEFAULT_SMALL);
+		pServerDE->WriteToMessageDWord(hMessage, (DDWORD)BloodModWeaponClass_HandExplosionType(WEAP_TIMEBOMB));	// retail EXP_DEFAULT_SMALL
 
 		pServerDE->EndMessage2(hMessage, MESSAGE_GUARANTEED | MESSAGE_NAGGLEFAST);
 
 		// Play an explosion sound
-		PlaySoundFromPos(&vPos, "Sounds\\Weapons\\time\\explode.wav", 1000.0f, SOUNDPRIORITY_MISC_MEDIUM);
+		PlaySoundFromPos(&vPos, (char*)BloodModWeaponClass_HandExplosionSound(WEAP_TIMEBOMB),
+						 BloodModWeaponClass_HandExplosionSoundRadius(WEAP_TIMEBOMB), SOUNDPRIORITY_MISC_MEDIUM);
 
 		// Damage yourself
 		SendDamageMsg(m_hOwner, vPos, &vNormal, m_fDamage);

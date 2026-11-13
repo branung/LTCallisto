@@ -2,10 +2,12 @@
 #define __GAMEINVITEMS_H__
 
 #include "InvItem.h"
+#include "BloodModRules.h"
 
-#define FLASHLIGHTCHARGETIME	120.0f
+// A full charge's seconds: retail 120.0f and 30.0f, Mod\Rules.txt's [Items]
+#define FLASHLIGHTCHARGETIME	(gRules.fFlashlightChargeTime)
 #define FLASHLIGHTCHARGE		100
-#define GOGGLESCHARGETIME		30.0f
+#define GOGGLESCHARGETIME		(gRules.fGogglesChargeTime)
 #define GOGGLESCHARGE			100
 
 class CInvFlashlight : public CInvItem

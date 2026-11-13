@@ -729,9 +729,10 @@ void TestScript()
     LoadScript("x = 1", hn, err);
     Check(!LT1Mod::Script_Command("open_vault", cargs, 2), "a script without OnCommand answers no SCRIPT");
     RecHost hs;
-    Check(LoadScript("print(io, os, require, dofile, loadfile, load, debug, package, string.rep('a', 3))", hs, err) &&
-          hs.Has("Script: nil\tnil\tnil\tnil\tnil\tnil\tnil\tnil\taaa"),
-          "the sandbox has no io, os, require, dofile, loadfile, load, debug or package, and has the string library");
+    Check(LoadScript("print(io, os, type(require), dofile, loadfile, load, debug, package, string.rep('a', 3))", hs, err) &&
+          hs.Has("Script: nil\tnil\tfunction\tnil\tnil\tnil\tnil\tnil\taaa"),
+          "the sandbox has no io, os, dofile, loadfile, load, debug or package, its own require (API 7), and the "
+          "string library");
     LT1Mod::Script_Clear();
     LT1Mod::SetActive(LT1Mod::State());
 }
@@ -1053,6 +1054,119 @@ bool LoadClientScript(const std::string& text, RecClientHost& host, std::string&
     return LT1Mod::Script_Load(src, &host, err, LT1Mod::kScriptClient);
 }
 
+// Modules (API 7; lt1mod_script.h, MODULES)
+bool LoadWithModules(const std::string& main, const std::vector<std::pair<std::string, std::string> >& mods,
+                     RecHost& host, std::string& err, bool bClient = false, RecClientHost* pClient = NULL)
+{
+    MemSource src;
+    src.Put("Mod\\Mod.txt", "[Mod]\nId = \"S\"\nGame = \"Shogo\"\n");
+    src.Put(bClient ? "Mod\\ClientScript.lua" : "Mod\\Script.lua", main);
+    for (size_t i = 0; i < mods.size(); ++i) src.Put(mods[i].first, mods[i].second);
+    LT1Mod::State st;
+    LT1Mod::Load(src, "Shogo", st);
+    LT1Mod::SetActive(st);
+    if (bClient) return LT1Mod::Script_Load(src, pClient, err, LT1Mod::kScriptClient);
+    return LT1Mod::Script_Load(src, &host, err);
+}
+
+void TestScriptModules()
+{
+    printf("script, modules (version 7)\n");
+    typedef std::vector<std::pair<std::string, std::string> > Mods;
+    std::string err;
+    const Mods kMods =
+    {
+        { "Mod\\Scripts\\ec\\revenants.lua",
+          "runs = (runs or 0) + 1\n"
+          "local M = {}\n"
+          "function M.on_death(name) print('blast', name) end\n"
+          "return M\n" },
+        { "Mod\\Scripts\\util.lua", "local u = require('ec.revenants') return { twice = function(x) return x * 2 end, rev = u }\n" },
+    };
+    RecHost h;
+    const char* kMain =
+        "mod.require_api(7)\n"
+        "local rev = require('ec.revenants')\n"
+        "local util = require 'util'\n"
+        "print('same', rev == require('ec.revenants'), util.rev == rev, runs, util.twice(21), mod.api)\n"
+        "function OnCommand(n) if n == 'later' then print('later', pcall(require, 'never')) end\n"
+        "  if n == 'again' then print('again', require('util') == util) end rev.on_death(n) end\n";
+    Check(LoadWithModules(kMain, kMods, h, err) && h.Has("Script: same\ttrue\ttrue\t1\t42\t7"),
+          "require runs Mod\\Scripts\\<dots as folders>.lua once, a second require (from the script or another "
+          "module) answers the same value, and mod.api is 7" + (err.empty() ? std::string() : ": " + err));
+    Check(LT1Mod::Script_Summary() == "handles OnCommand; modules ec.revenants, util",
+          "the summary names the modules in the order they loaded: " + LT1Mod::Script_Summary());
+    const char* none[] = { NULL };
+    LT1Mod::Script_Command("again", none, 0);
+    LT1Mod::Script_Command("later", none, 0);
+    Check(h.Has("Script: again\ttrue") && h.Has("Script: blast\tagain") &&
+          h.Has("modules are read while the script loads"),
+          "in an event a loaded module still answers, and one never read is an error that says when modules are read");
+    // A world's rebuild runs the modules again, from the text read at load.
+    LT1Mod::Script_WorldEnd();
+    LT1Mod::Script_Command("again", none, 0);
+    Check(LT1Mod::Script_Loaded() && h.Has("Script: same\ttrue\ttrue\t1\t42\t7") &&
+          h.lines.back() == "Script: blast\tagain",
+          "after a world's rebuild the script and its modules run again, with nothing re-read");
+    LT1Mod::Script_Clear();
+
+    struct Bad { const char* label; const char* main; Mods mods; const char* expect; };
+    const Bad bad[] =
+    {
+        { "a path in the name", "require('../Mod')", {}, "a module's name is letters, digits and _ joined by dots" },
+        { "two dots", "require('a..b')", {}, "a module's name is letters, digits and _ joined by dots" },
+        { "a slash", "require('a/b')", {}, "a module's name is letters, digits and _ joined by dots" },
+        { "a module the mod has not", "require('missing')", {}, "no Mod\\Scripts\\missing.lua in the mod" },
+        { "a cycle", "require('a')", { { "Mod\\Scripts\\a.lua", "require('b')" }, { "Mod\\Scripts\\b.lua", "require('a')" } },
+          "require(\"a\"): a cycle" },
+        { "an error in a module", "require('bad')", { { "Mod\\Scripts\\bad.lua", "local x = 1\nerror('broken')" } },
+          "Mod\\Scripts\\bad.lua:2: broken" },
+        { "a syntax error in a module", "require('syn')", { { "Mod\\Scripts\\syn.lua", "function (" } },
+          "Mod\\Scripts\\syn.lua:1:" },
+        { "bytecode", "require('bin')", { { "Mod\\Scripts\\bin.lua", std::string("\x1bLua") } },
+          "attempt to load a binary chunk" },
+    };
+    for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); ++i)
+    {
+        RecHost hb;
+        err.clear();
+        const bool bLoaded = LoadWithModules(bad[i].main, bad[i].mods, hb, err);
+        Check(!bLoaded && !LT1Mod::Script_Loaded() && err.find(bad[i].expect) != std::string::npos,
+              std::string(bad[i].label) + " loads nothing and says why: " + err.substr(0, err.find('\n')));
+        LT1Mod::Script_Clear();
+    }
+
+    // The client's script requires the same file, in a state of its own.
+    RecHost hs;
+    RecClientHost hc;
+    Check(LoadWithModules("local r = require('ec.revenants') print('client', type(r.on_death), runs)", kMods, hs, err,
+                          true, &hc) && hc.Has("ClientScript: client\tfunction\t1"),
+          "ClientScript.lua requires the same module, and runs its own copy" + (err.empty() ? std::string() : ": " + err));
+    LT1Mod::Script_Clear();
+
+    // The checker lints each module under its own file's name.
+    {
+        MemSource src;
+        src.Put("Mod\\Mod.txt", "[Mod]\nId = \"S\"\nGame = \"Shogo\"\n");
+        src.Put("Mod\\Script.lua", "mod.require_api(7)\nrequire('m')\n");
+        src.Put("Mod\\Scripts\\m.lua", "local function f() mod.spwan('x') end\nreturn {}\n");
+        LT1Mod::State st;
+        LT1Mod::Load(src, "Shogo", st);
+        LT1Mod::SetActive(st);
+        static std::vector<std::string> printed;
+        printed.clear();
+        LT1Mod::Script_Check(src, LT1Mod::kScriptServer, [](const char* p) { printed.push_back(p); });
+        std::string all;
+        for (size_t i = 0; i < printed.size(); ++i) all += printed[i] + "\n";
+        Check(all.find("Mod\\Scripts\\m.lua:1: WARNING: mod.spwan is not in the API") != std::string::npos &&
+              all.find("Mod\\Script.lua: needs mod.api 7 (require, line 2)") != std::string::npos,
+              "the checker lints a module under its own name, and counts require as version 7: " + all);
+        LT1Mod::Script_Clear();
+    }
+    LT1Mod::SetActive(LT1Mod::State());
+}
+
+
 void TestClientScript()
 {
     printf("client script\n");
@@ -1113,8 +1227,8 @@ void TestClientScript()
     Check(hb.Has("ran past its budget"), "and runs again in the next world");
 
     RecClientHost hs;
-    Check(LoadClientScript("print(io, os, require, load, debug, mod.players, mod.objects)", hs, err) &&
-          hs.Has("ClientScript: nil\tnil\tnil\tnil\tnil\tnil\tnil"),
+    Check(LoadClientScript("print(io, os, type(require), load, debug, mod.players, mod.objects)", hs, err) &&
+          hs.Has("ClientScript: nil\tnil\tfunction\tnil\tnil\tnil\tnil"),
           "the client's sandbox is the server's, without the game's objects");
     LT1Mod::Script_Clear();
 
@@ -1272,7 +1386,8 @@ void TestScriptDiagnostics()
         const bool bOk = bClient ? LoadClientScript(kList, hc, err) : LoadScript(kList, hs, err);
         const std::vector<std::string>& got = bClient ? hc.lines : hs.lines;
         const std::string names = bOk && !got.empty() ? got.back().substr(got.back().find(' ') + 1) : "";
-        const std::string text = names + "\n";
+        // require is a global, not mod's: named here so the pass sees it (API 7)
+        const std::string text = names + "\nrequire('m')\n";
         std::string defs;
         for (const char* e : bClient ? std::vector<const char*>{ "OnClientStart", "OnWorldStart", "OnDraw", "OnCommand", "OnUpdate", "OnServerMessage" }
                                      : std::vector<const char*>{ "OnWorldStart", "OnCreate", "OnDamage", "OnDeath", "OnCommand", "OnWorldEnd",
@@ -1281,8 +1396,8 @@ void TestScriptDiagnostics()
             defs += std::string("function ") + e + "() end\n";
         const std::string l = LT1Mod::Script_Lint(text + defs, bClient ? LT1Mod::kScriptClient : LT1Mod::kScriptServer);
         Check(!names.empty() && l.find("WARNING") == std::string::npos &&
-              // Version 6 added to the server only, so the client's newest is 5.
-              l.find("needs mod.api " + std::to_string(bClient ? 5 : LT1Mod::kScriptApi)) != std::string::npos,
+              // Version 7's require is both sides', so both newest are the game's.
+              l.find("needs mod.api " + std::to_string(LT1Mod::kScriptApi)) != std::string::npos,
               std::string(bClient ? "client" : "server") + ": every live mod call and every event is in the pass's tables, "
               "the newest at the game's mod.api: " + l + names);
         LT1Mod::Script_Clear();
@@ -1372,6 +1487,7 @@ int Selftest()
     TestScriptSaves();
     TestScriptSpawn();
     TestScriptV6();
+    TestScriptModules();
     TestClientScript();
     TestScriptMessages();
     TestScriptDiagnostics();

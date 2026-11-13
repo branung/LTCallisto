@@ -35,6 +35,11 @@
 #include <set>
 #include <string>
 #include "BloodModCharacters.h"
+#include "BloodModWeaponClasses.h"	// Mod\WeaponClasses.txt
+#include "BloodModAI.h"				// its trace, which the weapon classes share
+#include "BloodModTable.h"			// PrintWrapped
+#include "AmmoValues.h"				// EjectShell (Mod\Ammo.txt)
+#include "BloodModRules.h"			// Mod\Rules.txt
 
 void BPrint(char*);
 
@@ -112,6 +117,7 @@ CWeapon::CWeapon(DBYTE dbWeapType)
 
 	m_bAccuracyCheck		= DTRUE;
 	m_bMultiDamageBoost		= DFALSE;
+	m_nModAltAmmo			= 0;
 }
 
 // ----------------------------------------------------------------------- //
@@ -182,14 +188,9 @@ void CWeapon::ReadWeaponData()
 	m_bLoopAnim				= wd->m_bLoopAnim;
 	m_bAltLoopAnim			= wd->m_bAltLoopAnim;
 
-	if (m_nAmmoType == AMMO_BULLET || m_nAmmoType == AMMO_SHELL)
-	{
-		m_bEjectShell = DTRUE;
-	}
-	else
-	{
-		m_bEjectShell = DFALSE;
-	}
+	// Retail's BULLET and SHELL: the ammo's EjectShell (Mod\Ammo.txt)
+	m_bEjectShell = (m_nAmmoType >= AMMO_BULLET && m_nAmmoType <= AMMO_MAXAMMOTYPES &&
+					 gAmmoValues[m_nAmmoType].bEjectShell) ? DTRUE : DFALSE;
 }
 
 // ----------------------------------------------------------------------- //
@@ -249,6 +250,57 @@ void CWeapon::Init(HOBJECT hOwner, CInventoryMgr* pInventoryMgr, DBOOL bLeftHand
 	}
 
 	m_hFlash = hMuzzleFlash;
+
+	ModApplyClass();
+}
+
+static void ModWeapon_Print(const char* pLine)
+{
+	CServerDE* pServerDE = DEBaseClass::GetServerDE();
+	if (pServerDE) pServerDE->CPrint("%s", pLine);
+}
+
+// ----------------------------------------------------------------------- //
+//
+//	ROUTINE:	CWeapon::ModApplyClass()
+//
+//	PURPOSE:	A mod's Mod\WeaponClasses.txt over the constructor's values
+//				(BloodModWeaponClasses.h), once the
+//				inventory has made the weapon: the player's and an AI's
+//
+// ----------------------------------------------------------------------- //
+
+void CWeapon::ModApplyClass()
+{
+	const int nWeapon = m_nType;
+	const bool bTrace = BloodModAI_Trace() && BloodModWeaponClass_FirstOf(nWeapon, false);
+	std::string sCtor;
+	if (bTrace)
+		// Chrome only where the class environment-maps the view model (by its WEAP_ id, because
+		// FLAG_ENVIRONMENTMAP is 0 in de_types.h); every other class leaves m_fChromeValue unset.
+		sCtor = (BloodModWeaponClass_Has(nWeapon, WK_Chrome) ? "Chrome " + BloodModWeaponClass_Format(WK_Chrome, m_fChromeValue, 0, 0) + ", " :
+																std::string()) +
+				"MultiDamageBoost " + BloodModWeaponClass_Format(WK_MultiDamageBoost, 0, m_bMultiDamageBoost ? 1 : 0, 0) +
+				", DamageType " + BloodModWeaponClass_Format(WK_DamageType, 0, m_nDamageType, 0) +
+				", AltAmmoType " + BloodModWeaponClass_Format(WK_AltAmmoType, 0, GetAmmoType(DTRUE), 0);
+
+	if (BloodModWeaponClass_Set(nWeapon, WK_Chrome))
+		m_fChromeValue = BloodModWeaponClass_ModFloat(nWeapon, WK_Chrome);
+	if (BloodModWeaponClass_Set(nWeapon, WK_MultiDamageBoost))
+		m_bMultiDamageBoost = BloodModWeaponClass_ModInt(nWeapon, WK_MultiDamageBoost) ? DTRUE : DFALSE;
+	if (BloodModWeaponClass_Set(nWeapon, WK_DamageType))
+		m_nDamageType = (DBYTE)BloodModWeaponClass_ModInt(nWeapon, WK_DamageType);
+	if (BloodModWeaponClass_Set(nWeapon, WK_AltAmmoType))
+		m_nModAltAmmo = (DBYTE)BloodModWeaponClass_ModInt(nWeapon, WK_AltAmmoType);
+
+	if (bTrace)
+	{
+		const char* pName = BloodModWeapon_Name(nWeapon);
+		const std::string sMod = BloodModWeaponClass_Summary(nWeapon);
+		BloodMod::PrintWrapped(std::string(pName ? pName : "?") + "'s constructor: " + sCtor, "Weapon: ", ModWeapon_Print);
+		if (!sMod.empty())
+			BloodMod::PrintWrapped(std::string(pName ? pName : "?") + " takes the mod's " + sMod, "Weapon: ", ModWeapon_Print);
+	}
 }
 
 
@@ -633,25 +685,32 @@ void CWeapon::UpdateWeaponFX(DDWORD &nFX, DDWORD &nExtras, WeaponFXExtras *ext, 
 	{
 		nFX |= WFX_SPARKS;
 
-		if(!pServerDE->IntRandom(0,3) || fDamage > 25.0f)
+		if(!pServerDE->IntRandom(0,3) || fDamage > gRules.fBloodSpurtDamage)	// 25 (Mod\Rules.txt)
 			nFX |= WFX_BLOODSPURT;
 	}
 
 	if(BloodModWeapon_Retail(m_nType) == WEAP_MELEE)
+	{
 		nFX |= WFX_SOUND | WFX_SPARKS;
+		if(BloodModWeaponClass_Flag(m_nType, WK_HitFragments))		// retail none
+			nFX |= WFX_FRAGMENTS;
+	}
 
 	// Check the FX against the ammo type
 	if(nAmmoType == AMMO_BULLET || nAmmoType == AMMO_SHELL || nAmmoType == AMMO_BMG)
 	{
 		nFX |= WFX_MARK | WFX_SOUND;
 
-		if(BloodModWeapon_Retail(m_nType) != WEAP_MINIGUN)
+		// Retail: smoke for every weapon but the minigun, a light for none (Mod\WeaponClasses.txt)
+		if(BloodModWeaponClass_Flag(m_nType, WK_MuzzleSmoke))
 			nFX |= WFX_MUZZLESMOKE;
+		if(BloodModWeaponClass_Flag(m_nType, WK_MuzzleLight))
+			nFX |= WFX_MUZZLELIGHT;
 
 		if(eType == SURFTYPE_WOOD || eType == SURFTYPE_STONE)
 		{
 			nFX |= WFX_SMOKE | WFX_FLASH;
-			if(BloodModWeapon_Retail(m_nType) != WEAP_MINIGUN)
+			if(BloodModWeaponClass_Flag(m_nType, WK_Fragments))	// retail all but the minigun
 				nFX |= WFX_FRAGMENTS;
 		}
 
@@ -1014,10 +1073,8 @@ DDWORD CWeapon::Fire()
 	if (!IsOwnerAPlayer())		m_eState = WS_REST;		//SCHLEGZ
 
 	// Reset the shell eject flag for the next fire..
-	if(m_nAmmoType == AMMO_BULLET || m_nAmmoType == AMMO_SHELL)
-		m_bEjectShell = DTRUE;
-	else
-		m_bEjectShell = DFALSE;
+	m_bEjectShell = (m_nAmmoType >= AMMO_BULLET && m_nAmmoType <= AMMO_MAXAMMOTYPES &&
+					 gAmmoValues[m_nAmmoType].bEjectShell) ? DTRUE : DFALSE;
 
 	return nFiredType;
 }

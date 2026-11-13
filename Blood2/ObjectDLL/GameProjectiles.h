@@ -12,6 +12,7 @@
 #define __GAMEPROJECTILES_H__
 
 #include "Projectile.h"
+#include "ProjectileConstants.h"	// the class constants a mod can change
 
 // ----------------------------------------------------------------------- //
 // Standard grenades
@@ -25,9 +26,11 @@ class CGrenade : public CProjectile
 	protected:
 		virtual DBOOL Update(DVector *pMovement);
 		virtual void  HandleTouch(HOBJECT hObj);
+		virtual int ModApplyClass(int nClass, std::string* pCtor);	// Mod\Projectiles.txt over the constructor's
 	
 	private:
 		int			m_nBounceCount;
+		int			m_nStartBounces;	// the count it was made with: retail's 5, or the mod's
 };
 
 #ifdef _ADD_ON
@@ -36,10 +39,8 @@ class CGrenade : public CProjectile
 // Gas grenades
 // ----------------------------------------------------------------------- //
 
-#define		GAS_GRENADE_SMOKE_TIME		10.0f
-#define		GAS_GRENADE_DAMAGE_DIST		200.0f
-#define		GAS_GRENADE_MAX_DAMAGE		3.0f
-#define		GAS_GRENADE_DAMAGE_DELAY	0.5f
+// GAS_GRENADE_SMOKE_TIME, GAS_GRENADE_DAMAGE_DIST, GAS_GRENADE_MAX_DAMAGE and
+// GAS_GRENADE_DAMAGE_DELAY are in ProjectileConstants.h
 
 class CGasGrenade : public CProjectile
 {
@@ -51,11 +52,14 @@ class CGasGrenade : public CProjectile
 		virtual void  HandleTouch(HOBJECT hObj);
 		virtual void  AddExplosion(DVector vPos, DVector vNormal);
 	
+		virtual int ModApplyClass(int nClass, std::string* pCtor);	// Mod\Projectiles.txt over the constructor's
+
 	private:
 		void	DamageAndWonky(DFLOAT fWonkyTime);
 
 		DBOOL		m_bSmoking;
 		DFLOAT		m_fSmokeTime;
+		int			m_nStartBounces;	// the count it was made with: retail's 5, or the mod's
 		int			m_nBounceCount;
 		DFLOAT		m_fLastWonkyTime;
 };
@@ -78,6 +82,8 @@ class CTimeBomb : public CProjectile
 		virtual void	HandleTouch(HOBJECT hObj);
 		virtual void	AddExplosion(DVector vPos, DVector vNormal);
 	
+		virtual int ModApplyClass(int nClass, std::string* pCtor);	// Mod\Projectiles.txt over the constructor's
+
 	private:
 		float	m_fTimeDelay;
 };
@@ -261,7 +267,7 @@ class CBugSprayAltProjectile : public CProjectile
 // Death ray primary
 // ----------------------------------------------------------------------- //
 
-#define		DEATHRAY_BOUNCE_DIST		1500.0f
+// DEATHRAY_BOUNCE_DIST: ProjectileConstants.h
 #define		DEATHRAY_BOUNCE_DELAY		0.1f
 
 // ----------------------------------------------------------------------- //
@@ -388,10 +394,10 @@ class CFlareBurstProjectile : public CProjectile
 // The Orb Primary Projectile
 // ----------------------------------------------------------------------- //
 
-#define		THEORB_DETECT_RADIUS		175.0f
+// THEORB_DETECT_RADIUS: ProjectileConstants.h
 #define		THEORB_ATTACH_RANGE			15.0f
 #define		THEORB_ATTACH_RANGE_ALT		45.0f
-#define		THEORB_DAMAGE_TIME			5.1f
+// THEORB_DAMAGE_TIME: ProjectileConstants.h
 #define		THEORB_DAMAGE_DELAY			1.0f
 #define		THEORB_HEAD_OFFSET			7.5f
 
@@ -511,7 +517,7 @@ class CTeslaBallProjectile : public CProjectile
 #define		SINGULARITY_ATTRACT_RADIUS		600.0f
 #define		SINGULARITY_ATTRACT_ALT_RADIUS	350.0f
 #define		SINGULARITY_KILL_RADIUS			50.0f
-#define		SINGULARITY_ATTRACT_TIME		5.0f
+// SINGULARITY_ATTRACT_TIME: ProjectileConstants.h
 #define		SINGULARITY_MAX_DAMAGE			1000.0f
 
 // ----------------------------------------------------------------------- //
@@ -814,10 +820,10 @@ class CFlayerChain : public CProjectile
 // The Flayer Alt Projectile
 // ----------------------------------------------------------------------- //
 
-#define		FLAYER_ALT_SEARCH_RANGE		800.0f
+// FLAYER_ALT_SEARCH_RANGE: ProjectileConstants.h
 #define		FLAYER_ALT_SEARCH_TIME		20.0f
 
-#define		FLAYER_ALT_CHAIN_INTERVAL	2.0f
+// FLAYER_ALT_CHAIN_INTERVAL: ProjectileConstants.h
 
 // ----------------------------------------------------------------------- //
 
@@ -848,8 +854,11 @@ class CRockProjectile : public CProjectile
 		virtual DBOOL	Update(DVector *pMovement);
 		virtual void	HandleTouch(HOBJECT hObj);
 
+		virtual int ModApplyClass(int nClass, std::string* pCtor);	// Mod\Projectiles.txt over the constructor's
+
 	private:
 		DFLOAT		m_fFadeTime;
+		int			m_nStartBounces;	// the count it was made with: retail's 5, or the mod's
 		int			m_nBounceCount;
 };
 

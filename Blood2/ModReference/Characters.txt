@@ -14,8 +14,13 @@
 // sound directory, sounds\chosen\<Name>; Height sets only the first
 // dims; Skin .. SkinTeamRed are the multiplayer skins, by
 // MULTIPLAY_SKIN_, Skin the single-player one; Picture .. PictureYellow
-// the character menu's, "" for none.  Every number is 0 or more; a
-// string is at most 99 characters.
+// the character menu's, "" for none.  Strength .. Magic are the
+// attributes the menu gives, 1-5, and the Switch ones an add-on level's
+// switch's, 0 for the character's own; StartWeapons, StartItems and
+// StartAmmo are what that switch leaves the player holding, by WEAP_,
+// INV_ and AMMO_ name without the prefix, and StartAmmo a single-player
+// respawn's too.  Every other number is 0 or more; a string is at most
+// 99 characters.
 //
 // A section naming no character adds one, on a Base (a character here
 // or a new one above it) as the mod leaves that one:
@@ -45,6 +50,17 @@ PictureRed = "interface\charscreen\characterpics\caleb_red.pcx"
 PictureBlue = "interface\charscreen\characterpics\caleb_blue.pcx"
 PictureGreen = "interface\charscreen\characterpics\caleb_green.pcx"
 PictureYellow = "interface\charscreen\characterpics\caleb_yellow.pcx"
+Strength = 5
+Speed = 3
+Resistance = 3
+Magic = 1
+SwitchStrength = 0
+SwitchSpeed = 0
+SwitchResistance = 0
+SwitchMagic = 0
+StartWeapons = "MELEE BERETTA"
+StartItems = ""
+StartAmmo = "BULLET 50"
 
 [OPHELIA]
 Name = "Ophelia"
@@ -65,6 +81,17 @@ PictureRed = "interface\charscreen\characterpics\ophelia_red.pcx"
 PictureBlue = "interface\charscreen\characterpics\ophelia_blue.pcx"
 PictureGreen = "interface\charscreen\characterpics\ophelia_green.pcx"
 PictureYellow = "interface\charscreen\characterpics\ophelia_yellow.pcx"
+Strength = 2
+Speed = 5
+Resistance = 1
+Magic = 4
+SwitchStrength = 0
+SwitchSpeed = 0
+SwitchResistance = 0
+SwitchMagic = 0
+StartWeapons = "MELEE BERETTA"
+StartItems = ""
+StartAmmo = "BULLET 50"
 
 [ISHMAEL]
 Name = "Ishmael"
@@ -85,6 +112,17 @@ PictureRed = "interface\charscreen\characterpics\ishmael_red.pcx"
 PictureBlue = "interface\charscreen\characterpics\ishmael_blue.pcx"
 PictureGreen = "interface\charscreen\characterpics\ishmael_green.pcx"
 PictureYellow = "interface\charscreen\characterpics\ishmael_yellow.pcx"
+Strength = 1
+Speed = 3
+Resistance = 3
+Magic = 5
+SwitchStrength = 0
+SwitchSpeed = 0
+SwitchResistance = 0
+SwitchMagic = 0
+StartWeapons = "MELEE BERETTA"
+StartItems = ""
+StartAmmo = "BULLET 50"
 
 [GABREILLA]
 Name = "Gabriella"
@@ -105,3 +143,14 @@ PictureRed = "interface\charscreen\characterpics\gabby_red.pcx"
 PictureBlue = "interface\charscreen\characterpics\gabby_blue.pcx"
 PictureGreen = "interface\charscreen\characterpics\gabby_green.pcx"
 PictureYellow = "interface\charscreen\characterpics\gabby_yellow.pcx"
+Strength = 5
+Speed = 1
+Resistance = 5
+Magic = 1
+SwitchStrength = 0
+SwitchSpeed = 0
+SwitchResistance = 0
+SwitchMagic = 0
+StartWeapons = "MELEE BERETTA"
+StartItems = ""
+StartAmmo = "BULLET 50"

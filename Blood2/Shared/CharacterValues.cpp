@@ -209,3 +209,20 @@ char *gCharacterPictures[BLOOD2_CHARACTER_IDS][BLOOD2_CHARACTER_PICTURES] =
 #endif
 };
 #undef PIC
+
+// A character's attributes and start inventory (CharacterValues.h): retail's SetCharacterInfo,
+// TweakSaveValuesForCharacterChange and ResetPlayerInventory, as a table.
+CharacterStart gCharacterStart[BLOOD2_CHARACTER_IDS] =
+{
+	{ { 5, 3, 3, 1 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50" },	// Caleb
+	{ { 2, 5, 1, 4 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50" },	// Ophelia
+	{ { 1, 3, 3, 5 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50" },	// Ishmael
+	{ { 5, 1, 5, 1 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50" },	// Gabriella
+
+#ifdef _ADD_ON
+	{ { 5, 3, 3, 1 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50" },	// male cultist
+	{ { 2, 5, 1, 4 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50" },	// female cultist
+	{ { 1, 3, 3, 5 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50" },	// soul drudge
+	{ { 5, 1, 5, 1 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50" },	// prophet
+#endif
+};

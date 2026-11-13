@@ -17,6 +17,8 @@
 
 class CImpact;
 
+#include <string>
+
 class CProjectile : public DEBaseClass
 {
 	public :
@@ -36,6 +38,11 @@ class CProjectile : public DEBaseClass
 		DDWORD EngineMessageFn(DDWORD messageID, void *pData, DFLOAT lData);
 
 		virtual void  PostPropRead(ObjectCreateStruct *pStruct);
+		// Mod\Projectiles.txt (BloodModProjectiles.h): the mod's values over the constructor's, at
+		// MID_PRECREATE. A class with a member of its own (BounceCount, TimeDelay) applies it in
+		// ModApplyClass, and appends its constructor's value to *pCtor first when tracing.
+		void          ModApply(ObjectCreateStruct *pStruct);
+		virtual int   ModApplyClass(int nClass, std::string* pCtor) { return 0; }
 		virtual DBOOL InitialUpdate(DVector* pMovement);
 		virtual DBOOL Update(DVector* pMovement);
 		virtual void  HandleTouch(HOBJECT hObj);

@@ -100,10 +100,12 @@ int NumKeys()
 	return n;
 }
 
-// The AI classes, read from ObjectDLL's source: every END_CLASS_DEFAULT or
-// END_CLASS_DEFAULT_FLAGS whose parent is AI_Mgr, outside an #ifdef _ADD_ON
+} // namespace
+
+// The classes, read from ObjectDLL's source: every END_CLASS_DEFAULT or
+// END_CLASS_DEFAULT_FLAGS whose parent is pParent (AI_Mgr or CProjectile), outside an #ifdef _ADD_ON
 // unless this build defines it.  Other conditionals count as taken.
-std::set<std::string> ScanClasses(const char* pDir, std::string& sWhy)
+std::set<std::string> ScanClasses(const char* pDir, std::string& sWhy, const char* pParent)
 {
 	std::set<std::string> out;
 	std::error_code ec;
@@ -157,12 +159,15 @@ std::set<std::string> ScanClasses(const char* pDir, std::string& sWhy)
 			if (open == std::string::npos) continue;
 			char cls[128], parent[128];
 			if (sscanf(line.c_str() + open + 1, " %127[A-Za-z0-9_] , %127[A-Za-z0-9_]", cls, parent) == 2 &&
-				!strcmp(parent, "AI_Mgr"))
+				!strcmp(parent, pParent))
 				out.insert(cls);
 		}
 	}
 	return out;
 }
+
+namespace
+{
 
 // ---------------------------------------------------------------------------
 
@@ -170,7 +175,7 @@ void TestClasses()
 {
 	printf("AI: classes\n");
 	std::string why;
-	const std::set<std::string> scanned = ScanClasses(BLOOD2_OBJECTDLL_DIR, why);
+	const std::set<std::string> scanned = ScanClasses(BLOOD2_OBJECTDLL_DIR, why, "AI_Mgr");
 	std::set<std::string> listed;
 	for (int i = 0; BloodModAI_Class(i); ++i) listed.insert(BloodModAI_Class(i));
 	std::vector<std::string> missing, extra;

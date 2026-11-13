@@ -11,6 +11,22 @@
 #include "PlayerObj.h"
 #include "VoiceMgrDefs.h"
 #include "BloodServerShell.h"
+#include "BloodModRules.h"		// Mod\Rules.txt's [Corpse]
+#include "BloodModAI.h"			// its trace
+#include <string>
+#include <vector>
+
+// One of a [Corpse] FX list's effects: retail's single one draws no random
+// number, so a retail game's sequence is untouched.
+static DDWORD PickCorpseFX(const char* pList, DDWORD dwRetail)
+{
+	std::vector<int> fx;
+	if (!BloodModRules_ObjFXList(pList, fx) || fx.empty()) return dwRetail;
+	const DDWORD dw = (DDWORD)fx[fx.size() == 1 ? 0 : g_pServerDE->IntRandom(0, (int)fx.size() - 1)];
+	if (BloodModAI_Trace())
+		g_pServerDE->CPrint("Corpse: effect %s of \"%s\"", BloodMod_ObjFXName((int)dw), pList);
+	return dw;
+}
 
 BEGIN_CLASS(CCorpse)
 END_CLASS_DEFAULT_FLAGS(CCorpse, B2BaseClass, NULL, NULL, CF_HIDDEN)
@@ -47,7 +63,7 @@ void CCorpse::Setup(HOBJECT hFireObj, DBOOL bLimbLoss)
 		g_pServerDE->WriteToMessageVector(hMessage, &offset);
 		g_pServerDE->WriteToMessageFloat(hMessage, 3.0f);
 		g_pServerDE->WriteToMessageDWord(hMessage, OBJFX_SCALENUMPARTICLES);
-		g_pServerDE->WriteToMessageDWord(hMessage, OBJFX_FLAMING_2);
+		g_pServerDE->WriteToMessageDWord(hMessage, PickCorpseFX(gRules.szBurnFX, OBJFX_FLAMING_2));
 		g_pServerDE->WriteToMessageDWord(hMessage, 0);
 		g_pServerDE->EndMessage(hMessage);
 
@@ -334,7 +350,7 @@ DBOOL CCorpse::Update()
 		g_pServerDE->WriteToMessageVector(hMessage, &offset);
 		g_pServerDE->WriteToMessageFloat(hMessage, 3.0f);
 		g_pServerDE->WriteToMessageDWord(hMessage, OBJFX_SCALENUMPARTICLES);
-		g_pServerDE->WriteToMessageDWord(hMessage, OBJFX_SMOKING_2);
+		g_pServerDE->WriteToMessageDWord(hMessage, PickCorpseFX(gRules.szSmokeFX, OBJFX_SMOKING_2));
 		g_pServerDE->WriteToMessageDWord(hMessage, 0);
 		g_pServerDE->EndMessage(hMessage);
 
@@ -399,8 +415,14 @@ DBOOL CCorpse::HandleDamage(DVector vDir, DFLOAT fDamage, int nType, DVector vPo
 	if (!m_hObject) return DFALSE;
 
 	int nNodeHit = -1;
+	// Mod\Rules.txt's GibOnExplosionOnly: an explosive hit gibs the corpse whatever its health, and
+	// no other hit gibs it or takes a limb.
+	const DBOOL bExplosionOnly = gRules.bGibOnExplosionOnly ? DTRUE : DFALSE;
+	if (BloodModAI_Trace())
+		g_pServerDE->CPrint("Corpse: hit of type %d for %.1f, hit points %.1f of %.1f", nType, fDamage,
+							m_damage.GetHitPoints(), m_damage.GetMaxHitPoints());
 
-	if(m_bLimbLoss)
+	if(m_bLimbLoss && !bExplosionOnly)
 	{
 		nNodeHit = SetProperNode(CalculateHitLimb(vDir,vPos));
 
@@ -409,8 +431,11 @@ DBOOL CCorpse::HandleDamage(DVector vDir, DFLOAT fDamage, int nType, DVector vPo
 			return DFALSE;
 	}
 
-	if (m_damage.IsDead()) 
+	if (bExplosionOnly ? (nType & DAMAGE_TYPE_EXPLODE) != 0 : m_damage.IsDead())
 	{
+		if (BloodModAI_Trace())
+			g_pServerDE->CPrint("Corpse: gibbed by a hit of type %d, %s", nType,
+								bExplosionOnly ? "an explosion (GibOnExplosionOnly)" : "its damage killing it");
 		m_bDead = DTRUE;
 		CreateGibs(vDir, ((int)m_damage.GetMass())>>5, nType, fDamage);
 		// Set update to remove on next frame.
@@ -436,7 +461,7 @@ DBOOL CCorpse::HandleDamage(DVector vDir, DFLOAT fDamage, int nType, DVector vPo
 			g_pPlayerObj->PlayVoiceGroupEventOnClient(VME_BIGGIB, DTRUE);	// [blg]
 		}
 	}
-	else if (nNodeHit >= 0 && nNodeHit < NUM_ALL_NODES && m_bLimbLoss)
+	else if (nNodeHit >= 0 && nNodeHit < NUM_ALL_NODES && m_bLimbLoss && !bExplosionOnly)
 	{
 		if(IsRandomChance(50) && AIShared.HideLimb(m_hObject,nNodeHit))
 		{
@@ -663,40 +688,60 @@ DBOOL CCorpse::CreateGibs(DVector vDir, int nNumGibs, int nType, DFLOAT fDamage)
 
 	// Create body parts
 
+	std::string sLimbs;		// for the trace
 	if(m_bLimbLoss)
 	{
 		// 100 % create a head..
 		DBOOL bNodeStatus;
 		if (g_pServerDE->GetModelNodeHideStatus(m_hObject, szNodes[NODE_NECK], &bNodeStatus) == DE_OK)
 		{
-			if (!bNodeStatus)	// not hidden
-				AIShared.CreateLimb(m_hObject, NODE_NECK, vDir);
+			if (bNodeStatus) sLimbs += " (NECK hidden)";
+			// Retail always, with no random draw; GibHeadChance
+			if (!bNodeStatus && (gRules.nGibHeadChance >= 100 || IsRandomChance(gRules.nGibHeadChance)))	// not hidden
+				{ AIShared.CreateLimb(m_hObject, NODE_NECK, vDir); sLimbs += " NECK"; }
 		}
+		else
+			sLimbs += " (NECK: no node)";
 
 		if (g_pServerDE->GetModelNodeHideStatus(m_hObject, szNodes[NODE_RARM], &bNodeStatus) == DE_OK)
 		{
-			if (!bNodeStatus && IsRandomChance(80))
-				AIShared.CreateLimb(m_hObject, NODE_RARM, vDir);
+			if (bNodeStatus) sLimbs += " (RARM hidden)";
+			if (!bNodeStatus && IsRandomChance(gRules.nGibArmChance))		// retail 80
+				{ AIShared.CreateLimb(m_hObject, NODE_RARM, vDir); sLimbs += " RARM"; }
 		}
+		else
+			sLimbs += " (RARM: no node)";
 
 		if (g_pServerDE->GetModelNodeHideStatus(m_hObject, szNodes[NODE_LARM], &bNodeStatus) == DE_OK)
 		{
-			if (!bNodeStatus && IsRandomChance(80))
-				AIShared.CreateLimb(m_hObject, NODE_LARM, vDir);
+			if (bNodeStatus) sLimbs += " (LARM hidden)";
+			if (!bNodeStatus && IsRandomChance(gRules.nGibArmChance))		// retail 80
+				{ AIShared.CreateLimb(m_hObject, NODE_LARM, vDir); sLimbs += " LARM"; }
 		}
+		else
+			sLimbs += " (LARM: no node)";
 
 		if (g_pServerDE->GetModelNodeHideStatus(m_hObject, szNodes[NODE_RLEG], &bNodeStatus) == DE_OK)
 		{
-			if (!bNodeStatus && IsRandomChance(60))
-				AIShared.CreateLimb(m_hObject, NODE_RLEG, vDir);
+			if (bNodeStatus) sLimbs += " (RLEG hidden)";
+			if (!bNodeStatus && IsRandomChance(gRules.nGibLegChance))		// retail 60
+				{ AIShared.CreateLimb(m_hObject, NODE_RLEG, vDir); sLimbs += " RLEG"; }
 		}
+		else
+			sLimbs += " (RLEG: no node)";
 
 		if (g_pServerDE->GetModelNodeHideStatus(m_hObject, szNodes[NODE_LLEG], &bNodeStatus) == DE_OK)
 		{
-			if (!bNodeStatus && IsRandomChance(60))
-				AIShared.CreateLimb(m_hObject, NODE_LLEG, vDir);
+			if (bNodeStatus) sLimbs += " (LLEG hidden)";
+			if (!bNodeStatus && IsRandomChance(gRules.nGibLegChance))		// retail 60
+				{ AIShared.CreateLimb(m_hObject, NODE_LLEG, vDir); sLimbs += " LLEG"; }
 		}
+		else
+			sLimbs += " (LLEG: no node)";
 	}
+	if (BloodModAI_Trace())
+		g_pServerDE->CPrint("Corpse: limbs thrown:%s (limb loss %s)", sLimbs.empty() ? " none" : sLimbs.c_str(),
+							m_bLimbLoss ? "on" : "off");
 
 	return DTRUE;
 }

@@ -2,6 +2,7 @@
 
 #include "BloodModAI.h"
 #include "BloodModTable.h"
+#include "BloodModRules.h"		// the OBJFX_ names
 
 #include "lt1mod.h"
 #include "lt1mod_attrib.h"
@@ -54,23 +55,8 @@ const int kNumFlagNames = (int)(sizeof(kFlagNames) / sizeof(kFlagNames[0]));
 const size_t kMaxSkin = BLOODMOD_AI_MAX_SKIN;	// ObjectCreateStruct's m_SkinName, less its terminator
 const int kMaxDepth = 16;			// an archetype chain, class included
 
-// The death table's effects: SFXMsgIds.h's OBJFX_ names, without the prefix. The add-on's two are
-// compiled only with _ADD_ON, as the header has them.
-struct ObjFX { const char* pName; int nId; };
-#define E(n) { #n, OBJFX_##n },
-const ObjFX kObjFX[] =
-{
-	E(SMOKETRAIL_1) E(SMOKETRAIL_2) E(FIRETRAIL_1) E(FIRETRAIL_2) E(FIRETRAIL_3) E(SPARKS_1) E(SPARKS_2) E(SPARKS_3)
-	E(SINGULARITY_1) E(SINGULARITY_2) E(SINGULARITY_3) E(VOODOO_1) E(VOODOO_2) E(VOODOO_3) E(VOODOO_4) E(VOODOO_5)
-	E(VOODOO_6) E(HEAL_1) E(SHIELD_1) E(SMOKING_1) E(SMOKING_2) E(SMOKING_3) E(FLAMING_1) E(FLAMING_2) E(FLAMING_3)
-	E(GROUNDFLAME_1) E(GROUNDFLAME_2) E(STAFFTRAIL_1) E(STAFFTRAIL_2) E(STAFFTRAIL_3) E(BUGSPRAY_1) E(BUGSPRAY_2)
-	E(ORBTRAIL_1) E(ORBTRAIL_2) E(ENERGYWALL_1) E(POWERUP_1) E(DEATHRAY_RING_1) E(DEATHRAY_RING_2) E(ELECTRIC_1)
-#ifdef _ADD_ON
-	E(GREEN_SMOKE) E(BLOOD_TRAIL_1)
-#endif
-};
-#undef E
-const int kNumObjFX = (int)(sizeof(kObjFX) / sizeof(kObjFX[0]));
+// The death table's effects are SFXMsgIds.h's OBJFX_ names, a list Mod\Rules.txt reads too:
+// BloodMod_ObjFX (Shared/BloodModRules.h)
 
 // [Options]' death table: every class's, under its own keys. Unset is the game's own: a fire
 // death takes "skins\enemies\burned.dtx".
@@ -646,13 +632,8 @@ bool BloodModAI_ScriptAll()
 	return g_bScriptAll;
 }
 
-int BloodModAI_ObjFX(const char* pName)
-{
-	if (!pName || !pName[0]) return -1;
-	for (int i = 0; i < kNumObjFX; ++i)
-		if (EqualNoCase(kObjFX[i].pName, pName)) return kObjFX[i].nId;
-	return -1;
-}
+const char* BloodModAI_ObjFXName(int nId)	{ return BloodMod_ObjFXName(nId); }
+int BloodModAI_ObjFX(const char* pName)		{ return BloodMod_ObjFX(pName); }
 
 const char* BloodModAI_DeathSkin(int nKind)
 {

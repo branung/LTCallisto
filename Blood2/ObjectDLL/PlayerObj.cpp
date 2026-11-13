@@ -42,10 +42,12 @@
 #include "BloodModWeapons.h"	// a new weapon tests as its Base
 #include "ModScript.h"			// a mod's script
 #include "BloodModCharacters.h"	// a new character tests as its Base
+#include "BloodModAI.h"			// its trace, which the player's start lines share
+#include "BloodModRules.h"		// Mod\Rules.txt
 
 #define ALPHA_NORMAL		1.0f
 #define ALPHA_CLOAKED		0.99f
-#define ALPHA_INVISIBLE		0.08f
+#define ALPHA_INVISIBLE		(gRules.fInvisibleAlpha)	// retail 0.08f (Mod\Rules.txt)
 
 // Binding defines
 #define	SERVER_REGEN_TIME			4.0f
@@ -102,14 +104,14 @@ DFLOAT gDragCoeff[6] = { 15.0f, 15.0f, 15.0f, 15.0f, 15.0f, 15.0f };
 DFLOAT gMoveVel[6]	 = { 220.0f, 250.0f, 280.0f, 310.0f, 330.0f, 350.0f };
 
 
-#define DIST_USE		82
+#define DIST_USE		(gRules.fUseDistance)		// retail 82
 #define DIST_GRAB		82
 
 #define MAX_AIR_LEVEL				100.0f
 #define FULL_AIR_LOSS_TIME			15.0f
 #define FULL_AIR_REGEN_TIME			2.5f
 
-#define MAX_IDLE_TIME				60.0f
+#define MAX_IDLE_TIME				(gRules.fIdleVoiceTime)	// retail 60.0f
 
 // String constants
 #define	STRING_EXPIRED				" has expired."
@@ -476,7 +478,19 @@ DBOOL CPlayerObj::InitialUpdate(int nData)
 	{
 		m_InventoryMgr.AddAmmo(i, (DFLOAT)1000);
 	}*/
-	m_InventoryMgr.AddAmmo(AMMO_BULLET, 50);
+	// Retail's AddAmmo(AMMO_BULLET, 50) and no item: Mod\Rules.txt's SpawnAmmo and SpawnItems
+	{
+		std::vector<BloodModAmmo> ammo;
+		std::vector<int> items;
+		BloodMod_ParseAmmo(gRules.szSpawnAmmo, ammo);
+		BloodMod_ParseItems(gRules.szSpawnItems, items);
+		for (size_t a = 0; a < ammo.size(); ++a)
+			m_InventoryMgr.AddAmmo((DBYTE)ammo[a].nType, ammo[a].fCount);
+		for (size_t i = 0; i < items.size(); ++i)
+			m_InventoryMgr.AddItem((DBYTE)items[i], 100);
+		if (BloodModAI_Trace() && g_pServerDE && (!ammo.empty() || !items.empty()))
+			g_pServerDE->CPrint("Player: spawn ammo \"%s\", items \"%s\"", gRules.szSpawnAmmo, gRules.szSpawnItems);
+	}
 
 // Change weapon
 	m_bSpectatorMode	= DFALSE;
@@ -1144,14 +1158,38 @@ DBOOL CPlayerObj::HandleMovement()
 
 void CPlayerObj::ResetPlayerInventory()
 {
-	m_InventoryMgr.Term();
-	m_InventoryMgr.ObtainWeapon(WEAP_MELEE, 0);
-	m_InventoryMgr.ObtainWeapon(WEAP_BERETTA, 0);
+	// What the character starts with is Mod\Characters.txt's: retail's MELEE and BERETTA, each
+	// ObtainWeapon(w, 0), and DEFAULT_BULLETS, for every character.
+	std::vector<int> weapons, items;
+	BloodModCharacter_StartWeapons(m_nCharacter, weapons);
+	BloodModCharacter_StartItems(m_nCharacter, items);
 
+	m_InventoryMgr.Term();
+	for (size_t w = 0; w < weapons.size(); ++w)
+		m_InventoryMgr.ObtainWeapon((DDWORD)weapons[w], 0);
+	for (size_t n = 0; n < items.size(); ++n)
+		m_InventoryMgr.AddItem((DBYTE)items[n], 100);
+
+	SetStartAmmo();
+
+	// With AI.txt's [Options] Trace, what the player was given, so a mod's start lists show in the log
+	if (BloodModAI_Trace() && g_pServerDE && m_nCharacter < BloodModCharacter_Count())
+		g_pServerDE->CPrint("Player: inventory reset as %s: weapons \"%s\", items \"%s\", ammo \"%s\"",
+							BloodModCharacter_Name(m_nCharacter), gCharacterStart[m_nCharacter].szWeapons,
+							gCharacterStart[m_nCharacter].szItems, gCharacterStart[m_nCharacter].szAmmo);
+}
+
+// Every ammo count to 0, then the character's StartAmmo: retail's DEFAULT_BULLETS of AMMO_BULLET.
+// The single-player respawn does the same.
+void CPlayerObj::SetStartAmmo()
+{
 	for (int i = AMMO_BULLET; i <= AMMO_MAXAMMOTYPES; i++)
 		m_InventoryMgr.SetAmmoCount(i, 0.0f);
 
-	m_InventoryMgr.SetAmmoCount(AMMO_BULLET, DEFAULT_BULLETS);
+	std::vector<BloodModAmmo> ammo;
+	BloodModCharacter_StartAmmo(m_nCharacter, ammo);
+	for (size_t a = 0; a < ammo.size(); ++a)
+		m_InventoryMgr.SetAmmoCount((DBYTE)ammo[a].nType, ammo[a].fCount);
 }
 
 // --------------------------------------------------------------------------- //
@@ -1948,10 +1986,7 @@ void CPlayerObj::Respawn()
 		}
 		else
 		{
-			for (int i = AMMO_BULLET; i <= AMMO_MAXAMMOTYPES; i++)
-				m_InventoryMgr.SetAmmoCount(i, 0.0f);
-
-			m_InventoryMgr.SetAmmoCount(AMMO_BULLET, DEFAULT_BULLETS);
+			SetStartAmmo();		// retail's DEFAULT_BULLETS, as the character's
 		}
 	}
 
@@ -2142,6 +2177,11 @@ void CPlayerObj::ValidateAttributes()
 		m_nAttribResistance = DEFAULT_ATTRIBUTE;
 		m_nAttribMagic = DEFAULT_ATTRIBUTE;
 	}
+
+	if (BloodModAI_Trace() && pServerDE)
+		pServerDE->CPrint("Player: attributes as %s: strength %d, speed %d, resistance %d, magic %d",
+						  BloodModCharacter_Name(m_nCharacter), m_nAttribStrength, m_nAttribSpeed,
+						  m_nAttribResistance, m_nAttribMagic);
 
 	m_InventoryMgr.SetStrength(m_nAttribStrength + m_nBindingStrength);
 	m_InventoryMgr.SetMagic(m_nAttribMagic + m_nBindingMagic);
@@ -7478,40 +7518,18 @@ void CPlayerObj::TweakSaveValuesForCharacterChange(int nNewCharacter)
 	int nRes = 1;
 	int nMag = 1;
 
-	switch (BloodModCharacter_Retail(m_nCharacter))
-	{
-		case CHARACTER_CALEB:
-		{
-			nStr = 5; nSpd = 3; nRes = 3; nMag = 1; break;
-			break;
-		}
-
-		case CHARACTER_OPHELIA:
-		{
-			nStr = 2; nSpd = 5; nRes = 1; nMag = 4; break;
-			break;
-		}
-
-		case CHARACTER_ISHMAEL:
-		{
-			nStr = 1; nSpd = 3; nRes = 3; nMag = 5; break;
-			break;
-		}
-
-		case CHARACTER_GABREILLA:
-		{
-			nStr = 5; nSpd = 1; nRes = 5; nMag = 1; break;
-			break;
-		}
-	}
+	// They are Mod\Characters.txt's Switch keys, or where a key is 0 the character's own.
+	// CharacterValues.cpp's gCharacterStart holds retail's values.
+	int nAttrib[4] = { nStr, nSpd, nRes, nMag };
+	BloodModCharacter_Attributes(m_nCharacter, true, nAttrib);
 
 
 	// Set the new attribute values...
 
-	m_nAttribStrength   = nStr;
-	m_nAttribSpeed      = nSpd;
-	m_nAttribResistance = nRes;
-	m_nAttribMagic      = nMag;
+	m_nAttribStrength   = nAttrib[0];
+	m_nAttribSpeed      = nAttrib[1];
+	m_nAttribResistance = nAttrib[2];
+	m_nAttribMagic      = nAttrib[3];
 
 
 	// Validate the attributes...

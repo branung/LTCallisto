@@ -33,4 +33,29 @@ extern char *gCharacterSkins[BLOOD2_CHARACTER_IDS][MULTIPLAY_SKIN_MAX+1];
 #define BLOOD2_CHARACTER_PICTURES	5
 extern char *gCharacterPictures[BLOOD2_CHARACTER_IDS][BLOOD2_CHARACTER_PICTURES];
 
+// A character's attributes and what it starts with, which retail wrote as code in three places:
+//
+//   nAttrib    CBloodClientShell::SetCharacterInfo: what the character menu, and so a new game,
+//              gives (strength, speed, resistance, magic), each 1-5, as
+//              CPlayerObj::ValidateAttributes clamps
+//   nSwitch    CPlayerObj::TweakSaveValuesForCharacterChange: what an add-on level that switches
+//              character gives (DoLevelChangeCharacterCheck, the _CC_ levels). 0 is nAttrib's.
+//              Retail's two tables agree for the four Chosen, so they are 0 here. The switch
+//              has no case for the add-on's four, which no level switches to, and gives them 1.
+//   szWeapons, szItems, szAmmo
+//              CPlayerObj::ResetPlayerInventory, which that switch runs: WEAP_ names without
+//              the prefix, each ObtainWeapon(w, 0) in order; INV_ names, each AddItem(i, 100)
+//              in order; and AMMO_ names, each with its count, set after every count is set to
+//              0. The single-player respawn sets the ammo the same way.
+struct CharacterStart
+{
+	int		nAttrib[4];
+	int		nSwitch[4];
+	char*	szWeapons;
+	char*	szItems;
+	char*	szAmmo;
+};
+
+extern CharacterStart gCharacterStart[BLOOD2_CHARACTER_IDS];
+
 #endif // __CHARACTERVALUES_H__

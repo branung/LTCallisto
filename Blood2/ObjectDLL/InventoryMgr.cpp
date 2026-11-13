@@ -21,32 +21,16 @@
 #include "BloodServerShell.h"
 #include "PlayerObj.h"
 #include "ClientRes.h"
+#include "AmmoValues.h"	// the caps and focus regen
 
 #include "windows.h"
 #undef GetClassName	// winuser.h's, over ILTServer::GetClassName
 
 extern char msgbuf[255];
 
-// Table of max ammo values
-static DFLOAT fMaxAmmoCount[AMMO_MAXAMMOTYPES+1][6] = 
-{
-// Strength or Magic attrib:
-//   1		2		3		4		5		6
-	{0.0f,  0.0f,   0.0f,   0.0f,   0.0f,   0.0f},		// None
-	{100.0f,200.0f, 300.0f, 400.0f, 500.0f, 600.0f},	// Bullets
-	{50.0f,	75.0f,  100.0f, 125.0f, 150.0f, 175.0f},	// Shells
-	{20.0f,	40.0f,  60.0f,  80.0f,  100.0f, 120.0f},	// BMG Rounds
-	{20.0f,	40.0f,  60.0f,  80.0f,  100.0f, 120.0f},	// Flares
-	{25.0f,	50.0f,  75.0f,  100.0f, 150.0f, 200.0f},	// DieBugDie
-	{5.0f,	10.0f,	20.0f,	35.0f,	50.0f,	120.0f},	// Rockets
-	{25.0f,	25.0f,	50.0f,	75.0f,	100.0f,	125.0f},	// Fuel
-	{100.0f,200.0f, 300.0f, 400.0f, 500.0f, 600.0f},	// Batteries
-	{100.0f,200.0f, 300.0f, 400.0f, 500.0f, 600.0f},	// Focus
-	{10.0f, 10.0f,  10.0f,  10.0f,  10.0f,  10.0f},		// ProximityBomb
-	{10.0f, 10.0f,  10.0f,  10.0f,  10.0f,  10.0f},		// RemoteBomb
-	{10.0f, 10.0f,  10.0f,  10.0f,  10.0f,  10.0f},		// TimeBomb
-};
-
+// The most a player carries of each ammo type, by strength (magic for focus), and focus's
+// regeneration, by magic, are Shared/AmmoValues.cpp's gAmmoValues, for Mod\Ammo.txt.
+// Retail's note on them:
 	// Focus regen rates
 //Magic of 1 - No Focus, and no regeneration.
 //Magic of 2 - Maximum of 50 Focus, regenerates at 1 point a second.
@@ -55,7 +39,7 @@ static DFLOAT fMaxAmmoCount[AMMO_MAXAMMOTYPES+1][6] =
 //Magic of 5 - Maximum of 750 Focus, regenerates at 10 points a second.
 //Magic of 6 - Maximum of 999 Focus, regenerates at 20 points a second.
 //  g_nFocusRegenAmt is the amount to add to the focus each second
-static DFLOAT g_fFocusRegenAmt[6] = {2.0f, 4.0f, 6.0f, 8.0f, 10.0f, 12.0f};
+
 
 
 // For alternating weapons
@@ -1262,8 +1246,8 @@ void CInventoryMgr::SetStrength(DBYTE nStrength)
 		DBYTE nTmpStrength = nStrength - 1;
 		CLIPLOWHIGH(nTmpStrength, 0, 5);
 		for (int i = AMMO_BULLET; i <= AMMO_BATTERY; i++)
-			if (m_fAmmo[i] > fMaxAmmoCount[i][nTmpStrength])
-				m_fAmmo[i] = fMaxAmmoCount[i][nTmpStrength];
+			if (m_fAmmo[i] > gAmmoValues[i].fMax[nTmpStrength])
+				m_fAmmo[i] = gAmmoValues[i].fMax[nTmpStrength];
 	}
 	m_nAttribStrength = nStrength;
 }
@@ -1283,8 +1267,8 @@ void CInventoryMgr::SetMagic(DBYTE nMagic)
 	{
 		DBYTE nTmpMagic = nMagic-1;
 		CLIPLOWHIGH(nTmpMagic, 0, 5);
-		if (m_fAmmo[AMMO_FOCUS] > fMaxAmmoCount[AMMO_FOCUS][nTmpMagic])
-				m_fAmmo[AMMO_FOCUS] = fMaxAmmoCount[AMMO_FOCUS][nTmpMagic];
+		if (m_fAmmo[AMMO_FOCUS] > gAmmoValues[AMMO_FOCUS].fMax[nTmpMagic])
+				m_fAmmo[AMMO_FOCUS] = gAmmoValues[AMMO_FOCUS].fMax[nTmpMagic];
 	}
 	m_nAttribMagic = nMagic;
 }
@@ -1310,11 +1294,11 @@ void CInventoryMgr::SetFullAmmo()
 		{
 			nTmpAttrib = m_nAttribMagic - 1;
 			CLIPLOWHIGH(nTmpAttrib, 0, 5);
-			m_fAmmo[AMMO_FOCUS] = fMaxAmmoCount[AMMO_FOCUS][nTmpAttrib];
+			m_fAmmo[AMMO_FOCUS] = gAmmoValues[AMMO_FOCUS].fMax[nTmpAttrib];
 		}
 		else
 		{
-			m_fAmmo[i] = fMaxAmmoCount[i][nTmpAttrib];
+			m_fAmmo[i] = gAmmoValues[i].fMax[nTmpAttrib];
 		}
 	}
 
@@ -1349,11 +1333,11 @@ int CInventoryMgr::AddAmmo(DBYTE nAmmoType, DFLOAT fAmmoCount)
 	nAttrib -= 1;	// Subtract 1 to use as index into array
 	CLIPLOWHIGH(nAttrib, 0, 5);
 
-	if (fMaxAmmoCount[nAmmoType][nAttrib] > m_fAmmo[nAmmoType])	// Room for more!
+	if (gAmmoValues[nAmmoType].fMax[nAttrib] > m_fAmmo[nAmmoType])	// Room for more!
 	{
 		m_fAmmo[nAmmoType] += fAmmoCount;
-		if (m_fAmmo[nAmmoType] > fMaxAmmoCount[nAmmoType][nAttrib])
-			m_fAmmo[nAmmoType] = fMaxAmmoCount[nAmmoType][nAttrib]; 
+		if (m_fAmmo[nAmmoType] > gAmmoValues[nAmmoType].fMax[nAttrib])
+			m_fAmmo[nAmmoType] = gAmmoValues[nAmmoType].fMax[nAttrib]; 
 		return CHWEAP_OK;
 	}
 
@@ -2749,11 +2733,11 @@ void CInventoryMgr::Update()
 			DBYTE nMagic = m_nAttribMagic-1;
 			CLIPLOWHIGH(nMagic, 0, 5);
 
-			DFLOAT fMaxFocus = fMaxAmmoCount[AMMO_FOCUS][nMagic];
+			DFLOAT fMaxFocus = gAmmoValues[AMMO_FOCUS].fMax[nMagic];
 			if (m_fAmmo[AMMO_FOCUS] < fMaxFocus || fBurnFocus > 0.0f)
 			{
 				DFLOAT fDelta = pServerDE->GetFrameTime();
-				DFLOAT fNewFocus = m_fAmmo[AMMO_FOCUS] + (g_fFocusRegenAmt[nMagic] - fBurnFocus)*fDelta;
+				DFLOAT fNewFocus = m_fAmmo[AMMO_FOCUS] + (gAmmoValues[AMMO_FOCUS].fRegen[nMagic] - fBurnFocus)*fDelta;
 
 				CLIPLOWHIGH(fNewFocus, 0.0f, fMaxFocus);
 				m_fAmmo[AMMO_FOCUS] = fNewFocus;

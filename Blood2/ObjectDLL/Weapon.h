@@ -66,7 +66,9 @@ class CWeapon
 		void		Draw();
 		void		Holster()				{ m_eState = WS_HOLSTER; }
 
-		virtual DBYTE	GetAmmoType(DBOOL bAltFire = DFALSE)	{ return m_nAmmoType; }
+		// A mod's AltAmmoType (Mod\WeaponClasses.txt), or retail's: the alt fire takes AmmoType, except
+		// where a class says otherwise
+		virtual DBYTE	GetAmmoType(DBOOL bAltFire = DFALSE)	{ return bAltFire && m_nModAltAmmo ? m_nModAltAmmo : m_nAmmoType; }
 		virtual void	SetNotFiring()							{ m_eState = WS_REST; }
 
 		void		OnFireKey();
@@ -82,6 +84,7 @@ class CWeapon
 
 	protected:
 		void		ReadWeaponData();	// m_nType's table entry into the fields (Weapon.cpp)
+		void		ModApplyClass();	// Mod\WeaponClasses.txt over the constructor's
 
 		virtual	DBOOL		FireVector(DVector *vFire, DFLOAT dist, DBOOL bTracer = DFALSE);
 		virtual	CProjectile	*FireProjectile(DVector *vFire, DFLOAT dist, DBOOL bAltFire);
@@ -128,6 +131,7 @@ class CWeapon
 		char*		m_pHandModelFilename;
 		char*		m_pHandModelSkinname;
 		DBYTE		m_nType;				// Weapon type
+		DBYTE		m_nModAltAmmo;			// a mod's AltAmmoType, or 0
 		DBYTE		m_nFireType;			// Weapon animation
 		DBYTE		m_nAmmoType;			// Type of ammo
 		D_WORD		m_nAmmoUse;				// Amount of ammo to use per shot

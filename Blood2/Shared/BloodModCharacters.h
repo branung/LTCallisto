@@ -29,6 +29,19 @@
 //     Picture, PictureRed, PictureBlue, PictureGreen, PictureYellow
 //                       the character menu's picture for that color, a .pcx; "" is no entry
 //
+//     Strength, Speed, Resistance, Magic
+//                       the attributes the character menu and a new game
+//                       give, 1-5 (CBloodClientShell::SetCharacterInfo)
+//     SwitchStrength, SwitchSpeed, SwitchResistance, SwitchMagic
+//                       those an add-on level that switches to the character
+//                       gives (TweakSaveValuesForCharacterChange), 0-5; 0 is
+//                       the one above, which is retail's for the four Chosen
+//     StartWeapons, StartItems, StartAmmo
+//                       what that switch leaves the player holding
+//                       (ResetPlayerInventory), and the ammo a single-player
+//                       respawn sets, as WEAP_, INV_ and AMMO_ names without
+//                       the prefix: "MELEE BERETTA", "FLASHLIGHT", "BULLET 50 SHELL 20"
+//
 // The three fields nothing reads (szSkinName, fHeightCrouching, fHeightDead) are not keys, so a
 // mod that sets them is told, not ignored.
 //
@@ -47,6 +60,7 @@
 #define __BLOODMODCHARACTERS_H__
 
 #include <string>
+#include <vector>
 
 namespace LT1Mod { class FileSource; }
 
@@ -60,6 +74,22 @@ int BloodModCharacter_Count();
 // chain, or any other id itself, so it stands wherever retail code tests a CHARACTER_ id
 int BloodModCharacter_Base(int nId);
 int BloodModCharacter_Retail(int nId);
+
+// Character nId's attributes (strength, speed, resistance, magic) as the character menu gives
+// them, or with bSwitch as an add-on level's switch does. An id there is not has retail's
+// default, 1s.
+void BloodModCharacter_Attributes(int nId, bool bSwitch, int nOut[4]);
+
+// Its start lists, parsed: WEAP_ ids, INV_ ids, and ammo with its count.
+// false, with *pWhy, for a name the game has not; a loaded table has none.
+struct BloodModAmmo { int nType; float fCount; };
+bool BloodModCharacter_StartWeapons(int nId, std::vector<int>& out, std::string* pWhy = 0);
+bool BloodModCharacter_StartItems(int nId, std::vector<int>& out, std::string* pWhy = 0);
+bool BloodModCharacter_StartAmmo(int nId, std::vector<BloodModAmmo>& out, std::string* pWhy = 0);
+// The same lists' grammar for any string (Mod\Rules.txt's SpawnItems and SpawnAmmo): INV_
+// names, and AMMO_ name and count pairs.
+bool BloodMod_ParseItems(const char* pList, std::vector<int>& out, std::string* pWhy = 0);
+bool BloodMod_ParseAmmo(const char* pList, std::vector<BloodModAmmo>& out, std::string* pWhy = 0);
 
 // The keys, in table order; NULL past the last. A value as Characters.txt writes it, the current
 // table's or retail's.

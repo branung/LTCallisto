@@ -13,6 +13,7 @@
 #include "SharedDefs.h"
 #include "generic_msg_de.h"
 #include "ClientRes.h"
+#include "AmmoValues.h"	// each pickup's amount, retail's AMMOCOUNT_
 
 
 // *********************************************************************** //
@@ -101,7 +102,7 @@ END_CLASS_DEFAULT(BulletAmmoPU, AmmoPickup, NULL, NULL)
 BulletAmmoPU::BulletAmmoPU() : AmmoPickup()
 {
 	m_nType		= AMMO_BULLET;
-	m_fValue	= AMMOCOUNT_BULLET;
+	m_fValue	= gAmmoValues[AMMO_BULLET].fPickup;
 	m_szFile		= "BulletAmmo_pu";
 	m_szObjectName	= "Bullets";
 	m_nNameID	= IDS_AMMO_BULLETS;
@@ -123,7 +124,7 @@ END_CLASS_DEFAULT(ShellAmmoPU, AmmoPickup, NULL, NULL)
 ShellAmmoPU::ShellAmmoPU() : AmmoPickup()
 {
 	m_nType		= AMMO_SHELL;
-	m_fValue	= AMMOCOUNT_SHELL;
+	m_fValue	= gAmmoValues[AMMO_SHELL].fPickup;
 	m_szFile		= "ShellAmmo_pu";
 	m_szObjectName	= "Shells";
 	m_nNameID	= IDS_AMMO_SHELLS;
@@ -145,7 +146,7 @@ END_CLASS_DEFAULT(BMGAmmoPU, AmmoPickup, NULL, NULL)
 BMGAmmoPU::BMGAmmoPU() : AmmoPickup()
 {
 	m_nType		= AMMO_BMG;
-	m_fValue	= AMMOCOUNT_BMG;
+	m_fValue	= gAmmoValues[AMMO_BMG].fPickup;
 	m_szFile		= "BMGAmmo_pu";
 	m_szObjectName	= "BMG Rounds";
 	m_nNameID	= IDS_AMMO_BMG;
@@ -167,7 +168,7 @@ END_CLASS_DEFAULT(FlareAmmoPU, AmmoPickup, NULL, NULL)
 FlareAmmoPU::FlareAmmoPU() : AmmoPickup()
 {
 	m_nType		= AMMO_FLARE;
-	m_fValue	= AMMOCOUNT_FLARE;
+	m_fValue	= gAmmoValues[AMMO_FLARE].fPickup;
 	m_szFile		= "FlareAmmo_pu";
 	m_szObjectName	= "Flares";
 	m_nNameID	= IDS_AMMO_FLARES;
@@ -189,7 +190,7 @@ END_CLASS_DEFAULT(DieBugDieAmmoPU, AmmoPickup, NULL, NULL)
 DieBugDieAmmoPU::DieBugDieAmmoPU() : AmmoPickup()
 {
 	m_nType		= AMMO_DIEBUGDIE;
-	m_fValue	= AMMOCOUNT_DIEBUGDIE;
+	m_fValue	= gAmmoValues[AMMO_DIEBUGDIE].fPickup;
 	m_szFile		= "DieBugDieAmmo_pu";
 	m_szObjectName	= "DieBugDie";
 	m_nNameID	= IDS_AMMO_DIEBUGDIE;
@@ -211,7 +212,7 @@ END_CLASS_DEFAULT(HowitzerAmmoPU, AmmoPickup, NULL, NULL)
 HowitzerAmmoPU::HowitzerAmmoPU() : AmmoPickup()
 {
 	m_nType			= AMMO_HOWITZER;
-	m_fValue		= AMMOCOUNT_HOWITZER;
+	m_fValue		= gAmmoValues[AMMO_HOWITZER].fPickup;
 	m_szFile		= "HowitzerAmmo_pu";
 	m_szObjectName	= "Howizter Shells";
 	m_nNameID	= IDS_AMMO_HOWITZER;
@@ -233,7 +234,7 @@ END_CLASS_DEFAULT(FuelAmmoPU, AmmoPickup, NULL, NULL)
 FuelAmmoPU::FuelAmmoPU() : AmmoPickup()
 {
 	m_nType		= AMMO_FUEL;
-	m_fValue	= AMMOCOUNT_FUEL;
+	m_fValue	= gAmmoValues[AMMO_FUEL].fPickup;
 	m_szFile		= "FuelAmmo_pu";
 	m_szObjectName	= "FuelTank";
 	m_nNameID	= IDS_AMMO_FUEL;
@@ -255,7 +256,7 @@ END_CLASS_DEFAULT(BatteryAmmoPU, AmmoPickup, NULL, NULL)
 BatteryAmmoPU::BatteryAmmoPU() : AmmoPickup()
 {
 	m_nType		= AMMO_BATTERY;
-	m_fValue	= AMMOCOUNT_BATTERY;
+	m_fValue	= gAmmoValues[AMMO_BATTERY].fPickup;
 	m_szFile		= "BatteryAmmo_pu";
 	m_szObjectName	= "Chemical Batteries";
 	m_nNameID	= IDS_AMMO_BATTERY;

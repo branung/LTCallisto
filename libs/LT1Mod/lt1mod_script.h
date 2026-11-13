@@ -71,6 +71,7 @@
 //       mod.explode(x, y, z, radius, min, max [, effect [, source]])   each object within
 //                              radius takes a random min..max of explosion damage from source
 //                              (left out); effect names the game's explosion ("DIVINE_SHOCKBALL")
+//   7   require(name)             a module under Mod\Scripts, either side (MODULES, below)
 //
 // A ScriptTrigger level object calls the global function its Function property names, with the
 // trigger message and the sender's name, when it is triggered.
@@ -136,6 +137,20 @@
 //     side's, and each call or event above the version mod.require_api asks for, then the
 //     version the script needs.
 //
+// MODULES (API 7). require("ec.revenants") runs Mod\Scripts\ec\revenants.lua (dots are folders)
+// once, and answers what it returns (true if nothing), as Lua's own require does. Both sides'
+// scripts may require the same file; each runs its own copy.
+//   - A name is letters, digits and _, joined by dots, at most kScriptModuleName characters: no
+//     path, no "..", nothing outside Mod\Scripts.
+//   - It is read through the mod, folder or .rez alike, never from the game's own files or the
+//     disk, and is text only, as the script is.
+//   - Modules are read while the script loads: a require at a file's top level, or in a function
+//     its top level calls. One first asked for in an event is an error that says so. A world's
+//     rebuild runs them again from the text read then.
+//   - A module requiring one still loading is a cycle, an error naming both.
+//   - Every limit (memory, instructions) is the script's, modules and all.
+// The mod's signature already covers every file under Mod\, Scripts included.
+//
 // Server scripts run where the game's objects do, in the server's module.
 
 #ifndef __LT1MOD_SCRIPT_H__
@@ -143,6 +158,7 @@
 
 #include <stdlib.h>
 #include <string>
+#include <vector>
 
 namespace LT1Mod
 {
@@ -236,13 +252,15 @@ struct ScriptObject
     const char* pClass;         // its class: the host's, or the archetype's own
 };
 
-const int    kScriptApi    = 6;
+const int    kScriptApi    = 7;
 const size_t kScriptSaveMax = 64u << 10;    // mod.save, saved: bytes
 const long   kScriptBudget = 10000000L;     // instructions per call
 const size_t kScriptMemory = 16u << 20;     // bytes
 const long   kScriptDrawBudget = 1000000L;  // OnDraw's instructions a frame
 const int    kScriptMaxUpdateRate = 10;     // OnUpdate calls a second, at most
 const size_t kScriptMessageMax  = 1024;     // a message's payload: bytes
+const size_t kScriptModuleName  = 64;       // a require's name: characters
+const size_t kScriptModules     = 64;       // modules a script may require
 const size_t kScriptMessageName = 64;       // a message's name: bytes
 const int    kScriptMessageRate = 20;       // messages a second, from each client
 const double kScriptSlowMs     = 5.0;       // an event longer than this is reported, once a world
@@ -279,6 +297,11 @@ int  Script_MessagesDropped();
 // The static pass over a script's text: one line per finding, "Mod\Script.lua:12: WARNING: ...",
 // then one "Mod\Script.lua: needs mod.api N (...)" for the highest version it uses
 std::string Script_Lint(const std::string& text, ScriptSide side);
+// The same over a module the script required (pPath its file). A module says no "needs mod.api"
+// line of its own, because the script's file declares the version.
+std::string Script_LintModule(const std::string& text, ScriptSide side, const char* pPath);
+// The modules the loaded script required, by name, in the order they loaded
+std::vector<std::string> Script_Modules();
 
 // For a mod checker: loads the side's script with a host that has no world, so its top level
 // runs and its prints are shown, prints its summary or error through pPrint, and clears it.

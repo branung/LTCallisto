@@ -108,6 +108,11 @@ int                     g_nTimerId = 0;
 
 bool                    g_bWorld = false;       // between a WorldStart and its WorldEnd
 std::string             g_sText;                // the chunk, for the rebuild at each world's end
+// Modules (API 7): their text by name, read while the script loads and kept for each world's
+// rebuild; the order they loaded in; and the mod's files, which only a load can read
+std::map<std::string, std::string> g_ModuleText;
+std::vector<std::string> g_ModuleOrder;
+FileSource*             g_pSrc = NULL;
 std::string             g_sCarried;             // mod.save, serialized, across a rebuild
 std::string             g_sRestore;             // a save's blob, for the next WorldStart
 bool                    g_bRestore = false;
@@ -786,6 +791,72 @@ int ModServer(lua_State* L)
     return 1;
 }
 
+// require (MODULES, lt1mod_script.h): Mod\Scripts\<a>\<b>.lua, once. The registry keeps
+// "lt1mod.loaded", name -> result, with false while one loads.
+int ModRequire(lua_State* L)
+{
+    const char* pName = luaL_checkstring(L, 1);
+    const std::string name = pName;
+    bool bOk = !name.empty() && name.size() <= kScriptModuleName && name[0] != '.' && name[name.size() - 1] != '.';
+    for (size_t i = 0; bOk && i < name.size(); ++i)
+    {
+        const char c = name[i];
+        bOk = isalnum((unsigned char)c) || c == '_' || (c == '.' && name[i + 1] != '.');
+    }
+    if (!bOk)
+        return luaL_error(L, "require(\"%s\"): a module's name is letters, digits and _ joined by dots "
+                             "(\"ec.revenants\" is Mod\\Scripts\\ec\\revenants.lua), at most %d characters",
+                          pName, (int)kScriptModuleName);
+    lua_getfield(L, LUA_REGISTRYINDEX, "lt1mod.loaded");
+    if (lua_isnil(L, -1))
+    {
+        lua_pop(L, 1);
+        lua_newtable(L);
+        lua_pushvalue(L, -1);
+        lua_setfield(L, LUA_REGISTRYINDEX, "lt1mod.loaded");
+    }
+    const int loaded = lua_gettop(L);
+    lua_getfield(L, loaded, pName);
+    if (lua_isboolean(L, -1) && !lua_toboolean(L, -1))
+        return luaL_error(L, "require(\"%s\"): a cycle -- it is still loading, and requires itself through "
+                             "what it requires", pName);
+    if (!lua_isnil(L, -1)) return 1;		// loaded: its result
+    lua_pop(L, 1);
+
+    std::string path = "Mod\\Scripts\\";
+    for (size_t i = 0; i < name.size(); ++i) path += name[i] == '.' ? '\\' : name[i];
+    path += ".lua";
+    std::map<std::string, std::string>::const_iterator it = g_ModuleText.find(name);
+    if (it == g_ModuleText.end())
+    {
+        if (!g_pSrc)
+            return luaL_error(L, "require(\"%s\"): modules are read while the script loads; require it at the "
+                                 "top of a file", pName);
+        if (g_ModuleText.size() >= kScriptModules)
+            return luaL_error(L, "require(\"%s\"): more than %d modules", pName, (int)kScriptModules);
+        std::string text;
+        if (!g_pSrc->ReadFile(path.c_str(), text))
+            return luaL_error(L, "require(\"%s\"): no %s in the mod", pName, path.c_str());
+        it = g_ModuleText.insert(std::make_pair(name, text)).first;
+        g_ModuleOrder.push_back(name);
+    }
+    if (luaL_loadbufferx(L, it->second.data(), it->second.size(), ("@" + path).c_str(), "t") != LUA_OK)
+        return lua_error(L);
+    lua_pushboolean(L, 0);
+    lua_setfield(L, loaded, pName);		// loading
+    lua_pushstring(L, pName);
+    if (lua_pcall(L, 1, 1, 0) != LUA_OK)
+    {
+        lua_pushnil(L);
+        lua_setfield(L, loaded, pName);	// not loading any more: an error is not a cycle
+        return lua_error(L);
+    }
+    if (lua_isnil(L, -1)) { lua_pop(L, 1); lua_pushboolean(L, 1); }
+    lua_pushvalue(L, -1);
+    lua_setfield(L, loaded, pName);
+    return 1;
+}
+
 void OpenSandbox(lua_State* L)
 {
     const luaL_Reg libs[] = {
@@ -804,6 +875,9 @@ void OpenSandbox(lua_State* L)
         lua_pushnil(L);
         lua_setglobal(L, removed[i]);
     }
+    // ...but the mod's own modules, by name (API 7, MODULES)
+    lua_pushcfunction(L, ModRequire);
+    lua_setglobal(L, "require");
 
     const luaL_Reg serverFns[] = {
         { "print", ModPrint }, { "command", ModCommand }, { "time", ModTime },
@@ -1135,6 +1209,9 @@ void Script_Clear()
     g_nObjTable = LUA_NOREF;
     g_bWorld = false;
     g_sText.clear();
+    g_ModuleText.clear();
+    g_ModuleOrder.clear();
+    g_pSrc = NULL;
     g_sCarried.clear();
     g_sRestore.clear();
     g_bRestore = false;
@@ -1176,7 +1253,10 @@ bool Script_Load(FileSource& src, ScriptHost* pHost, std::string& sError, Script
         Script_Clear();
         return false;
     }
-    if (!Call(0, "the top level", &sError))
+    g_pSrc = &src;		// modules are read while the top level runs (MODULES)
+    const bool bTop = Call(0, "the top level", &sError);
+    g_pSrc = NULL;
+    if (!bTop)
     {
         Script_Clear();
         return false;
@@ -1222,7 +1302,10 @@ std::string Script_Summary()
         else
             warnings += "\nWARNING: " + odd[i] + " is not an event, so nothing calls it";
     }
-    return (handlers.empty() ? std::string("no event handlers") : "handles " + handlers) + warnings;
+    std::string modules;
+    for (size_t i = 0; i < g_ModuleOrder.size(); ++i)
+        modules += std::string(i ? ", " : "; modules ") + g_ModuleOrder[i];
+    return (handlers.empty() ? std::string("no event handlers") : "handles " + handlers) + modules + warnings;
 }
 
 void Script_WorldStart(const char* pWorld, bool bRestoring)
@@ -1580,10 +1663,17 @@ std::vector<Tok> Tokenize(const std::string& t)
 
 } // namespace
 
+std::vector<std::string> Script_Modules() { return g_ModuleOrder; }
+
 std::string Script_Lint(const std::string& text, ScriptSide side)
 {
+    return Script_LintModule(text, side, NULL);
+}
+
+std::string Script_LintModule(const std::string& text, ScriptSide side, const char* pModulePath)
+{
     const bool bClient = side == kScriptClient;
-    const char* const pPath = bClient ? kClientPath : kServerPath;
+    const char* const pPath = pModulePath ? pModulePath : bClient ? kClientPath : kServerPath;
     const char* const pOther = bClient ? kServerPath : kClientPath;
     const std::vector<Tok> k = Tokenize(text);
     const size_t nk = k.size();
@@ -1619,6 +1709,14 @@ std::string Script_Lint(const std::string& text, ScriptSide side)
                 lines.push_back(std::string(pPath) + ":" + std::to_string(k[j].line) + ": WARNING: " + warning);
             continue;
         }
+        // require(...) or require "..." (API 7, MODULES), not a field's
+        if (at.Name(j) && k[j].s == "require" && !(j > 0 && (at.Is(j - 1, ".") || at.Is(j - 1, ":"))) &&
+            (at.Is(j + 1, "(") || (j + 1 < nk && k[j + 1].kind == 's')))
+        {
+            Use u = { "require", k[j].line, 7 };
+            uses.push_back(u);
+            continue;
+        }
         // A global function: function OnX(...), or OnX = function.
         std::string def;
         if (at.Is(j, "function") && !(j > 0 && at.Is(j - 1, "local")) && at.Name(j + 1) && at.Is(j + 2, "("))
@@ -1643,7 +1741,7 @@ std::string Script_Lint(const std::string& text, ScriptSide side)
     }
     std::string out;
     for (size_t i = 0; i < lines.size(); ++i) out += lines[i] + "\n";
-    if (need)
+    if (need && !pModulePath)
         out += std::string(pPath) + ": needs mod.api " + std::to_string(need) + " (" + uses[needAt].what + ", line " +
                std::to_string(uses[needAt].line) + ")" +
                (target ? "" : "; mod.require_api(" + std::to_string(need) + ") would have an older game say so") + "\n";
@@ -1679,7 +1777,16 @@ bool Script_Check(FileSource& src, ScriptSide side, void (*pPrint)(const char*))
         }        // And the static pass, over the same text.
         std::string text;
         src.ReadFile(g_pPath, text);
-        const std::string lint = Script_Lint(text, side);
+        std::string lint = Script_Lint(text, side);
+        // And each module it required, under its own file's name
+        for (size_t m = 0; m < g_ModuleOrder.size(); ++m)
+        {
+            std::string path = "Mod\\Scripts\\";
+            for (size_t i = 0; i < g_ModuleOrder[m].size(); ++i)
+                path += g_ModuleOrder[m][i] == '.' ? '\\' : g_ModuleOrder[m][i];
+            path += ".lua";
+            lint += Script_LintModule(g_ModuleText[g_ModuleOrder[m]], side, path.c_str());
+        }
         for (size_t b = 0, e; b < lint.size(); b = e + 1)
         {
             e = lint.find('\n', b);

@@ -22,6 +22,18 @@ void ModWeapons_LoadFile();
 void ModCharacters_LoadFile();
 // Reads Mod\AI.txt, likewise; AI_Mgr applies it to each AI as it is created
 void ModAI_LoadFile();
+// Reads Mod\Ammo.txt into gAmmoValues (BloodModAmmo.h), likewise: the carrying caps, the pickups
+// and FOCUS's regeneration, all the server's
+void ModAmmo_LoadFile();
+// Reads Mod\Rules.txt into gRules (BloodModRules.h), likewise: the loose constants the player,
+// the items, the hits and the corpses read
+void ModRules_LoadFile();
+// Reads Mod\Projectiles.txt (BloodModProjectiles.h), likewise: CProjectile applies it to each
+// projectile as it is created
+void ModProjectiles_LoadFile();
+// Reads Mod\WeaponClasses.txt (BloodModWeaponClasses.h), likewise: CWeapon::Init and the weapon
+// pickups apply it
+void ModWeaponClasses_LoadFile();
 // Reads Mod\Commands.txt through the engine, after the mod is mounted; prints what it read, or
 // why not
 void ModCommands_LoadFile();

@@ -12,6 +12,7 @@
 #include "cpp_server_de.h"
 #include "SharedDefs.h"
 #include "ObjectUtilities.h"
+#include "BloodModProjectiles.h"	// Mod\Projectiles.txt
 #include "ClientSparksSFX.h"
 #include "VolumeBrushTypes.h"
 #include "Gib.h"
@@ -57,10 +58,26 @@ CGrenade::CGrenade() : CProjectile()
 	m_fPitchVel = m_fYawVel = 0.0f;
 	m_fPitch	= m_fYaw = 0.0f;
 	m_nBounceCount = 5;
+	m_nStartBounces = m_nBounceCount;
 
 	m_hSound		= 0;
 
 	m_dwTrailFXID	= OBJFX_SMOKETRAIL_1;
+}
+
+// The mod's BounceCount (Mod\Projectiles.txt), and the count the touch test compares with.
+// Retail's literal 5 was the start count.
+int CGrenade::ModApplyClass(int nClass, std::string* pCtor)
+{
+	if (pCtor) *pCtor += ", BounceCount " + std::to_string(m_nBounceCount);
+	int n = 0;
+	if (BloodModProjectile_Set(nClass, PK_BounceCount))
+	{
+		m_nBounceCount = BloodModProjectile_ModInt(nClass, PK_BounceCount);
+		++n;
+	}
+	m_nStartBounces = m_nBounceCount;
+	return n;
 }
 
 
@@ -141,7 +158,7 @@ void CGrenade::HandleTouch(HOBJECT hObj)
 	CServerDE* pServerDE = DEBaseClass::GetServerDE();
 	if (!pServerDE) return;
 
-	if ((m_nBounceCount == 5) && pServerDE->IsKindOf(pServerDE->GetObjectClass(hObj), pServerDE->GetClass("CBaseCharacter")))
+	if ((m_nBounceCount == m_nStartBounces) && pServerDE->IsKindOf(pServerDE->GetObjectClass(hObj), pServerDE->GetClass("CBaseCharacter")))
 	{
 		CBaseCharacter *pObj = (CBaseCharacter*)pServerDE->HandleToObject(hObj);
 		if(pObj->IsDead())	return;
@@ -235,6 +252,7 @@ CGasGrenade::CGasGrenade() : CProjectile()
 	m_fPitchVel = m_fYawVel = 0.0f;
 	m_fPitch	= m_fYaw = 0.0f;
 	m_nBounceCount	= 5;
+	m_nStartBounces = m_nBounceCount;
 
 	m_bSmoking			= DFALSE;
 	m_fSmokeTime		= 0.0f;
@@ -242,6 +260,21 @@ CGasGrenade::CGasGrenade() : CProjectile()
 
 	m_dwTrailFXID		= OBJFX_GREEN_SMOKE;
 	m_fLastWonkyTime	= 0.0f;
+}
+
+// The mod's BounceCount (Mod\Projectiles.txt), and the count the touch test compares with.
+// Retail's literal 5 was the start count.
+int CGasGrenade::ModApplyClass(int nClass, std::string* pCtor)
+{
+	if (pCtor) *pCtor += ", BounceCount " + std::to_string(m_nBounceCount);
+	int n = 0;
+	if (BloodModProjectile_Set(nClass, PK_BounceCount))
+	{
+		m_nBounceCount = BloodModProjectile_ModInt(nClass, PK_BounceCount);
+		++n;
+	}
+	m_nStartBounces = m_nBounceCount;
+	return n;
 }
 
 
@@ -271,10 +304,10 @@ DBOOL CGasGrenade::Update(DVector *pMovement)
 	{
 		DFLOAT fTime = pServerDE->GetTime();
 
-		if(fTime > (m_fSmokeTime + GAS_GRENADE_SMOKE_TIME))
+		if(fTime > (m_fSmokeTime + BloodModProjectile_Float(BMP_CGasGrenade, PK_SmokeTime)))
 			return DFALSE;
 
-		if(fTime > (m_fLastWonkyTime + GAS_GRENADE_DAMAGE_DELAY))
+		if(fTime > (m_fLastWonkyTime + BloodModProjectile_Float(BMP_CGasGrenade, PK_GasDamageDelay)))
 		{
 			m_fLastWonkyTime = fTime;
 			DamageAndWonky(WONKY_VISION_DEFAULT_TIME);
@@ -380,7 +413,7 @@ void CGasGrenade::HandleTouch(HOBJECT hObj)
 	}
 
 	// Handle the special case of directly hitting a base character in mid air
-	if ((m_nBounceCount == 5) && pServerDE->IsKindOf(pServerDE->GetObjectClass(hObj), pServerDE->GetClass("CBaseCharacter")))
+	if ((m_nBounceCount == m_nStartBounces) && pServerDE->IsKindOf(pServerDE->GetObjectClass(hObj), pServerDE->GetClass("CBaseCharacter")))
 	{
 		CBaseCharacter *pObj = (CBaseCharacter*)pServerDE->HandleToObject(hObj);
 		if(pObj->IsDead())	return;
@@ -510,12 +543,14 @@ void CGasGrenade::DamageAndWonky(DFLOAT fWonkyTime)
 			fDist = VEC_MAG(vDir);
 
 			// If the target is too far away... skip it
-			if(fDist > GAS_GRENADE_DAMAGE_DIST)
+			if(fDist > BloodModProjectile_Float(BMP_CGasGrenade, PK_GasDamageRadius))
 				{ pLink = pLink->m_pNext; continue; }
 
-			fNewDamage = GAS_GRENADE_MAX_DAMAGE - (GAS_GRENADE_MAX_DAMAGE * (fDist / GAS_GRENADE_DAMAGE_DIST));
+			const DFLOAT fMax = BloodModProjectile_Float(BMP_CGasGrenade, PK_GasDamage);
+			fNewDamage = fMax - (fMax * (fDist / BloodModProjectile_Float(BMP_CGasGrenade, PK_GasDamageRadius)));
 
-			DamageObject(m_hFiredFrom, this, hObj, fNewDamage, vDir, vObjPos, DAMAGE_TYPE_NORMAL);
+			DamageObject(m_hFiredFrom, this, hObj, fNewDamage, vDir, vObjPos,
+						 (DBYTE)BloodModProjectile_Int(BMP_CGasGrenade, PK_GasDamageType));
 
 			if(pServerDE->IsKindOf(hObjClass, hPlayer))
 			{
@@ -573,6 +608,15 @@ CTimeBomb::CTimeBomb() : CProjectile()
 	m_fYawVel				= pServerDE->Random(-MATH_CIRCLE, MATH_CIRCLE);
 
 	m_damage.SetDeathDelay(0.25f);		// .25 second delay if killed by explosion
+}
+
+// The mod's TimeDelay (Mod\Projectiles.txt)
+int CTimeBomb::ModApplyClass(int nClass, std::string* pCtor)
+{
+	if (pCtor) *pCtor += ", TimeDelay " + BloodModProjectile_Format(PK_TimeDelay, m_fTimeDelay, 0);
+	if (!BloodModProjectile_Set(nClass, PK_TimeDelay)) return 0;
+	m_fTimeDelay = BloodModProjectile_ModFloat(nClass, PK_TimeDelay);
+	return 1;
 }
 
 
@@ -698,7 +742,7 @@ void CTimeBomb::AddExplosion(DVector vPos, DVector vNormal)
 	CServerDE* pServerDE = DEBaseClass::GetServerDE();
 	if (!pServerDE) return;
 
-	DDWORD		nType = EXP_DEFAULT_SMALL;
+	DDWORD		nType = (DDWORD)BloodModProjectile_Int(BMP_CTimeBomb, PK_ExplosionType);	// retail EXP_DEFAULT_SMALL
 
 	HMESSAGEWRITE hMessage = pServerDE->StartInstantSpecialEffectMessage(&vPos);
 	pServerDE->WriteToMessageByte(hMessage, SFX_EXPLOSIONFX_ID);
@@ -709,7 +753,8 @@ void CTimeBomb::AddExplosion(DVector vPos, DVector vNormal)
 
 	pServerDE->EndMessage2(hMessage, MESSAGE_GUARANTEED);
 
-	PlaySoundFromPos(&vPos, "Sounds\\Weapons\\time\\explode.wav", 1000.0f, SOUNDPRIORITY_MISC_MEDIUM);
+	PlaySoundFromPos(&vPos, (char*)BloodModProjectile_String(BMP_CTimeBomb, PK_ExplosionSound),
+					 BloodModProjectile_Float(BMP_CTimeBomb, PK_ExplosionSoundRadius), SOUNDPRIORITY_MISC_MEDIUM);
 }
 
 
@@ -953,7 +998,7 @@ void CProximityBomb::AddExplosion(DVector vPos, DVector vNormal)
 	CServerDE* pServerDE = DEBaseClass::GetServerDE();
 	if (!pServerDE) return;
 
-	DDWORD		nType = EXP_DEFAULT_MEDIUM;
+	DDWORD		nType = (DDWORD)BloodModProjectile_Int(BMP_CProximityBomb, PK_ExplosionType);	// retail EXP_DEFAULT_MEDIUM
 
 	HMESSAGEWRITE hMessage = pServerDE->StartInstantSpecialEffectMessage(&vPos);
 	pServerDE->WriteToMessageByte(hMessage, SFX_EXPLOSIONFX_ID);
@@ -964,7 +1009,8 @@ void CProximityBomb::AddExplosion(DVector vPos, DVector vNormal)
 
 	pServerDE->EndMessage2(hMessage, MESSAGE_GUARANTEED);
 
-	PlaySoundFromPos(&vPos, "Sounds\\Weapons\\proximities\\explode.wav", 1000.0f, SOUNDPRIORITY_MISC_MEDIUM);
+	PlaySoundFromPos(&vPos, (char*)BloodModProjectile_String(BMP_CProximityBomb, PK_ExplosionSound),
+					 BloodModProjectile_Float(BMP_CProximityBomb, PK_ExplosionSoundRadius), SOUNDPRIORITY_MISC_MEDIUM);
 }
 
 
@@ -1142,7 +1188,7 @@ void CRemoteBomb::AddExplosion(DVector vPos, DVector vNormal)
 	CServerDE* pServerDE = DEBaseClass::GetServerDE();
 	if (!pServerDE) return;
 
-	DDWORD		nType = EXP_DEFAULT_SMALL;
+	DDWORD		nType = (DDWORD)BloodModProjectile_Int(BMP_CRemoteBomb, PK_ExplosionType);	// retail EXP_DEFAULT_SMALL
 
 	HMESSAGEWRITE hMessage = pServerDE->StartInstantSpecialEffectMessage(&vPos);
 	pServerDE->WriteToMessageByte(hMessage, SFX_EXPLOSIONFX_ID);
@@ -1153,7 +1199,8 @@ void CRemoteBomb::AddExplosion(DVector vPos, DVector vNormal)
 
 	pServerDE->EndMessage2(hMessage, MESSAGE_GUARANTEED);
 
-	PlaySoundFromPos(&vPos, "Sounds\\Weapons\\time\\explode.wav", 1000.0f, SOUNDPRIORITY_MISC_MEDIUM);
+	PlaySoundFromPos(&vPos, (char*)BloodModProjectile_String(BMP_CRemoteBomb, PK_ExplosionSound),
+					 BloodModProjectile_Float(BMP_CRemoteBomb, PK_ExplosionSoundRadius), SOUNDPRIORITY_MISC_MEDIUM);
 }
 
 #endif _DEMO
@@ -2253,7 +2300,7 @@ DBOOL CDeathRayProjectile::Update(DVector *pMovement)
 			VEC_SUB(vDist, ii.m_Point, iq.m_From);
 			m_fBounceDist += VEC_MAG(vDist);
 
-			if(m_fBounceDist > DEATHRAY_BOUNCE_DIST)
+			if(m_fBounceDist > BloodModProjectile_Float(BMP_CDeathRayProjectile, PK_BounceDist))
 				return DFALSE;
 
 			// Otherwise, find a new direction to reflect
@@ -2594,7 +2641,8 @@ DBOOL CLeechAltProjectile::Update(DVector *pMovement)
 		// Set the new object velocity, and damage it a little
 		pServerDE->SetVelocity(hObj, &vObjVel);
 		pServerDE->GetObjectPos(hObj, &vObjPos);
-		DamageObject(m_hFiredFrom, this, hObj, m_fDamage, vObjVel, vObjPos, DAMAGE_TYPE_EXPLODE);
+		// The constructor's DAMAGE_TYPE_EXPLODE, so a mod's DamageType reaches it
+		DamageObject(m_hFiredFrom, this, hObj, m_fDamage, vObjVel, vObjPos, m_nDamageType);
 	}
 
 	return DFALSE;
@@ -3221,7 +3269,7 @@ DBOOL COrbProjectile::Update(DVector *pMovement)
 	}
 	else if(m_bState == THEORB_STATE_ATTACHED)
 	{
-		if(!m_hHitObject || (pServerDE->GetTime() - m_fHitTime > THEORB_DAMAGE_TIME))
+		if(!m_hHitObject || (pServerDE->GetTime() - m_fHitTime > BloodModProjectile_Float(BMP_COrbProjectile, PK_DamageTime)))
 		{
 			m_bExplode = DTRUE;
 		}
@@ -3352,7 +3400,8 @@ HOBJECT COrbProjectile::FindTrackObj()
 
 	// Work with the squares of the distances so as to not have to get a square root.
 	HOBJECT		hObj, hTempObj	= DNULL;
-	DFLOAT		fRadiusSqr		= THEORB_DETECT_RADIUS * THEORB_DETECT_RADIUS;
+	const DFLOAT	fDetect			= BloodModProjectile_Float(BMP_COrbProjectile, PK_DetectRadius);
+	DFLOAT		fRadiusSqr		= fDetect * fDetect;
 	DFLOAT		fHalfRadiusSqr	= fRadiusSqr / 2;
 
 	while(pLink != &CDestructable::m_DestructableHead)
@@ -3431,7 +3480,7 @@ void COrbProjectile::TrackObjInRange()
 		pServerDE->AlignRotation(&rHeadRot, &vDir, &vUp);
 
 		fTemp = VEC_MAG(vDir);
-		fTemp = 1.0f - (fTemp / THEORB_DETECT_RADIUS);
+		fTemp = 1.0f - (fTemp / BloodModProjectile_Float(BMP_COrbProjectile, PK_DetectRadius));
 
 		// Try to get a rotation inbetween the current and the destination and set it
 		pServerDE->InterpolateRotation(&rTemp, &rOrbRot, &rHeadRot, fTemp);
@@ -3610,7 +3659,7 @@ DBOOL COrbAltProjectile::Update(DVector *pMovement)
 	}
 	else if(m_bState == THEORB_STATE_ATTACHED)
 	{
-		if(!m_hHitObject || (pServerDE->GetTime() - m_fHitTime > THEORB_DAMAGE_TIME))
+		if(!m_hHitObject || (pServerDE->GetTime() - m_fHitTime > BloodModProjectile_Float(BMP_COrbAltProjectile, PK_DamageTime)))
 		{
 			m_bExplode = DTRUE;
 		}
@@ -4225,7 +4274,7 @@ DBOOL CSingularityProjectile::Update(DVector *pMovement)
 
 	if(m_bArmed)
 	{
-		if(pServerDE->GetTime() - m_fStartTime > SINGULARITY_ATTRACT_TIME)
+		if(pServerDE->GetTime() - m_fStartTime > BloodModProjectile_Float(BMP_CSingularityProjectile, PK_AttractTime))
 			return DFALSE;
 
 		// Get the head of the list of destructable objects
@@ -4461,7 +4510,7 @@ DBOOL CSingularityAltProjectile::Update(DVector *pMovement)
 
 	if(m_bArmed)
 	{
-		if(pServerDE->GetTime() - m_fStartTime > SINGULARITY_ATTRACT_TIME * 2.0f)
+		if(pServerDE->GetTime() - m_fStartTime > BloodModProjectile_Float(BMP_CSingularityAltProjectile, PK_AttractTime) * 2.0f)
 			return DFALSE;
 
 		// Get the head of the list of destructable objects
@@ -5727,7 +5776,7 @@ DBOOL CSkullProjectile::Update(DVector *pMovement)
 	// Play a sound if we don't have one playing already
 	if(!m_hSound)
 	{
-		m_hSound = PlaySoundFromObject(m_hObject, "Sounds\\Enemies\\deathshroud\\flyskull.wav", 750.0f, SOUNDPRIORITY_MISC_MEDIUM, DTRUE, DTRUE, DFALSE, 100, DFALSE, DFALSE);
+		m_hSound = PlaySoundFromObject(m_hObject, "Sounds\\Enemies\\deathshroud\\flyskull.wav", BloodModProjectile_Float(BMP_CSkullProjectile, PK_FlySoundRadius), SOUNDPRIORITY_MISC_MEDIUM, DTRUE, DTRUE, DFALSE, 100, DFALSE, DFALSE);
 
 		//fade the deathshroud
 		DVector vColor;
@@ -6595,7 +6644,7 @@ DBOOL CFlayerPortal::InitialUpdate(DVector *vec)
 
 	// Init the time that we started
 	m_fSearchTime = pServerDE->GetTime();
-	m_fLastChainTime = m_fSearchTime + FLAYER_ALT_CHAIN_INTERVAL;
+	m_fLastChainTime = m_fSearchTime + BloodModProjectile_Float(BMP_CFlayerPortal, PK_ChainInterval);
 
 	return CProjectile::InitialUpdate(vec);
 }
@@ -6631,7 +6680,7 @@ DBOOL CFlayerPortal::Update(DVector *pMovement)
 	}
 
 	// See if we should let out another chain
-	if(fTime > (m_fLastChainTime + FLAYER_ALT_CHAIN_INTERVAL))
+	if(fTime > (m_fLastChainTime + BloodModProjectile_Float(BMP_CFlayerPortal, PK_ChainInterval)))
 	{
 		// Reset the last chain time
 		m_fLastChainTime = fTime;
@@ -6671,7 +6720,7 @@ DBOOL CFlayerPortal::Update(DVector *pMovement)
 				fDist = VEC_MAG(vDir);
 
 				// If the target is too far away... skip it
-				if(fDist > FLAYER_ALT_SEARCH_RANGE)
+				if(fDist > BloodModProjectile_Float(BMP_CFlayerPortal, PK_SearchRange))
 					{ pLink = pLink->m_pNext; continue; }
 
 				hTarget = hObj;
@@ -6741,8 +6790,24 @@ CRockProjectile::CRockProjectile() : CProjectile()
 	m_fPitchVel = m_fYawVel = 0.0f;
 	m_fPitch	= m_fYaw = 0.0f;
 	m_nBounceCount = 5;
+	m_nStartBounces = m_nBounceCount;
 
 	m_hSound		= 0;
+}
+
+// The mod's BounceCount (Mod\Projectiles.txt), and the count the touch test compares with.
+// Retail's literal 5 was the start count.
+int CRockProjectile::ModApplyClass(int nClass, std::string* pCtor)
+{
+	if (pCtor) *pCtor += ", BounceCount " + std::to_string(m_nBounceCount);
+	int n = 0;
+	if (BloodModProjectile_Set(nClass, PK_BounceCount))
+	{
+		m_nBounceCount = BloodModProjectile_ModInt(nClass, PK_BounceCount);
+		++n;
+	}
+	m_nStartBounces = m_nBounceCount;
+	return n;
 }
 
 
@@ -6838,7 +6903,7 @@ void CRockProjectile::HandleTouch(HOBJECT hObj)
 	if(pServerDE->IsKindOf(pServerDE->GetObjectClass(hObj), pServerDE->GetClass("CBaseCharacter")))
 	{
 		DVector vDir, vObjPos;
-		DFLOAT	fNewDamage = m_fDamage * ((DFLOAT)m_nBounceCount / 5.0f);
+		DFLOAT	fNewDamage = m_fDamage * ((DFLOAT)m_nBounceCount / (m_nStartBounces > 0 ? (DFLOAT)m_nStartBounces : 5.0f));
 
 		pServerDE->GetObjectPos(m_hObject, &vObjPos);
 		pServerDE->GetVelocity(m_hObject, &vDir);
