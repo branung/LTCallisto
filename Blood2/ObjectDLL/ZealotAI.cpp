@@ -583,6 +583,10 @@ void ZealotAI::MC_Dead()
 	{
 		if(m_pServerDE->GetModelPlaybackState(m_hObject) & MS_PLAYDONE)		
 		{
+			// A mod's DropOnDeath, or DropOnDeathDivine for a divine one, made at its leg as it vanishes.
+			// A Zealot leaves no corpse for CreateCorpse's.
+			ModAI_Drop(m_bDivine && m_szModDropDivine[0] ? m_szModDropDivine : m_szModDropOnDeath, "ll_leg");
+
 			m_bAnimating = DFALSE;
 			Metacmd++;
 

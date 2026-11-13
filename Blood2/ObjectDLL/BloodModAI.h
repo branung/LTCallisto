@@ -87,6 +87,25 @@ int BloodModAI_ApplyArchetype(int nArch, BloodModAIValues& v);
 const char* BloodModAI_Skin(const char* pClass, int nArch);
 
 bool BloodModAI_Trace();
+// [Options] Script = TRUE: every AI class's AIs are heard by the mod's script, as a class
+// section's Script = TRUE makes one class's
+bool BloodModAI_ScriptAll();
+
+// The death table's [Options] half, for every class; a class's own keys are BloodModAIValues
+// members. nKind is a BLOODMOD_DEATH_KINDS index. DeathSkin answers the game's own where the mod
+// says nothing (fire: burned.dtx), "" for none; DeathFX "" for none.
+const char* BloodModAI_DeathSkin(int nKind);
+const char* BloodModAI_DeathFX(int nKind);
+bool BloodModAI_BulletGib();			// [Options] BulletGib, TRUE unless the mod says
+// An OBJFX_ name without its prefix, any case -> its id; -1 for none.
+int BloodModAI_ObjFX(const char* pName);
+
+// [Options] DifficultyDamage, DifficultyHitPoints and DifficultyArmor, each <easy, medium, hard>:
+// the scales AI_Mgr::InitialUpdate applies by difficulty. The scale for nDifficulty (0 easy, 1
+// medium, 2 hard) of nKind, or fRetail when the mod sets none, and always for insane
+enum BloodModAI_DifficultyKind { BLOODMOD_DIFFICULTY_DAMAGE, BLOODMOD_DIFFICULTY_HITPOINTS, BLOODMOD_DIFFICULTY_ARMOR,
+								 BLOODMOD_DIFFICULTY_KINDS };
+float BloodModAI_DifficultyScale(int nKind, int nDifficulty, float fRetail);
 // The first call for each class answers true, once: the trace prints its constructor's values
 // then
 bool BloodModAI_FirstOfClass(const char* pClass);

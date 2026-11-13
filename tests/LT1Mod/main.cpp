@@ -618,6 +618,24 @@ struct RecHost : public LT1Mod::ScriptHost
         LT1Mod::Script_Create(o);
         return h;
     }
+    // Version 6: "Prop" is a class the script does not hold (true); the yaw is recorded. Anything
+    // else is Spawn's.
+    int prop = 0;
+    virtual void* SpawnEx(const char* a, float x, float y, float z, const char* props, float yaw, bool& bObject,
+                          std::string& why)
+    {
+        if (strcmp(a, "Prop") != 0) { bObject = true; return Spawn(a, x, y, z, props, why); }
+        bObject = false;
+        commands.push_back("spawn Prop yaw " + std::to_string((int)yaw));
+        return &prop;
+    }
+    virtual bool Explode(float x, float, float, float r, float lo, float hi, const char* fx, void* src, std::string& why)
+    {
+        if (strcmp(fx, "BOGUS") == 0) { why = "no explosion \"BOGUS\""; return false; }
+        commands.push_back("explode " + std::to_string((int)x) + " r" + std::to_string((int)r) + " " +
+                           std::to_string((int)lo) + "-" + std::to_string((int)hi) + " " + fx + (src ? " from" : ""));
+        return true;
+    }
     bool Has(const std::string& s) const
     {
         for (size_t i = 0; i < lines.size(); ++i) if (lines[i].find(s) != std::string::npos) return true;
@@ -923,6 +941,74 @@ void TestScriptSpawn()
     LT1Mod::SetActive(LT1Mod::State());
 }
 
+// Version 6: the events' new arguments, mod.spawn of a class the script does not hold, and
+// mod.explode
+void TestScriptV6()
+{
+    printf("script, version 6\n");
+    const char* kScript =
+        "mod.require_api(6)\n"
+        "boss = nil\n"
+        "function OnCreate(o, placed) print('create', o:name(), placed) if o:name() == 'boss1' then boss = o end end\n"
+        "function OnDamage(o, n, from, kind) print('damage', n, from and from:name(), kind) end\n"
+        "function OnDeath(o, killer, kind, dmg) print('death', killer and killer:name(), kind, dmg) end\n"
+        "function OnCommand(n)\n"
+        "  if n == 'prop' then print('prop', mod.spawn('Prop', 0, 0, 0, '', 90)) end\n"
+        "  if n == 'boom' then mod.explode(5, 0, 0, 450, 25, 50, 'DIVINE_SHOCKBALL', boss) end\n"
+        "  if n == 'bad' then print('bad', pcall(mod.explode, 0, 0, 0, 0, 1, 2))\n"
+        "    print('bad2', pcall(mod.explode, 0, 0, 0, 10, 1, 2, 'BOGUS')) end\n"
+        "end\n";
+    RecHost h;
+    std::string err;
+    Check(LoadScript(kScript, h, err), "a version 6 script loads" + (err.empty() ? std::string() : ": " + err));
+    LT1Mod::Script_WorldStart("W");
+    int a = 0, b = 0, stranger = 0;
+    LT1Mod::ScriptObject oa = { &a, "boss1", "", "Prophet" }, ob = { &b, "grunt1", "", "CultistAI" };
+    LT1Mod::Script_Create(oa, true);
+    LT1Mod::Script_Create(ob);
+    Check(h.Has("Script: create\tboss1\ttrue") && h.Has("Script: create\tgrunt1\tfalse"),
+          "OnCreate says whether the level placed the object, and a game that does not say passes false");
+    LT1Mod::Script_Damage(ob, 4.0f, &a, "FIRE");
+    LT1Mod::Script_Damage(ob, 2.0f, &stranger, NULL);
+    Check(h.Has("Script: damage\t4.0\tboss1\tFIRE") && h.Has("Script: damage\t2.0\tnil\tnil"),
+          "OnDamage gets the attacker and the damage type; an attacker the script never saw, and no type, are nil");
+    LT1Mod::Script_Death(ob, &a, "LEECH", 75.0f);
+    LT1Mod::Script_Death(ob, &stranger);
+    Check(h.Has("Script: death\tboss1\tLEECH\t75.0") && h.Has("Script: death\tnil\tnil\tnil"),
+          "OnDeath gets the killer the script knows, the type and the killing blow; else nils");
+    LT1Mod::Script_Command("prop", NULL, 0);
+    Check(h.Has("Script: prop\ttrue") && !h.commands.empty() && h.commands.back() == "spawn Prop yaw 90",
+          "mod.spawn of a class the script does not hold makes it, turned by the yaw, and answers true");
+    LT1Mod::Script_Command("boom", NULL, 0);
+    Check(!h.commands.empty() && h.commands.back() == "explode 5 r450 25-50 DIVINE_SHOCKBALL from",
+          "mod.explode passes the point, radius, damage range, effect and source to the game: " +
+          (h.commands.empty() ? std::string("nothing") : h.commands.back()));
+    LT1Mod::Script_Command("bad", NULL, 0);
+    Check(h.Has("Script: bad\tfalse\t") && h.Has("radius above 0") && h.Has("Script: bad2\tfalse\t") &&
+          h.Has("explode: no explosion \"BOGUS\""),
+          "a radius of 0 is a script error, and so is an effect the game refuses, with its reason");
+    LT1Mod::Script_Clear();
+    LT1Mod::SetActive(LT1Mod::State());
+
+    // A version 5 game's host: SpawnEx falls back to Spawn, mod.explode cannot.
+    struct OldHost : public RecHost
+    {
+        virtual void* SpawnEx(const char* a, float x, float y, float z, const char* p, float yaw, bool& o, std::string& w)
+        { return LT1Mod::ScriptHost::SpawnEx(a, x, y, z, p, yaw, o, w); }
+        virtual bool Explode(float x, float y, float z, float r, float lo, float hi, const char* fx, void* s, std::string& w)
+        { return LT1Mod::ScriptHost::Explode(x, y, z, r, lo, hi, fx, s, w); }
+    } old;
+    Check(LoadScript("function OnCommand(n) print('old', pcall(mod.explode, 0, 0, 0, 10, 1, 2))\n"
+                     "  print('oldspawn', mod.spawn('A', 1, 0, 0) ~= true) end", old, err),
+          "a script loads on a host written before version 6");
+    LT1Mod::Script_Command("x", NULL, 0);
+    Check(old.Has("Script: old\tfalse\t") && old.Has("this game has no explosions for a script") &&
+          old.Has("Script: oldspawn\ttrue"),
+          "there mod.explode is a script error saying the game has none, and mod.spawn still answers the archetype's object");
+    LT1Mod::Script_Clear();
+    LT1Mod::SetActive(LT1Mod::State());
+}
+
 // The client's script, against a host that records what it drew
 struct RecClientHost : public LT1Mod::ScriptClientHost
 {
@@ -1195,7 +1281,8 @@ void TestScriptDiagnostics()
             defs += std::string("function ") + e + "() end\n";
         const std::string l = LT1Mod::Script_Lint(text + defs, bClient ? LT1Mod::kScriptClient : LT1Mod::kScriptServer);
         Check(!names.empty() && l.find("WARNING") == std::string::npos &&
-              l.find("needs mod.api " + std::to_string(LT1Mod::kScriptApi)) != std::string::npos,
+              // Version 6 added to the server only, so the client's newest is 5.
+              l.find("needs mod.api " + std::to_string(bClient ? 5 : LT1Mod::kScriptApi)) != std::string::npos,
               std::string(bClient ? "client" : "server") + ": every live mod call and every event is in the pass's tables, "
               "the newest at the game's mod.api: " + l + names);
         LT1Mod::Script_Clear();
@@ -1218,7 +1305,7 @@ void TestScriptDiagnostics()
     int obj = 0;
     LT1Mod::ScriptObject o = { &obj, "trooper1", "A", "A" };
     LT1Mod::Script_Create(o);
-    Check(h.Has("Mod\\Script.lua: trace: OnCreate(A 'trooper1')") && h.Has("Mod\\Script.lua: trace: mod.find(\"x\")") &&
+    Check(h.Has("Mod\\Script.lua: trace: OnCreate(A 'trooper1', false)") && h.Has("Mod\\Script.lua: trace: mod.find(\"x\")") &&
           h.Has("Mod\\Script.lua: trace: obj:health(A 'trooper1')"),
           "with it, each event and each API call is said with its arguments, object methods too: " + Joined(h.lines));
     LT1Mod::Script_Command("go", NULL, 0);
@@ -1284,6 +1371,7 @@ int Selftest()
     TestScriptV2();
     TestScriptSaves();
     TestScriptSpawn();
+    TestScriptV6();
     TestClientScript();
     TestScriptMessages();
     TestScriptDiagnostics();

@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 #include <stdio.h>
+#include <string.h>
 #include "Destructable.h"
 #include "BaseCharacter.h"
 #include "PathPoint.h"
@@ -185,6 +186,47 @@ AI_Mgr::AI_Mgr() : CBaseCharacter(OT_MODEL)
 
 	// [blg] 10/05/98
 	m_bCabal = DTRUE;
+
+	// The behavior a mod's AI.txt can change (AI_Mgr.h), as the 1998 code behaves. The classes that
+	// read the class-only ones set their own in their constructors.
+	m_bModBestWeapon	= DTRUE;
+	m_bModChaseRun		= DFALSE;
+	m_bModChaseNear		= DFALSE;
+	strcpy(m_szModAttackWeapon, "");
+	strcpy(m_szModNoAltFire, "");
+	m_fModFadeMax		= 0.0f;
+	m_fModFadeMin		= 0.0f;
+	m_nModLoopVolume	= 0;
+	m_fModSpawnCooldown	= 0.0f;
+	m_fModSpawnInterval	= 0.0f;
+	m_bModSpawnAlways	= DFALSE;
+	m_bModScript		= DFALSE;
+	// The death table: no class keys, the game's rules
+	m_bModRobe			= DFALSE;
+	strcpy(m_szModDeathSkin[0], "");
+	strcpy(m_szModDeathSkin[1], "");
+	strcpy(m_szModDeathSkin[2], "");
+	strcpy(m_szModDeathSkin[3], "");
+	strcpy(m_szModDeathSkin[4], "");
+	strcpy(m_szModDeathSkin[5], "");
+	strcpy(m_szModDeathSkin[6], "");
+	strcpy(m_szModDeathFX[0], "");
+	strcpy(m_szModDeathFX[1], "");
+	strcpy(m_szModDeathFX[2], "");
+	strcpy(m_szModDeathFX[3], "");
+	strcpy(m_szModDeathFX[4], "");
+	strcpy(m_szModDeathFX[5], "");
+	strcpy(m_szModDeathFX[6], "");
+	m_bModDeathAnimRandom	= DFALSE;
+	strcpy(m_szModDropOnDeath, "");
+	strcpy(m_szModDropDivine, "");
+	m_nModCorpseLimbLoss	= 2;
+	m_nModGibLimbs			= 2;
+	m_nModGibLimb[0]		= 80;
+	m_nModGibLimb[1]		= 70;
+	m_nModGibLimb[2]		= 50;
+	m_nModGibLimb[3]		= 70;
+	m_nModGibLimb[4]		= 50;
 
 	memset(&m_Link, 0, sizeof(m_Link));
 
@@ -718,11 +760,10 @@ DDWORD AI_Mgr::EngineMessageFn(DDWORD messageID, void *pData, DFLOAT fData)
 				m_bMoveToGround = DFALSE;
 
 			InitialUpdate((int)fData);
-			// A mod's script hears a new archetype AI. A restored one was created before the save.
-			if (fData != INITIALUPDATE_SAVEGAME && m_nModArchetype >= 0)
-				ModScript_Created(this, BloodModAI_ArchetypeName(m_nModArchetype));
-			else if (m_nModArchetype >= 0)
-				ModScript_Adopted(this, BloodModAI_ArchetypeName(m_nModArchetype));	// restored: known again, no event
+			// A mod's script hears a new AI it can see. A restored one was created before the save and is
+			// adopted at the end of Load, since a restore sends MID_INITIALUPDATE before any MID_LOADOBJECT
+			if (fData != INITIALUPDATE_SAVEGAME && ModAI_Scripted())
+				ModScript_Created(this, ModAI_ScriptArchetype(), fData == INITIALUPDATE_WORLDFILE);
 			break;
 		}
 
@@ -732,6 +773,8 @@ DDWORD AI_Mgr::EngineMessageFn(DDWORD messageID, void *pData, DFLOAT fData)
 			// level's own properties replace the mod's
 			BloodModAIValues ctor, mod;
 			const DBOOL bReport = fData != PRECREATE_SAVEGAME && ModAI_Apply((ObjectCreateStruct*)pData, ctor, mod);
+			if (fData == PRECREATE_SAVEGAME)
+				ModAI_ApplyRestored((ObjectCreateStruct*)pData);
 			if (fData == PRECREATE_WORLDFILE || fData == PRECREATE_STRINGPROP)
 				ReadProp((ObjectCreateStruct*)pData);
 			if (bReport)
@@ -812,13 +855,16 @@ DDWORD AI_Mgr::ObjectMessageFn(HOBJECT hSender, DDWORD messageID, HMESSAGEREAD h
 			
 			CBaseCharacter::ObjectMessageFn(hSender, messageID, hRead);
 			HandleDamage();
-			// A mod's script hears OnDamage with the hit points lost, and OnDeath for the killing blow
-			if (m_nModArchetype >= 0)
+			// A mod's script hears what the damage did to an AI it can see: OnDamage with the hit points
+			// lost, the attacker and the damage type, and OnDeath for the killing blow
+			if (ModAI_Scripted())
 			{
-				const char* pArch = BloodModAI_ArchetypeName(m_nModArchetype);
+				const char* pArch = ModAI_ScriptArchetype();
 				const DFLOAT fLost = fHPBefore - m_damage.GetHitPoints();
-				if (!bWasDead && fLost > 0.0f) ModScript_Damaged(this, pArch, fLost);
-				if (!bWasDead && m_damage.IsDead()) ModScript_Died(this, pArch);
+				const int nType = m_damage.GetLastDamageType();
+				if (!bWasDead && fLost > 0.0f) ModScript_Damaged(this, pArch, fLost, m_damage.GetLastDamager(), nType);
+				if (!bWasDead && m_damage.IsDead())
+					ModScript_Died(this, pArch, m_damage.GetWhoKilledMeLast(), nType, m_damage.GetLastDamageAmount());
 			}
 
 			return 0;
@@ -826,15 +872,15 @@ DDWORD AI_Mgr::ObjectMessageFn(HOBJECT hSender, DDWORD messageID, HMESSAGEREAD h
 
  		case MID_TRIGGER:
 		{
-			// An archetype's AI: the script hears it first. Reading the one string runs the
+			// An AI the script can see: the script hears it first. Reading the one string runs the
 			// message to its end, where it rewinds as LT1's does, so HandleTrigger reads it whole.
-			if (m_nModArchetype >= 0 && m_pServerDE)
+			if (ModAI_Scripted() && m_pServerDE)
 			{
 				HSTRING hMsg = m_pServerDE->ReadFromMessageHString(hRead);
 				const char* pMsg = hMsg ? m_pServerDE->GetStringData(hMsg) : DNULL;
 				std::string sMsg = pMsg ? pMsg : "";
 				if (hMsg) m_pServerDE->FreeString(hMsg);
-				ModScript_Triggered(this, BloodModAI_ArchetypeName(m_nModArchetype), sMsg.c_str(), hSender);
+				ModScript_Triggered(this, ModAI_ScriptArchetype(), sMsg.c_str(), hSender);
 			}
 			HandleTrigger(hSender, hRead);
 			break;
@@ -934,6 +980,11 @@ DBOOL AI_Mgr::ReadProp(ObjectCreateStruct *pStruct)
 // and BloodModAIValues does not compile
 template <class T> static void ModAI_Copy(T& dst, const T& src) { memcpy(&dst, &src, sizeof(T)); }
 
+// AI.txt's Flags names are AI_Mgr.h's FLAG_ bits
+#define X(name, bit) static_assert(FLAG_##name == (bit), "BloodModAIFields.h: " #name " is not AI_Mgr.h's FLAG_" #name);
+BLOODMOD_AI_FLAGS(X)
+#undef X
+
 // A class named after a mod's archetype (ModClassDefs.h) is the code of the class the archetype is
 // built on, so everything that keys on the class name (the class's AI.txt section, the trace) takes
 // that class's. Writes the archetype's name to pArch, or "" for a native class.
@@ -1021,6 +1072,150 @@ DBOOL AI_Mgr::ModAI_Apply(ObjectCreateStruct *pStruct, BloodModAIValues& ctor, B
 	BLOODMOD_AI_FIELDS(X)
 #undef X
 	return bTrace ? DTRUE : DFALSE;
+}
+
+// A restored AI, at MID_PRECREATE: Load brings back every constant the mod set except m_bCabal,
+// which the save does not keep and the restore path files the AI under, so the class's Cabal is
+// applied again here, as are its unsaved behavior keys (BLOODMOD_AI_UNSAVED), which Load completes
+// with the archetype's (ModAI_ApplyUnsaved)
+void AI_Mgr::ModAI_ApplyRestored(ObjectCreateStruct *pStruct)
+{
+	char szClass[64];
+	if (!ModAI_ClassName(pStruct, szClass, sizeof(szClass))) return;
+	BloodModAIValues v;
+#define X(key, member, kind) ModAI_Copy(v.member, member);
+	BLOODMOD_AI_FIELDS(X)
+#undef X
+	if (BloodModAI_Apply(szClass, v))
+	{
+		if (BloodModAI_Trace())	// m_pServerDE is not set before InitialUpdate
+			DEBaseClass::GetServerDE()->CPrint("AI: %s restored: Cabal %s -> %s", szClass, m_bCabal ? "TRUE" : "FALSE",
+								v.m_bCabal ? "TRUE" : "FALSE");
+		m_bCabal = v.m_bCabal;
+		// And the class's behavior keys, so a class's own InitialUpdate, which a restore runs before
+		// Load, has them (ModAI_ApplyUnsaved)
+#define X(member) ModAI_Copy(member, v.member);
+		BLOODMOD_AI_UNSAVED(X)
+#undef X
+	}
+}
+
+// A restored AI, at the end of Load: the behavior keys Save does not write (BLOODMOD_AI_UNSAVED),
+// from the class's section and then the archetype's, which Load has just named. What a class does
+// with them in its own InitialUpdate, which a restore runs before Load, takes the class section's
+// alone (DeathShroud's loop volume and starting alpha).
+void AI_Mgr::ModAI_ApplyUnsaved()
+{
+	CServerDE* pServerDE = GetServerDE();
+	HCLASS hClass = pServerDE && m_hObject ? pServerDE->GetObjectClass(m_hObject) : DNULL;
+	char szClass[64];
+	if (!hClass || pServerDE->GetClassName(hClass, szClass, (uint32)sizeof(szClass)) != LT_OK) return;
+	ModAI_NativeClass(szClass, sizeof(szClass), DNULL, 0);
+	BloodModAIValues v;
+#define X(key, member, kind) ModAI_Copy(v.member, member);
+	BLOODMOD_AI_FIELDS(X)
+#undef X
+	const int nKeys = BloodModAI_Apply(szClass, v) + BloodModAI_ApplyArchetype(m_nModArchetype, v);
+	if (!nKeys) return;
+#define X(member) ModAI_Copy(member, v.member);
+	BLOODMOD_AI_UNSAVED(X)
+#undef X
+}
+
+// The attack states' "change to the best weapon" step (CultistAI, Fanatic and Prophet have one).
+// A mod's BestWeapon = FALSE takes it out: the step is passed over and the next runs on the
+// following update.
+void AI_Mgr::MC_AttackBestWeapon()
+{
+	if (m_bModBestWeapon)
+	{
+		MC_BestWeapon();
+		return;
+	}
+	m_bAnimating = DFALSE;
+	Metacmd++;
+}
+
+#define N(name) #name,
+static const char* const kDeathKindNames[BLOODMOD_DEATH_KINDS] = { BLOODMOD_DEATH_KIND_NAMES(N) };
+#undef N
+
+// The death table's kind for a DAMAGE_TYPE_ (BLOODMOD_DEATH_KIND_NAMES), -1 for a type it has no
+// keys for
+int AI_Mgr::ModAI_DeathKind(int nType)
+{
+	switch (nType & 0x0f)
+	{
+		case DAMAGE_TYPE_NORMAL:		return 0;
+		case DAMAGE_TYPE_FIRE:			return 1;
+		case DAMAGE_TYPE_ACID:			return 2;
+		case DAMAGE_TYPE_ELECTRIC:		return 3;
+		case DAMAGE_TYPE_EXPLODE:		return 4;
+		case DAMAGE_TYPE_SINGULARITY:	return 5;
+		case DAMAGE_TYPE_MELEE:			return 6;
+	}
+	return -1;
+}
+
+// An effect on the dying AI: the object's OBJFX, by name; nothing for ""
+void AI_Mgr::ModAI_DeathFX(const char* pName)
+{
+	const int nFX = BloodModAI_ObjFX(pName);
+	if (nFX < 0 || !m_pServerDE) return;
+	DVector offset;
+	VEC_SET(offset, 0.0f, 0.0f, 0.0f);
+	HMESSAGEWRITE hMessage = m_pServerDE->StartInstantSpecialEffectMessage(&offset);
+	m_pServerDE->WriteToMessageByte(hMessage, SFX_OBJECTFX_ID);
+	m_pServerDE->WriteToMessageObject(hMessage, m_hObject);
+	m_pServerDE->WriteToMessageVector(hMessage, &offset);
+	m_pServerDE->WriteToMessageFloat(hMessage, 0.0f);
+	m_pServerDE->WriteToMessageDWord(hMessage, 0);
+	m_pServerDE->WriteToMessageDWord(hMessage, (DDWORD)nFX);
+	m_pServerDE->WriteToMessageDWord(hMessage, 0);
+	m_pServerDE->EndMessage2(hMessage, MESSAGE_GUARANTEED | MESSAGE_NAGGLEFAST);
+}
+
+// A mod's DropOnDeath: an object of class pClass made at a model node.
+void AI_Mgr::ModAI_Drop(const char* pClass, const char* pNode)
+{
+	if (!pClass || !pClass[0] || !m_pServerDE) return;
+	HCLASS hClass = m_pServerDE->GetClass((char*)pClass);
+	if (!hClass)
+	{
+		m_pServerDE->CPrint("AI: DropOnDeath \"%s\" is no class", pClass);
+		return;
+	}
+	ObjectCreateStruct ocStruct;
+	INIT_OBJECTCREATESTRUCT(ocStruct);
+	ocStruct.m_ObjectType = OT_NORMAL;
+	m_pServerDE->GetModelNodeTransform(m_hObject, (char*)pNode, &ocStruct.m_Pos, &ocStruct.m_Rotation);
+	ocStruct.m_Flags = FLAG_FORCECLIENTUPDATE;
+	m_pServerDE->CreateObject(hClass, &ocStruct);
+	if (BloodModAI_Trace()) m_pServerDE->CPrint("AI: DropOnDeath made a %s at %s", pClass, pNode);
+}
+
+// Whether a mod's script hears this AI: one made as an archetype, or one of a class the mod opts
+// in with Script = TRUE, in its section or [Options]. A retail AI is "" to the script, an
+// archetype's its name.
+DBOOL AI_Mgr::ModAI_Scripted() const
+{
+	return (m_nModArchetype >= 0 || m_bModScript || BloodModAI_ScriptAll()) ? DTRUE : DFALSE;
+}
+
+const char* AI_Mgr::ModAI_ScriptArchetype() const
+{
+	const char* p = m_nModArchetype >= 0 ? BloodModAI_ArchetypeName(m_nModArchetype) : DNULL;
+	return p ? p : "";
+}
+
+// The walk with which AI_STATE_AttackFar closes on its target; a mod's ChaseRun = TRUE makes it
+// a run
+void AI_Mgr::MC_ChaseWalk()
+{
+	if (m_bModChaseRun)
+		MC_Run();
+	else
+		MC_Walk();
 }
 
 // After ReadProp: what the mod changed in this object, and where the level's own property replaced
@@ -2063,7 +2258,8 @@ DBOOL AI_Mgr::HandleDamage()
 				g_pPlayerObj->PlayVoiceGroupEventOnClient(VME_BIGGIB, DTRUE);	// [blg]
 			}
 		}
-		else if((m_damage.GetLastDamagePercent() >= 0.90f) && !(m_dwFlags & FLAG_NEVERGIB))
+		// A mod's [Options] BulletGib = FALSE takes this gib out
+		else if(BloodModAI_BulletGib() && (m_damage.GetLastDamagePercent() >= 0.90f) && !(m_dwFlags & FLAG_NEVERGIB))
 		{
 			CreateGibs(vDir, ((int)m_damage.GetMass())>>5, nType, fDamage);
 
@@ -2125,6 +2321,10 @@ void AI_Mgr::SetNewState(int nState)
 	}
 
 	fTime = g_pServerDE->GetTime( );
+
+	// A mod's AttackWeapon: the weapon an attack starts with, taken up on the way in
+	if (m_szModAttackWeapon[0] && (nState == STATE_AttackFar || nState == STATE_AttackClose))
+		m_InventoryMgr.ChangeWeapon(WeaponStrToInt(m_szModAttackWeapon));
 
 	// Don't switch to the idle state too fast
 	if( nState == STATE_Idle && m_bHasTargeted )
@@ -2274,11 +2474,13 @@ void AI_Mgr::InitialUpdate(int nData)
 	m_InventoryMgr.AddAmmo(AMMO_FOCUS, 200.0f);
 	m_InventoryMgr.AddInventoryWeapon(INV_PROXIMITY, (int)m_fProxBombs);
 
+	// The difficulty's scales, or a mod's [Options] DifficultyDamage, DifficultyHitPoints and
+	// DifficultyArmor (BloodModAI.h)
 	switch(GetGameDifficulty())
 	{
-		case DIFFICULTY_EASY:		m_InventoryMgr.AddDamageMultiplier(0.25f);	break;
-		case DIFFICULTY_MEDIUM:		m_InventoryMgr.AddDamageMultiplier(1.0f);	break;
-		case DIFFICULTY_HARD:		m_InventoryMgr.AddDamageMultiplier(1.5f);	break;
+		case DIFFICULTY_EASY:		m_InventoryMgr.AddDamageMultiplier(BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_DAMAGE, 0, 0.25f));	break;
+		case DIFFICULTY_MEDIUM:		m_InventoryMgr.AddDamageMultiplier(BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_DAMAGE, 1, 1.0f));	break;
+		case DIFFICULTY_HARD:		m_InventoryMgr.AddDamageMultiplier(BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_DAMAGE, 2, 1.5f));	break;
 	}
 
 	//Set hit points
@@ -2286,17 +2488,29 @@ void AI_Mgr::InitialUpdate(int nData)
 
 	switch(GetGameDifficulty())
 	{
-		case DIFFICULTY_EASY:		fHP *= 0.25f;	break;
-		case DIFFICULTY_MEDIUM:		fHP *= 1.0f;	break;
-		case DIFFICULTY_HARD:		fHP *= 1.5f;	break;
+		case DIFFICULTY_EASY:		fHP *= BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_HITPOINTS, 0, 0.25f);	break;
+		case DIFFICULTY_MEDIUM:		fHP *= BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_HITPOINTS, 1, 1.0f);	break;
+		case DIFFICULTY_HARD:		fHP *= BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_HITPOINTS, 2, 1.5f);	break;
 	}
 
 	m_damage.SetHitPoints(fHP);
 	m_damage.SetMaxHitPoints(m_damage.GetHitPoints());
 	m_damage.SetMaxMegaHitPoints(m_damage.GetHitPoints());
 
-	// The mod's trace (BloodModAI.h): the hit points the damage aggregate now holds, after the
-	// difficulty, for an AI whose class the mod sets
+	//Set armor point
+	switch(GetGameDifficulty())
+	{
+		case DIFFICULTY_EASY:		m_fAIArmorPoints *= BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_ARMOR, 0, 0.25f);	break;
+		case DIFFICULTY_MEDIUM:		m_fAIArmorPoints *= BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_ARMOR, 1, 1.0f);	break;
+		case DIFFICULTY_HARD:		m_fAIArmorPoints *= BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_ARMOR, 2, 1.5f);	break;
+	}
+
+	m_damage.SetArmorPoints(m_fAIArmorPoints);
+	m_damage.SetMaxArmorPoints(m_fAIArmorPoints);
+	m_damage.SetMaxNecroArmorPoints(m_fAIArmorPoints);
+
+	// The mod's trace (BloodModAI.h): the hit points and armor the damage aggregate now holds, after
+	// the difficulty, for an AI whose class the mod sets
 	if (BloodModAI_Trace())
 	{
 		HCLASS hClass = m_pServerDE->GetObjectClass(m_hObject);
@@ -2308,22 +2522,13 @@ void AI_Mgr::InitialUpdate(int nData)
 		if (bClass && BloodModAI_Apply(szClass, probe))
 		{
 			const char* pName = m_pServerDE->GetObjectName(m_hObject);
-			m_pServerDE->CPrint("AI: %s '%s' starts with %.1f hit points and %.1f armor", szClass, pName ? pName : "",
-								m_damage.GetHitPoints(), m_fAIArmorPoints);
+			char szModel[MAX_CS_FILENAME_LEN + 1] = "", szSkin[MAX_CS_FILENAME_LEN + 1] = "";
+			m_pServerDE->GetModelFilenames(m_hObject, szModel, sizeof(szModel), szSkin, sizeof(szSkin));
+			m_pServerDE->CPrint("AI: %s '%s' starts with %.1f hit points and %.1f armor, %s", szClass, pName ? pName : "",
+								m_damage.GetHitPoints(), m_fAIArmorPoints, szModel);
 		}
 	}
 
-	//Set armor point
-	switch(GetGameDifficulty())
-	{
-		case DIFFICULTY_EASY:		m_fAIArmorPoints *= 0.25f;	break;
-		case DIFFICULTY_MEDIUM:		m_fAIArmorPoints *= 1.0f;	break;
-		case DIFFICULTY_HARD:		m_fAIArmorPoints *= 1.5f;	break;
-	}
-
-	m_damage.SetArmorPoints(m_fAIArmorPoints);
-	m_damage.SetMaxArmorPoints(m_fAIArmorPoints);
-	m_damage.SetMaxNecroArmorPoints(m_fAIArmorPoints);
 	m_damage.SetMass(m_fAIMass);
 
 	// Added by Kevin S. 9/29/98 to better support scripted AIs...
@@ -4017,10 +4222,39 @@ DBOOL AI_Mgr::CreateCorpse()
 	m_pServerDE->GetModelFilenames(m_hObject,theStruct.m_Filename,MAX_CS_FILENAME_LEN+1,
 											 theStruct.m_SkinName,MAX_CS_FILENAME_LEN+1);
 
-	if(m_damage.GetLastDamageType() == DAMAGE_TYPE_FIRE)
+	// The death table. The game's own is one line of it (a fire death takes burned.dtx and a random
+	// death animation) and stays that unless a mod's [Options] say otherwise; then the class's own
+	// keys
 	{
-		_mbscpy((unsigned char*)theStruct.m_SkinName, (const unsigned char*)"skins\\enemies\\burned.dtx");
-		m_nCorpseType = m_pAnim_Sound->m_nAnim_DEATH[m_pServerDE->IntRandom(0,11)];
+		const int nKind = ModAI_DeathKind(m_damage.GetLastDamageType());
+		const char* pSkin = BloodModAI_DeathSkin(nKind);
+		if (pSkin[0])
+		{
+			SAFE_STRCPY(theStruct.m_SkinName, pSkin);
+			m_nCorpseType = m_pAnim_Sound->m_nAnim_DEATH[m_pServerDE->IntRandom(0,11)];
+		}
+		ModAI_DeathFX(BloodModAI_DeathFX(nKind));
+		if (nKind >= 0 && m_szModDeathSkin[nKind][0])
+		{
+			SAFE_STRCPY(theStruct.m_SkinName, m_szModDeathSkin[nKind]);
+			if (m_bModDeathAnimRandom)
+				m_nCorpseType = m_pAnim_Sound->m_nAnim_DEATH[m_pServerDE->IntRandom(0,11)];
+		}
+		if (nKind >= 0)
+		{
+			ModAI_DeathFX(m_szModDeathFX[nKind]);
+			if (m_szModDropOnDeath[0])
+				ModAI_Drop(m_szModDropOnDeath, "torso");
+		}
+		// The mod's trace (BloodModAI.h): what the table gave this body
+		if (BloodModAI_Trace())
+		{
+			const char* pName = m_pServerDE->GetObjectName(m_hObject);
+			m_pServerDE->CPrint("AI: '%s' corpse of a %s death: skin %s, effects \"%s\" \"%s\", drop \"%s\"",
+								pName ? pName : "", nKind >= 0 ? kDeathKindNames[nKind] : "other",
+								theStruct.m_SkinName, BloodModAI_DeathFX(nKind), nKind >= 0 ? m_szModDeathFX[nKind] : "",
+								nKind >= 0 ? m_szModDropOnDeath : "");
+		}
 	}
 
 	// The sound root goes in a buffer rather than m_UserData, which is 32 bits and truncated the pointer (see corpse.cpp)
@@ -4035,7 +4269,9 @@ DBOOL AI_Mgr::CreateCorpse()
 	//shoudl we limb loss while corpse?
 	HCLASS hSoulClass = m_pServerDE->GetClass("SoulDrudge");
 
-	if(m_bCabal || m_pServerDE->IsKindOf(hSoulClass, m_pServerDE->GetObjectClass(m_hObject)))
+	// A mod's CorpseLimbLoss: 0 never, 1 always, 2 the game's rule
+	if(m_nModCorpseLimbLoss == 1 ||
+	   (m_nModCorpseLimbLoss == 2 && (m_bCabal || m_pServerDE->IsKindOf(hSoulClass, m_pServerDE->GetObjectClass(m_hObject)))))
 	{
 		((CCorpse*)pObj)->Setup(m_hFireSource, DTRUE);
 	}
@@ -4184,27 +4420,30 @@ DBOOL AI_Mgr::CreateGibs(DVector vDir, int nNumGibs, int nType, DFLOAT fDamage)
 
 	HCLASS hSoulClass = m_pServerDE->GetClass("SoulDrudge");
 
-	if(m_bCabal || m_pServerDE->IsKindOf(hSoulClass, m_pServerDE->GetObjectClass(m_hObject)))
+	// A mod's GibLimbs (0 never, 1 always, 2 the game's rule) and the five thresholds, each the
+	// game's own by default
+	if(m_nModGibLimbs == 1 ||
+	   (m_nModGibLimbs == 2 && (m_bCabal || m_pServerDE->IsKindOf(hSoulClass, m_pServerDE->GetObjectClass(m_hObject)))))
 	{
 		int rand = m_pServerDE->IntRandom(0, 100);
 		// 80 % create a head..
-		if (rand = m_pServerDE->IntRandom(0, 100) > 80)
+		if (rand = m_pServerDE->IntRandom(0, 100) > m_nModGibLimb[0])
 			AIShared.CreateLimb(m_hObject, NODE_NECK, vDir);
 
 		// 70% create 1 arm
-		if (rand = m_pServerDE->IntRandom(0, 100) > 70)
+		if (rand = m_pServerDE->IntRandom(0, 100) > m_nModGibLimb[1])
 			AIShared.CreateLimb(m_hObject, NODE_RARM, vDir);
 		
 		// 50% create 2 arms
-		if (rand = m_pServerDE->IntRandom(0, 100) > 50)
+		if (rand = m_pServerDE->IntRandom(0, 100) > m_nModGibLimb[2])
 			AIShared.CreateLimb(m_hObject, NODE_LARM, vDir);
 		
 		// 70% create 1 leg
-		if (rand = m_pServerDE->IntRandom(0, 100) > 70)
+		if (rand = m_pServerDE->IntRandom(0, 100) > m_nModGibLimb[3])
 			AIShared.CreateLimb(m_hObject, NODE_RLEG, vDir);	
 		
 		// 50% create 2 legs
-		if (rand = m_pServerDE->IntRandom(0, 100) > 50)
+		if (rand = m_pServerDE->IntRandom(0, 100) > m_nModGibLimb[4])
 			AIShared.CreateLimb(m_hObject, NODE_LLEG, vDir);
 	}
 
@@ -7241,6 +7480,12 @@ void AI_Mgr::Load(HMESSAGEREAD hRead, DDWORD dwLoadFlags)
 		char* pArch = pServerDE->ReadFromMessageString(hRead);
 		m_nModArchetype = (pArch && pArch[0]) ? BloodModAI_FindArchetype(pArch) : -1;
 	}
+	// What the save does not keep, from the mod again, and the script's reference to this AI found
+	// again: here, not at MID_INITIALUPDATE, which a restore sends to every object before it loads
+	// any, so the archetype is known only now
+	ModAI_ApplyUnsaved();
+	if (ModAI_Scripted())
+		ModScript_Adopted(this, ModAI_ScriptArchetype());	// restored: known again, no event
 }
 
 // ----------------------------------------------------------------------- //

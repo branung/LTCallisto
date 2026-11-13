@@ -336,7 +336,7 @@ void Behemoth::AI_STATE_AttackFar()
 							ComputeState();
 						else
 						{
-							MC_Walk();
+							MC_ChaseWalk();
 						}
 					}
 					
@@ -348,7 +348,7 @@ void Behemoth::AI_STATE_AttackFar()
 						ComputeState();
 					else
 					{
-						MC_Walk();
+						MC_ChaseWalk();
 					}
 
 					break;

@@ -497,7 +497,7 @@ void UndeadGideon::AI_STATE_AttackFar()
 						if(m_fStimuli[SIGHT] < (m_fSeeingDist * 0.20))
 							ComputeState();
 						else
-							MC_Walk();		
+							MC_ChaseWalk();		
 					}
 					
 					break;
@@ -512,7 +512,7 @@ void UndeadGideon::AI_STATE_AttackFar()
 						MC_Jump();
 					}
 					else
-						MC_Walk();		
+						MC_ChaseWalk();		
 
 					break;
 		case 3:		ComputeState();					break;

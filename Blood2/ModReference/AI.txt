@@ -15,7 +15,9 @@
 // properties a class declares in its BEGIN_CLASS) still wins over the
 // mod's value. Blood2/ObjectDLL/BloodModAI.h has the rest.
 
-// The keys.  FLOAT and INT are 0 or more; a STR is at most 31 characters.
+// The keys.  FLOAT and INT are 0 or more; a STR is at most 31 characters;
+// a BOOL is TRUE or FALSE; FLAGS is a string of the names below joined by
+// |, the whole word ("CRAWL | JUMP", "" for none).
 //
 //     HearingDist  FLOAT
 //     SensingDist  FLOAT
@@ -46,12 +48,103 @@
 //     Charges  FLOAT
 //     Fuel  FLOAT
 //     Proximity_Bombs  FLOAT
+//     Flags  FLAGS
+//     Cabal  BOOL
+//     BestWeapon  BOOL
+//     ChaseRun  BOOL
+//     ChaseNear  BOOL
+//     AttackWeapon  STR
+//     NoAltFire  STR
+//     FadeMax  FLOAT
+//     FadeMin  FLOAT
+//     LoopVolume  INT
+//     SpawnCooldown  FLOAT
+//     SpawnInterval  FLOAT
+//     SpawnAlways  BOOL
+//     Script  BOOL
+//     Robe  BOOL
+//     DeathSkinNormal  PATH
+//     DeathSkinFire  PATH
+//     DeathSkinAcid  PATH
+//     DeathSkinElectric  PATH
+//     DeathSkinExplode  PATH
+//     DeathSkinSingularity  PATH
+//     DeathSkinMelee  PATH
+//     DeathFXNormal  OBJFX
+//     DeathFXFire  OBJFX
+//     DeathFXAcid  OBJFX
+//     DeathFXElectric  OBJFX
+//     DeathFXExplode  OBJFX
+//     DeathFXSingularity  OBJFX
+//     DeathFXMelee  OBJFX
+//     DeathAnimRandom  BOOL
+//     DropOnDeath  STR
+//     DropOnDeathDivine  STR
+//     CorpseLimbLoss  MODE
+//     GibLimbs  MODE
+//     GibHead  INT
+//     GibRightArm  INT
+//     GibLeftArm  INT
+//     GibRightLeg  INT
+//     GibLeftLeg  INT
 //     Skin  STR, a skin file of at most 99 characters, which replaces
 //           the one the class picks
 //
 // A section with any other name is a new enemy type, an archetype, and names
 // its Base: a class below, or another archetype.  It takes the same keys.  An
 // AI of the Base's class with the property Archetype = "<name>" is one.
+//
+//
+// Behavior (BestWeapon to SpawnAlways):
+//     BestWeapon     FALSE takes the attack states' change to the best weapon
+//                    out (CultistAI, Fanatic, Prophet, GabriellaAI/REV,
+//                    OpheliaAI/REV have one)
+//     ChaseRun       TRUE: AI_STATE_AttackFar closes in at a run, not a walk
+//     AttackWeapon   a weapon, as AIWeapon1 names one, taken up on entering an
+//                    attack state
+//     NoAltFire      a weapon Prophet never alt-fires standing still
+//     ChaseNear      DeathShroud: TRUE closes in only while already within a
+//                    third of SeeingDist, the test turned round
+//     FadeMax, FadeMin  DeathShroud's alpha, solid and faded (0.9, 0.5)
+//     LoopVolume     DeathShroud's and DrudgePriest's looping sound (50, 60)
+//     SpawnCooldown, SpawnInterval  DrudgePriest: seconds between summons
+//                    (30) and between leeches in one (1.5)
+//     SpawnAlways    DrudgePriest: TRUE summons with a leech already in sight
+//     Robe           CultistAI: TRUE puts every cultist in the robe (its model,
+//                    skin, animations and sounds), whatever the level says
+//     DeathSkin<Kind>, DeathFX<Kind>  the corpse's skin, and the effect on the
+//                    dying AI, for a death by that damage: Kind is Normal,
+//                    Fire, Acid, Electric, Explode, Singularity or Melee; an
+//                    effect is an OBJFX_ name without the prefix (SMOKING_3)
+//     DeathAnimRandom  TRUE: a death that takes the class's DeathSkin picks a
+//                    random death animation
+//     DropOnDeath    a class made at the corpse's torso by a death of one of the
+//                    kinds above (ZealotAI: at its leg, as it vanishes);
+//                    DropOnDeathDivine, a divine ZealotAI's
+//     CorpseLimbLoss, GibLimbs  MODE: whether the corpse can lose limbs, and
+//                    whether a gibbing throws them; the game's rule (2) is a
+//                    Cabal AI or a SoulDrudge
+//     GibHead, GibRightArm, GibLeftArm, GibRightLeg, GibLeftLeg  a gib throws
+//                    that limb when a roll of 0-100 is above it (80 70 50 70 50)
+//     Script         TRUE: the mod's Script.lua hears every AI of the class
+//                    (OnCreate, OnDamage, OnDeath, OnTrigger), not only its
+//                    archetypes
+//
+// [Options] takes Trace and Script (TRUE or FALSE; Script is every class's)
+// and three difficulty scales, each
+// <easy, medium, hard> (insane has none, as in the game):
+//     DifficultyDamage     the damage an AI deals (retail <0.25, 1.0, 1.5>)
+//     DifficultyHitPoints  its starting hit points (retail <0.25, 1.0, 1.5>)
+//     DifficultyArmor      its armor (retail <0.25, 1.0, 1.5>)
+// and the death table for every class, before a class's own keys:
+//     DeathSkin<Kind>, DeathFX<Kind>  as above (retail: DeathSkinFire is
+//                          "skins\enemies\burned.dtx", with a random animation)
+//     BulletGib            FALSE: only an explosion (or ALWAYSGIB) bursts a body,
+//                          not a 90% hit
+//
+// The Flags names (AI_Mgr.h's FLAG_):
+//    CRAWL JUMP LIMP DODGE LIMBLOSS ALWAYSRECOIL
+//    ALWAYSGIB CANASSIST ALWAYSCLEAR NOAMMOCOLLECT NIGHTMAREDEATH NEVERGIB
 //
 // The classes, one section each.
 

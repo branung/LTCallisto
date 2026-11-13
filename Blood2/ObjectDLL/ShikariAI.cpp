@@ -496,7 +496,7 @@ void ShikariAI::AI_STATE_AttackFar()
 						if(m_fStimuli[SIGHT] < (m_fSeeingDist * 0.33))
 							ComputeState();
 						else
-							MC_Walk();		
+							MC_ChaseWalk();		
 					}
 					
 					break;

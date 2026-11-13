@@ -60,6 +60,12 @@ DeathShroud::DeathShroud() : AI_Mgr()
 	m_fAIRandomHP    = 00;
 	m_fAIArmorPoints = 200;
 
+	// The fade's limits and the loop's volume, as members so a mod's FadeMax, FadeMin and
+	// LoopVolume can set them
+	m_fModFadeMax    = 0.90f;
+	m_fModFadeMin    = 0.5f;
+	m_nModLoopVolume = 50;
+
 	_mbscpy((unsigned char*)m_szAIState, (const unsigned char*)"IDLE");
 }
 
@@ -169,7 +175,7 @@ DBOOL DeathShroud::InitialUpdate(DVector *pMovement)
 	playSoundInfo.m_nPriority = SOUNDPRIORITY_AI_MEDIUM;
 	playSoundInfo.m_fOuterRadius = 1000;
 	playSoundInfo.m_fInnerRadius = 1000 * 0.1f;
-	playSoundInfo.m_nVolume = 50;
+	playSoundInfo.m_nVolume = (DBYTE)(m_nModLoopVolume > 255 ? 255 : m_nModLoopVolume);
 	
 	g_pServerDE->PlaySound( &playSoundInfo );
 	m_hLoopSound = playSoundInfo.m_hSound;
@@ -179,7 +185,7 @@ DBOOL DeathShroud::InitialUpdate(DVector *pMovement)
 	DFLOAT fAlpha = 0.0f;
 
 	m_pServerDE->GetObjectColor(m_hObject,&vColor.x, &vColor.y, &vColor.z, &fAlpha);
-	fAlpha = 0.90f;
+	fAlpha = m_fModFadeMax;
 	m_pServerDE->SetObjectColor(m_hObject,vColor.x,vColor.y,vColor.z, fAlpha);
 
 	return DTRUE;
@@ -226,12 +232,12 @@ void DeathShroud::MC_Fade(DBOOL bFade)
 		if(bFade)
 		{
 			fAlpha -= 0.05f;
-			if(fAlpha <= 0.5f)
-				fAlpha = 0.5f;
+			if(fAlpha <= m_fModFadeMin)
+				fAlpha = m_fModFadeMin;
 
 			m_pServerDE->SetObjectColor(m_hObject,vColor.x,vColor.y,vColor.z, fAlpha);
 
-			if(m_pServerDE->GetModelPlaybackState(m_hObject) & MS_PLAYDONE && fAlpha <= 0.5f)
+			if(m_pServerDE->GetModelPlaybackState(m_hObject) & MS_PLAYDONE && fAlpha <= m_fModFadeMin)
 			{
 				m_bAnimating = DFALSE;
 				Metacmd++;
@@ -241,12 +247,12 @@ void DeathShroud::MC_Fade(DBOOL bFade)
 		else
 		{
 			fAlpha += 0.05f;
-			if(fAlpha >= 0.90f)
-				fAlpha = 0.90f;
+			if(fAlpha >= m_fModFadeMax)
+				fAlpha = m_fModFadeMax;
 
 			m_pServerDE->SetObjectColor(m_hObject,vColor.x,vColor.y,vColor.z, fAlpha);
 
-			if(m_pServerDE->GetModelPlaybackState(m_hObject) & MS_PLAYDONE && fAlpha >= 0.90f)
+			if(m_pServerDE->GetModelPlaybackState(m_hObject) & MS_PLAYDONE && fAlpha >= m_fModFadeMax)
 			{
 				DDWORD dwFlags = m_pServerDE->GetObjectFlags(m_hObject);
 				dwFlags |= FLAG_SOLID;
@@ -436,10 +442,13 @@ void DeathShroud::AI_STATE_AttackFar()
 
 					break;
 		case 3:		MC_Fade(DTRUE);		break;
-		case 4:		if(m_fStimuli[SIGHT] <= (m_fSeeingDist * 0.33) || fHeight > m_vDims.y)
+		// A mod's ChaseNear turns the range test round: the Deathshroud closes in only while already
+		// near
+		case 4:		if((m_bModChaseNear ? m_fStimuli[SIGHT] >= (m_fSeeingDist * 0.33)
+										: m_fStimuli[SIGHT] <= (m_fSeeingDist * 0.33)) || fHeight > m_vDims.y)
 						Metacmd++;
 					else
-						MC_Walk();
+						MC_ChaseWalk();
 
 					break;
 		case 5:		ComputeState();		break;

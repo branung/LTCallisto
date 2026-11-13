@@ -227,6 +227,29 @@ protected:
 	// mod gives this AI, applied at MID_INITIALUPDATE
 	int		m_nModArchetype;
 	char	m_szModSkin[BLOODMOD_AI_MAX_SKIN + 1];
+	// Behavior a mod's AI.txt can change; each default is the 1998 code's
+	DBOOL	m_bModBestWeapon;		// BestWeapon: the attack states' "best weapon" step (MC_AttackBestWeapon)
+	DBOOL	m_bModChaseRun;			// ChaseRun: AI_STATE_AttackFar's approach runs (MC_ChaseWalk)
+	DBOOL	m_bModChaseNear;		// ChaseNear: DeathShroud's approach test, the other way round
+	char	m_szModAttackWeapon[32];	// AttackWeapon: taken up on entering an attack state (SetNewState)
+	char	m_szModNoAltFire[32];	// NoAltFire: a weapon Prophet::Fire never alt-fires
+	DFLOAT	m_fModFadeMax;			// FadeMax, FadeMin: DeathShroud's alpha limits
+	DFLOAT	m_fModFadeMin;
+	int		m_nModLoopVolume;		// LoopVolume: DeathShroud's and DrudgePriest's looping sound
+	DFLOAT	m_fModSpawnCooldown;	// SpawnCooldown, SpawnInterval, SpawnAlways: DrudgePriest's leeches
+	DFLOAT	m_fModSpawnInterval;
+	DBOOL	m_bModSpawnAlways;
+	DBOOL	m_bModScript;			// Script: a mod's script hears this AI (ModAI_Scripted)
+	// The death table, each the game's own by default
+	DBOOL	m_bModRobe;				// Robe: CultistAI's
+	char	m_szModDeathSkin[BLOODMOD_DEATH_KINDS][BLOODMOD_AI_MAX_SKIN + 1];
+	char	m_szModDeathFX[BLOODMOD_DEATH_KINDS][32];
+	DBOOL	m_bModDeathAnimRandom;
+	char	m_szModDropOnDeath[32];
+	char	m_szModDropDivine[32];	// ZealotAI's, divine
+	int		m_nModCorpseLimbLoss;	// 0 never, 1 always, 2 the game's rule
+	int		m_nModGibLimbs;			// the same, for the limbs a gib throws
+	int		m_nModGibLimb[5];		// head, right arm, left arm, right leg, left leg
 	DFLOAT	m_fAIBullets;
 	DFLOAT	m_fAIBMG;
 	DFLOAT	m_fAIShells;
@@ -372,7 +395,16 @@ protected :
 	// A mod's Mod\AI.txt values for this class, after the constructor's and before ReadProp's.
 	// Apply answers whether to report, which Report does after ReadProp.
 	DBOOL			ModAI_Apply(ObjectCreateStruct *pStruct, BloodModAIValues& ctor, BloodModAIValues& mod);
+	void			ModAI_ApplyRestored(ObjectCreateStruct *pStruct);	// what a save does not keep
 	void			ModAI_Report(ObjectCreateStruct *pStruct, const BloodModAIValues& ctor, const BloodModAIValues& mod);
+	void			ModAI_ApplyUnsaved();	// a restored AI's BLOODMOD_AI_UNSAVED, class and archetype
+	void			MC_AttackBestWeapon();	// MC_BestWeapon, unless the mod's BestWeapon is FALSE
+	void			MC_ChaseWalk();			// MC_Walk, or MC_Run with the mod's ChaseRun
+	static int		ModAI_DeathKind(int nType);		// a DAMAGE_TYPE_'s death table kind
+	void			ModAI_DeathFX(const char* pName);
+	void			ModAI_Drop(const char* pClass, const char* pNode);
+	DBOOL			ModAI_Scripted() const;	// a mod's script hears this AI
+	const char*		ModAI_ScriptArchetype() const;	// its archetype for the script, "" for a retail one
 	void			OnStringKey(ArgList* pArgList);
 	DBOOL			HandleTrigger( HOBJECT hSender, HMESSAGEREAD hRead );
 	virtual DBOOL	HandleDamage();

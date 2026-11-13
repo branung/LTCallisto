@@ -582,7 +582,7 @@ void EnhancedGideon::AI_STATE_AttackFar()
 					}
 					else
 					{
-						MC_Walk();
+						MC_ChaseWalk();
 					}
 
 

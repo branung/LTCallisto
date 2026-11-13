@@ -320,7 +320,7 @@ void Fanatic::AI_STATE_AttackClose()
 	switch(Metacmd)
 	{
 		case 1:		MC_FaceTarget();	break;
-		case 2:		MC_BestWeapon();	break;
+		case 2:		MC_AttackBestWeapon();	break;
 		case 3:		if(m_fStimuli[SIGHT] <= (m_fSeeingDist * 0.33) || m_nCurMetacmd == MC_FIRE_STAND
 						|| m_nCurMetacmd == MC_FIRE_CROUCH || fHeight > m_vDims.y)
 					{
@@ -399,7 +399,7 @@ void Fanatic::AI_STATE_AttackFar()
 	switch(Metacmd)
 	{
 		case 1:		MC_FaceTarget();	break;
-		case 2:		MC_BestWeapon();	break;
+		case 2:		MC_AttackBestWeapon();	break;
 		case 3:		if(m_fStimuli[SIGHT] <= (m_fSeeingDist * 0.75) || m_nCurMetacmd == MC_FIRE_STAND 
 						|| m_nCurMetacmd == MC_FIRE_CROUCH || fHeight > m_vDims.y)
 					{
@@ -426,7 +426,7 @@ void Fanatic::AI_STATE_AttackFar()
 							&& m_nCurMetacmd != MC_FIRE_CROUCH)
 						{
 							if(m_nInjuredLeg)
-								MC_Walk();
+								MC_ChaseWalk();
 							else
 								MC_Fire_Run();
 						}

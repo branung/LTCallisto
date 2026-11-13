@@ -13,8 +13,9 @@
 //     end
 //
 // EVENTS, each a no-op unless the script defines it, with the API version that added it. Object
-// events are raised only for the mod's own objects (a game's archetype hosts) and the players,
-// never for a retail class, so a script cannot change what a retail object does.
+// events are raised for the mod's own objects (a game's archetype hosts) and the players. Since
+// version 6 a game may also raise them for a retail class the mod's own data opts in (Blood II's
+// AI.txt Script key), never by default, so a script reaches no retail object its mod did not name.
 //
 //     OnWorldStart(world)        a world starts: new game or level change     1
 //     OnCreate(obj)              one of the mod's objects is created          1
@@ -34,6 +35,13 @@
 //     OnRestore(world)           a saved game is restored, instead of         3
 //                                OnWorldStart
 //     OnClientMessage(player, name, payload)                                  5
+//     OnCreate(obj, placed)      `placed` is true when the level made it      6
+//     OnDamage(obj, amount, from, kind)                                       6
+//     OnDeath(obj, killer, kind, damage)                                      6
+//                                `from` and `killer` are the attacker if the
+//                                script knows it, else nil; `kind` is the
+//                                damage type's name or nil; `damage` is the
+//                                killing blow's own amount
 //
 // API. mod.api is the version the game provides; a later one only adds.
 //
@@ -57,6 +65,12 @@
 //                              Raises OnCreate and returns the object. Only archetypes, so a
 //                              script makes nothing retail could not place.
 //   5   mod.client(player | nil, name [, payload])   a message to the client script (below)
+//   6   mod.spawn(name, x, y, z [, props [, yaw]])   any class the game has, not only an
+//                              archetype; yaw in degrees. Returns an object the script can
+//                              see, anything else true.
+//       mod.explode(x, y, z, radius, min, max [, effect [, source]])   each object within
+//                              radius takes a random min..max of explosion damage from source
+//                              (left out); effect names the game's explosion ("DIVINE_SHOCKBALL")
 //
 // A ScriptTrigger level object calls the global function its Function property names, with the
 // trigger message and the sender's name, when it is triggered.
@@ -174,6 +188,25 @@ public:
         sWhy = "this game spawns nothing";
         return NULL;
     }
+    // Version 6: any class the game has, turned fYaw degrees; bObject says whether the result is
+    // an object the script can hold (else mod.spawn answers true). A game written for version 4
+    // spawns only archetypes.
+    virtual void*  SpawnEx(const char* pName, float x, float y, float z, const char* pProps, float fYaw, bool& bObject,
+                           std::string& sWhy)
+    {
+        (void)fYaw;
+        bObject = true;
+        return Spawn(pName, x, y, z, pProps, sWhy);
+    }
+    // Version 6: damage around a point, from hSource (an object the script holds, or NULL), which it
+    // leaves out.
+    virtual bool   Explode(float x, float y, float z, float fRadius, float fMin, float fMax, const char* pEffect,
+                           void* hSource, std::string& sWhy)
+    {
+        (void)x; (void)y; (void)z; (void)fRadius; (void)fMin; (void)fMax; (void)pEffect; (void)hSource;
+        sWhy = "this game has no explosions for a script";
+        return false;
+    }
 };
 
 // The client's host (kScriptClient), drawing on the screen surface
@@ -203,7 +236,7 @@ struct ScriptObject
     const char* pClass;         // its class: the host's, or the archetype's own
 };
 
-const int    kScriptApi    = 5;
+const int    kScriptApi    = 6;
 const size_t kScriptSaveMax = 64u << 10;    // mod.save, saved: bytes
 const long   kScriptBudget = 10000000L;     // instructions per call
 const size_t kScriptMemory = 16u << 20;     // bytes
@@ -267,10 +300,11 @@ void Script_Adopt(const ScriptObject& o);
 void Script_Update();
 
 // The object events. The first event for an object registers it, so a host need not call
-// Create for an object it made before the script loaded.
-void Script_Create(const ScriptObject& o);
-void Script_Damage(const ScriptObject& o, float fAmount);
-void Script_Death(const ScriptObject& o);
+// Create for an object it made before the script loaded. Version 6's extra arguments default to
+// what a version 5 game passed: not placed, no attacker or killer, no damage type.
+void Script_Create(const ScriptObject& o, bool bPlaced = false);
+void Script_Damage(const ScriptObject& o, float fAmount, void* hFrom = NULL, const char* pKind = NULL);
+void Script_Death(const ScriptObject& o, void* hKiller = NULL, const char* pKind = NULL, float fDamage = -1.0f);
 void Script_Trigger(const ScriptObject& o, const char* pMsg, const char* pFrom);
 // Before the object's memory goes: OnRemove, then the reference is dead
 void Script_Removed(void* hObj);

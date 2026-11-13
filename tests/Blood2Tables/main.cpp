@@ -4,6 +4,7 @@
 //   testBlood2Tables --load-mod <dir>                  a mod folder's tables, as the shells load them
 //   testBlood2Tables --dump  weapons|characters|ai|strings <out.txt>   Blood2/ModReference/<Table>.txt
 //   testBlood2Tables --check weapons|characters|ai|strings <file>      0 if <file> is what --dump writes
+//   testBlood2Tables --mod-dump <dir> weapons|characters <out>          --dump, with <dir>'s mod loaded
 //
 // Built from the game's own tables (Shared/WeaponDefs.cpp, Shared/CharacterValues.cpp) and the
 // BloodMod*.cpp loaders, which the modules compile. characters.cpp tests Mod\Characters.txt, ai.cpp
@@ -223,6 +224,9 @@ std::string Other(const std::string& key, const std::string& v)
 	char b[160];
 	if (key == "FireType")	return v == "\"PISTOL\"" ? "\"MAGIC\"" : "\"PISTOL\"";
 	if (key == "AmmoType")	return v == "\"FUEL\"" ? "\"TIMEBOMB\"" : "\"FUEL\"";
+	if (key == "Flags")		return v == "\"NEVERGIB\"" ? "\"CRAWL | JUMP\"" : "\"NEVERGIB\"";
+	if (key.compare(0, 7, "DeathFX") == 0) return v == "\"SMOKING_3\"" ? "\"ELECTRIC_1\"" : "\"SMOKING_3\"";
+	if (key == "CorpseLimbLoss" || key == "GibLimbs") return v == "1" ? "0" : "1";
 	if (v == "TRUE")		return "FALSE";
 	if (v == "FALSE")		return "TRUE";
 	if (v[0] == '"')		return v == "\"\"" ? "\"Mod\\Test\\value.abc\"" : "\"" + v.substr(1, v.size() - 2) + "_mod\"";
@@ -744,6 +748,22 @@ int main(int argc, char** argv)
 		return SelfTest();
 	if (argc == 3 && !strcmp(argv[1], "--load-mod"))
 		return LoadMod(argv[2]);
+	// The table as a mod leaves it: <dir> loaded as --load-mod does, then --dump's text
+	if (argc == 5 && !strcmp(argv[1], "--mod-dump") && (!strcmp(argv[3], "weapons") || !strcmp(argv[3], "characters")))
+	{
+		const int r = LoadMod(argv[2]);
+		if (r) return r;
+		// --dump's header, then the live table where --dump has retail's.
+		const bool bW = !strcmp(argv[3], "weapons");
+		const std::string dump = bW ? Dump() : CharactersDump(), ref = bW ? BloodModWeapons_Reference() : BloodModCharacters_Reference();
+		if (dump.size() < ref.size() || dump.compare(dump.size() - ref.size(), ref.size(), ref)) { fprintf(stderr, "--dump does not end in the reference\n"); return 1; }
+		const std::string text = dump.substr(0, dump.size() - ref.size()) + (bW ? BloodModWeapons_Current() : BloodModCharacters_Current());
+		FILE* f = fopen(argv[4], "wb");
+		if (!f) { fprintf(stderr, "cannot write %s\n", argv[4]); return 1; }
+		fwrite(text.data(), 1, text.size(), f);
+		fclose(f);
+		return 0;
+	}
 	const bool bWeapons = argc == 4 && !strcmp(argv[2], "weapons");
 	const bool bCharacters = argc == 4 && !strcmp(argv[2], "characters");
 	const bool bAI = argc == 4 && !strcmp(argv[2], "ai");
@@ -777,6 +797,6 @@ int main(int argc, char** argv)
 		if (lf != text) { fprintf(stderr, "%s is stale: testBlood2Tables --dump %s it\n", argv[3], argv[2]); return 1; }
 		return 0;
 	}
-	fprintf(stderr, "usage: testBlood2Tables --selftest | --load-mod <dir> | --dump weapons|characters|ai|strings <out> | --check weapons|characters|ai|strings <file>\n");
+	fprintf(stderr, "usage: testBlood2Tables --selftest | --load-mod <dir> | --mod-dump <dir> weapons|characters <out> | --dump weapons|characters|ai|strings <out> | --check weapons|characters|ai|strings <file>\n");
 	return 2;
 }

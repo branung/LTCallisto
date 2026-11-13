@@ -541,6 +541,21 @@ std::string Table::Reference()
 	return out;
 }
 
+// Reference(), from the live table: what a mod left, every entry it added included
+std::string Table::Current()
+{
+	std::string out, sWhy;
+	if (!Valid(sWhy))
+		return out;
+	for (int nId = m_nFirstId; nId < m_nFirstId + Total(); ++nId)
+	{
+		out += std::string("\n[") + Name(nId) + "]\n";
+		for (int f = 0; f < m_nFields; ++f)
+			out += std::string(m_pFields[f].pKey) + " = " + Value(nId, f, false) + "\n";
+	}
+	return out;
+}
+
 void Table::LoadAndReport(LT1Mod::FileSource& src, void (*pPrint)(const char* pLine), const char* pPrefix)
 {
 	std::string sErr;

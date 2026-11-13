@@ -107,6 +107,15 @@ DDWORD CultistAI::EngineMessageFn(DDWORD messageID, void *pData, DFLOAT fData)
 				GetServerDE()->GetPropBool("RobeSkin", &m_bRobeSkin);
 			}
 
+			// A mod's Robe = TRUE: every cultist the robed one, whatever the level says. Its model and
+			// skin here, its animations and sounds in InitialUpdate.
+			if (fData != PRECREATE_SAVEGAME && m_bModRobe)
+			{
+				m_bRobeSkin  = DTRUE;
+				m_bClownSkin = DFALSE;
+				m_bMale      = DTRUE;
+			}
+
 			if(fData != PRECREATE_SAVEGAME)
 				PostPropRead((ObjectCreateStruct*)pData);
 
@@ -349,7 +358,7 @@ void CultistAI::AI_STATE_AttackClose()
 	switch(Metacmd)
 	{
 		case 1:		MC_FaceTarget();	break;
-		case 2:		MC_BestWeapon();	break;
+		case 2:		MC_AttackBestWeapon();	break;
 		case 3:		if(m_fStimuli[SIGHT] <= (m_fSeeingDist * 0.25) || m_nCurMetacmd == MC_FIRE_STAND || fHeight > m_vDims.y)
 					{
 						MC_Fire_Stand();
@@ -413,7 +422,7 @@ void CultistAI::AI_STATE_AttackFar()
 	switch(Metacmd)
 	{
 		case 1:		MC_FaceTarget();	break;
-		case 2:		MC_BestWeapon();	break;
+		case 2:		MC_AttackBestWeapon();	break;
 		case 3:		if(m_fStimuli[SIGHT] <= (m_fSeeingDist * 0.75) || m_nCurMetacmd == MC_FIRE_STAND || fHeight > m_vDims.y)
 					{
 						MC_Fire_Stand();
@@ -432,7 +441,7 @@ void CultistAI::AI_STATE_AttackFar()
 							)
 						{
 							if(m_nInjuredLeg)
-								MC_Walk();
+								MC_ChaseWalk();
 							else
 								MC_Fire_Run();
 						}

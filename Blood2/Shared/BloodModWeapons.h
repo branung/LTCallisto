@@ -76,6 +76,8 @@ std::string BloodModWeapons_Summary();
 
 // Every weapon's every retail value, as a Weapons.txt: the reference file
 std::string BloodModWeapons_Reference();
+// The same text for the table as it now is, with a mod loaded.
+std::string BloodModWeapons_Current();
 
 // Loads, and prints the summary or the error to the console a line at a time, each line after
 // pPrefix ("Server: " on the server). What both shells call.

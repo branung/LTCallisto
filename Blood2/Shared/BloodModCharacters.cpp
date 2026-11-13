@@ -80,6 +80,7 @@ void BloodModCharacters_Clear()									{ g_Table.Clear(); }
 bool BloodModCharacters_Load(LT1Mod::FileSource &src, std::string &sError)	{ return g_Table.Load(src, sError); }
 std::string BloodModCharacters_Summary()						{ return g_Table.Summary(); }
 std::string BloodModCharacters_Reference()						{ return g_Table.Reference(); }
+std::string BloodModCharacters_Current()						{ return g_Table.Current(); }
 
 void BloodModCharacters_LoadAndReport(LT1Mod::FileSource &src, void (*pPrint)(const char *pLine), const char *pPrefix)
 {

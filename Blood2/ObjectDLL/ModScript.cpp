@@ -9,12 +9,61 @@
 #include "lt1mod_engine.h"
 #include "lt1mod_script.h"
 #include "BloodModAI.h"			// mod.spawn: the archetypes
+#include "SFXMsgIds.h"			// mod.explode: EXP_, SFX_EXPLOSIONFX_ID
+#include "SoundTypes.h"
+#include <ctype.h>
+#include <math.h>
 #include <string.h>
+#include <vector>
 
 #include <string>
 
 namespace
 {
+
+// The game's DAMAGE_TYPE_ values (SharedDefs.h), as a script names them.
+const char* DamageKind(int nType)
+{
+	static const char* const kKinds[] = { "NORMAL", "FIRE", "FREEZE", "SINGULARITY", "MELEE", "EXPLODE", "SUFFOCATE",
+										  "DEATH", "FREEFALL", "BLIND", "SLOW", "DROPWEAPON", "VISION", "ELECTRIC",
+										  "ACID", "LEECH" };
+	if (nType < 0) return DNULL;
+	nType &= 0x0f;		// the type, without its flag bits
+	return kKinds[nType];
+}
+
+// mod.explode's effect names: SFXMsgIds.h's EXP_, without the prefix.
+struct Effect { const char* pName; DDWORD dwId; };
+#define E(n) { #n, EXP_##n }
+const Effect kEffects[] =
+{
+	E(DEFAULT_SMALL), E(DEFAULT_MEDIUM), E(DEFAULT_LARGE), E(GRENADE), E(NAPALM_PRIMARY), E(NAPALM_ALT),
+	E(NAPALM_FIREBALL), E(TESLA_PRIMARY), E(TESLA_ALT), E(HOWITZER_PRIMARY), E(HOWITZER_ALT), E(HOWITZER_MINI),
+	E(FLAME_SMALL), E(FLARE_FIZZLE), E(FLARE_BURST), E(FLARE_FRAG), E(LIFELEECH_PRIMARY), E(LIFELEECH_ALT),
+	E(SINGULARITY_PRIMARY), E(SHOCKBALL), E(SHOCKBALL_LARGE), E(ORB_BREAK), E(DIVINE_SHOCKBALL), E(RIFT_1),
+	E(RIFT_2), E(DEATHRAY_PRIMARY), E(BUGSPRAY_PRIMARY), E(BUGSPRAY_ALT), E(NAGA_EYE_BEAM), E(NAGA_SPIKE),
+	E(NAGA_STONE_CHUNK), E(NAGA_POUND_GROUND),
+#ifdef _ADD_ON
+	E(GAS_GRENADE), E(FLAYER_PRIMARY), E(FLAYER_ALT), E(FLAYER_RETRACT), E(FLAYER_SHATTER),
+#endif
+};
+#undef E
+
+bool SameNoCase(const char* a, const char* b)
+{
+	for (; *a && *b; ++a, ++b)
+		if (tolower((unsigned char)*a) != tolower((unsigned char)*b)) return false;
+	return *a == *b;
+}
+
+// The script's handle for an object: the CBaseCharacter it is, or NULL.
+void* ScriptHandle(HOBJECT h)
+{
+	if (!h || !g_pServerDE) return NULL;
+	HCLASS hChar = g_pServerDE->GetClass("CBaseCharacter");
+	if (!hChar || !g_pServerDE->IsKindOf(g_pServerDE->GetObjectClass(h), hChar)) return NULL;
+	return static_cast<CBaseCharacter*>(g_pServerDE->HandleToObject(h));
+}
 
 class BloodScriptHost : public LT1Mod::ScriptHost
 {
@@ -146,26 +195,88 @@ public:
 		PlaySoundFromPos(&v, pPath, 1000.0f, SOUNDPRIORITY_MISC_MEDIUM);
 		return true;
 	}
+	// Version 6: mod.explode. The effect every client draws, then each model and world model within
+	// the radius, except the source, takes a random min..max of DAMAGE_TYPE_EXPLODE
+	virtual bool Explode(float x, float y, float z, float fRadius, float fMin, float fMax, const char* pEffect,
+						 void* hSource, std::string& sWhy)
+	{
+		if (!g_pServerDE) { sWhy = "no server"; return false; }
+		CBaseCharacter* pSource = static_cast<CBaseCharacter*>(hSource);
+		HOBJECT hSrc = pSource ? pSource->m_hObject : DNULL;
+		DVector vPos, vNormal;
+		VEC_SET(vPos, x, y, z);
+		VEC_SET(vNormal, 0.0f, 1.0f, 0.0f);
+		if (pEffect && pEffect[0])
+		{
+			const Effect* pE = DNULL;
+			for (size_t i = 0; i < sizeof(kEffects) / sizeof(kEffects[0]) && !pE; ++i)
+				if (SameNoCase(kEffects[i].pName, pEffect)) pE = &kEffects[i];
+			if (!pE) { sWhy = std::string("no explosion \"") + pEffect + "\" (SFXMsgIds.h's EXP_ names, without EXP_)"; return false; }
+			HMESSAGEWRITE hMessage = g_pServerDE->StartInstantSpecialEffectMessage(&vPos);
+			g_pServerDE->WriteToMessageByte(hMessage, SFX_EXPLOSIONFX_ID);
+			g_pServerDE->WriteToMessageVector(hMessage, &vPos);
+			g_pServerDE->WriteToMessageVector(hMessage, &vNormal);
+			g_pServerDE->WriteToMessageDWord(hMessage, pE->dwId);
+			g_pServerDE->EndMessage(hMessage);
+		}
+		ObjectList* ol = g_pServerDE->FindObjectsTouchingSphere(&vPos, fRadius);
+		if (!ol) return true;
+		// The list first, the damage after: damage can remove an object.
+		std::vector<HOBJECT> hit;
+		for (ObjectLink* pLink = ol->m_pFirstLink; pLink; pLink = pLink->m_pNext)
+		{
+			const short t = (short)g_pServerDE->GetObjectType(pLink->m_hObject);
+			if (pLink->m_hObject != hSrc && (t == OT_MODEL || t == OT_WORLDMODEL)) hit.push_back(pLink->m_hObject);
+		}
+		g_pServerDE->RelinquishList(ol);
+		for (size_t i = 0; i < hit.size(); ++i)
+		{
+			DVector vObj, vDir;
+			g_pServerDE->GetObjectPos(hit[i], &vObj);
+			VEC_SUB(vDir, vObj, vPos);
+			const DFLOAT fDamage = fMax > fMin ? g_pServerDE->Random(fMin, fMax) : fMin;
+			// DamageObject sends nothing without a damager, so with no source each object is its own, as a
+			// script's obj:damage is.
+			DEBaseClass* pDamager = pSource ? (DEBaseClass*)pSource : (DEBaseClass*)g_pServerDE->HandleToObject(hit[i]);
+			if (!pDamager) continue;
+			DamageObject(hSrc ? hSrc : hit[i], pDamager, hit[i], fDamage, vDir, vObj, DAMAGE_TYPE_EXPLODE);
+		}
+		return true;
+	}
 	// Version 4: one of the mod's archetypes, created at a point.  By its own
 	// class where there is one, else by its host with the Archetype
 	// property, as a Spawner's string does.
 	virtual void* Spawn(const char* pArchetype, float x, float y, float z, const char* pProps, std::string& sWhy)
 	{
+		bool bObject = false;
+		return SpawnEx(pArchetype, x, y, z, pProps, 0.0f, bObject, sWhy);
+	}
+	// Version 6: an archetype as before, or any class the game registers (a level could place it
+	// too), turned fYaw degrees about the vertical. Only an archetype is an object the script holds
+	// by right; a retail AI the mod opted in is one through its own OnCreate (ModScript_Created).
+	virtual void* SpawnEx(const char* pArchetype, float x, float y, float z, const char* pProps, float fYaw, bool& bObject,
+						  std::string& sWhy)
+	{
+		bObject = false;
 		if (!g_pServerDE) { sWhy = "no server"; return NULL; }
 		const int nArch = BloodModAI_FindArchetype(pArchetype);
-		if (nArch < 0) { sWhy = "no such archetype in Mod\\AI.txt"; return NULL; }
 		std::string props = pProps ? pProps : "";
 		HCLASS hClass = g_pServerDE->GetClass((char*)pArchetype);
-		if (!hClass)
+		if (nArch >= 0)
 		{
-			hClass = g_pServerDE->GetClass((char*)BloodModAI_ArchetypeClass(nArch));
-			props = std::string("Archetype ") + pArchetype + (props.empty() ? "" : " ") + props;
+			bObject = true;
+			if (!hClass)
+			{
+				hClass = g_pServerDE->GetClass((char*)BloodModAI_ArchetypeClass(nArch));
+				props = std::string("Archetype ") + pArchetype + (props.empty() ? "" : " ") + props;
+			}
 		}
+		else if (!hClass) { sWhy = "no such archetype in Mod\\AI.txt and no such class"; return NULL; }
 		if (!hClass) { sWhy = "no class to make it with"; return NULL; }
 		ObjectCreateStruct ocs;
 		INIT_OBJECTCREATESTRUCT(ocs);
 		VEC_SET(ocs.m_Pos, x, y, z);
-		ROT_INIT(ocs.m_Rotation);
+		g_pServerDE->SetupEuler(&ocs.m_Rotation, 0.0f, fYaw * (float)(MATH_PI / 180.0), 0.0f);
 		char szProps[512];
 		strncpy(szProps, props.c_str(), sizeof(szProps) - 1);
 		szProps[sizeof(szProps) - 1] = '\0';
@@ -179,7 +290,8 @@ BloodScriptHost s_Host;
 
 bool Fill(CBaseCharacter* pChar, const char* pArchetype, LT1Mod::ScriptObject& o, char* szClass, size_t nClass)
 {
-	if (!pChar || !pChar->m_hObject || !pArchetype || !pArchetype[0] || !g_pServerDE || !LT1Mod::Script_Loaded())
+	// "" is a retail AI the mod opted in; NULL is no event.
+	if (!pChar || !pChar->m_hObject || !pArchetype || !g_pServerDE || !LT1Mod::Script_Loaded())
 		return false;
 	szClass[0] = '\0';
 	HCLASS hClass = g_pServerDE->GetObjectClass(pChar->m_hObject);
@@ -255,25 +367,27 @@ void ModScript_Load(HMESSAGEREAD hRead, DBOOL bApply)
 	if (bApply) LT1Mod::Script_RestoreBlob(blob);
 }
 
-void ModScript_Created(CBaseCharacter* pChar, const char* pArchetype)
+void ModScript_Created(CBaseCharacter* pChar, const char* pArchetype, DBOOL bPlaced)
 {
 	LT1Mod::ScriptObject o;
 	char szClass[64];
-	if (Fill(pChar, pArchetype, o, szClass, sizeof(szClass))) LT1Mod::Script_Create(o);
+	if (Fill(pChar, pArchetype, o, szClass, sizeof(szClass))) LT1Mod::Script_Create(o, bPlaced ? true : false);
 }
 
-void ModScript_Damaged(CBaseCharacter* pChar, const char* pArchetype, DFLOAT fAmount)
+void ModScript_Damaged(CBaseCharacter* pChar, const char* pArchetype, DFLOAT fAmount, HOBJECT hFrom, int nType)
 {
 	LT1Mod::ScriptObject o;
 	char szClass[64];
-	if (Fill(pChar, pArchetype, o, szClass, sizeof(szClass))) LT1Mod::Script_Damage(o, fAmount);
+	if (Fill(pChar, pArchetype, o, szClass, sizeof(szClass)))
+		LT1Mod::Script_Damage(o, fAmount, ScriptHandle(hFrom), DamageKind(nType));
 }
 
-void ModScript_Died(CBaseCharacter* pChar, const char* pArchetype)
+void ModScript_Died(CBaseCharacter* pChar, const char* pArchetype, HOBJECT hKiller, int nType, DFLOAT fDamage)
 {
 	LT1Mod::ScriptObject o;
 	char szClass[64];
-	if (Fill(pChar, pArchetype, o, szClass, sizeof(szClass))) LT1Mod::Script_Death(o);
+	if (Fill(pChar, pArchetype, o, szClass, sizeof(szClass)))
+		LT1Mod::Script_Death(o, ScriptHandle(hKiller), DamageKind(nType), fDamage);
 }
 
 void ModScript_Triggered(CBaseCharacter* pChar, const char* pArchetype, const char* pMsg, HOBJECT hSender)

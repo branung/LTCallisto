@@ -51,6 +51,7 @@ const Versioned kApiNames[] = {
     { "find", 2, 0 }, { "objects", 2, 0 }, { "players", 2, 0 }, { "after", 2, 4 }, { "every", 2, 4 },
     { "random", 2, 4 }, { "hud", 2, 4 }, { "sound", 2, 4 }, { "set_update_rate", 2, 4 },
     { "require_api", 3, 4 }, { "save", 3, 0 }, { "spawn", 4, 0 }, { "client", 5, 0 }, { "server", 0, 5 },
+    { "explode", 6, 0 },
     { "hud.text", 0, 4 }, { "hud.rect", 0, 4 } };
 const Versioned kEventNames[] = {
     { "OnWorldStart", 1, 4 }, { "OnCreate", 1, 0 }, { "OnDamage", 1, 0 }, { "OnDeath", 1, 0 }, { "OnCommand", 1, 4 },
@@ -193,7 +194,7 @@ std::string TraceArgs(lua_State* L, int first, int last)
                 Obj* o = (Obj*)luaL_testudata(L, i, kObjectMeta);
                 Entry* e = o ? Find(o->h) : NULL;
                 if (o && e && e->serial == o->serial)
-                    s += (e->player ? std::string("player") : e->archetype) + " '" + e->name + "'";
+                    s += (e->player ? std::string("player") : e->archetype.empty() ? e->cls : e->archetype) + " '" + e->name + "'";
                 else if (o)
                     s += "(a gone object)";
                 else
@@ -458,7 +459,7 @@ int ObjToString(lua_State* L)
 {
     Entry* e = Live(L, 1);
     if (!e) { lua_pushstring(L, "(a gone object)"); return 1; }
-    lua_pushfstring(L, "%s '%s'", e->player ? "player" : e->archetype.c_str(), e->name.c_str());
+    lua_pushfstring(L, "%s '%s'", e->player ? "player" : (e->archetype.empty() ? e->cls : e->archetype).c_str(), e->name.c_str());
     return 1;
 }
 
@@ -667,22 +668,57 @@ int ModSpawn(lua_State* L)
     const char* arch = luaL_checkstring(L, 1);
     const float x = (float)luaL_checknumber(L, 2), y = (float)luaL_checknumber(L, 3), z = (float)luaL_checknumber(L, 4);
     const char* props = luaL_optstring(L, 5, "");
+    const float yaw = (float)luaL_optnumber(L, 6, 0.0);
     if (!g_pHost) return luaL_error(L, "this game spawns nothing");
     // The reason is copied out and its string gone before luaL_error, which
     // longjmps past this frame: Lua is built as C, so a live std::string here
     // would never be destroyed (and on MSVC, whether it is is unspecified).
     void* h = NULL;
+    bool bObject = false;
     char why[200] = "";
     {
         std::string sWhy;
-        h = g_pHost->Spawn(arch, x, y, z, props, sWhy);
+        h = g_pHost->SpawnEx(arch, x, y, z, props, yaw, bObject, sWhy);
         snprintf(why, sizeof(why), "%s", sWhy.c_str());
     }
     if (!h) return luaL_error(L, "spawn %s: %s", arch, why);
-    // Made, and OnCreate has normally registered it already; else now.
+    // Made, and OnCreate has normally registered it already; else now, if it is an object the
+    // script may hold (version 6: a retail class the mod has not opted in is made, and answered
+    // true).
     Entry* e = Find(h);
+    if (!e && !bObject)
+    {
+        lua_pushboolean(L, 1);
+        return 1;
+    }
     PushObject(h, e ? NULL : "", e ? NULL : arch, e ? NULL : arch, false);
     return 1;
+}
+
+// Version 6: mod.explode(x, y, z, radius, min, max [, effect [, source]]).
+int ModExplode(lua_State* L)
+{
+    const float x = (float)luaL_checknumber(L, 1), y = (float)luaL_checknumber(L, 2), z = (float)luaL_checknumber(L, 3);
+    const float r = (float)luaL_checknumber(L, 4), lo = (float)luaL_checknumber(L, 5), hi = (float)luaL_checknumber(L, 6);
+    const char* effect = luaL_optstring(L, 7, "");
+    void* hSource = NULL;
+    if (!lua_isnoneornil(L, 8))
+    {
+        Entry* e = Live(L, 8);
+        if (!e || e->removing) return luaL_error(L, "explode: the source object is gone");
+        hSource = ((Obj*)lua_touserdata(L, 8))->h;
+    }
+    if (!(r > 0.0f) || !(lo >= 0.0f) || !(hi >= lo)) return luaL_error(L, "explode wants a radius above 0 and 0 <= min <= max");
+    if (!g_pHost) return luaL_error(L, "this game has no explosions for a script");
+    bool ok = false;
+    char why[200] = "";
+    {
+        std::string sWhy;
+        ok = g_pHost->Explode(x, y, z, r, lo, hi, effect, hSource, sWhy);
+        snprintf(why, sizeof(why), "%s", sWhy.c_str());
+    }
+    if (!ok) return luaL_error(L, "explode: %s", why);
+    return 0;
 }
 
 int ModRequireApi(lua_State* L)
@@ -774,7 +810,8 @@ void OpenSandbox(lua_State* L)
         { "find", ModFind }, { "objects", ModObjects }, { "players", ModPlayers },
         { "after", ModAfter }, { "every", ModEvery }, { "random", ModRandom },
         { "hud", ModHud }, { "sound", ModSound }, { "set_update_rate", ModSetUpdateRate },
-        { "require_api", ModRequireApi }, { "spawn", ModSpawn }, { "client", ModClient }, { NULL, NULL } };
+        { "require_api", ModRequireApi }, { "spawn", ModSpawn }, { "client", ModClient }, { "explode", ModExplode },
+        { NULL, NULL } };
     const luaL_Reg clientFns[] = {
         { "print", ModPrint }, { "time", ModTime },
         { "after", ModAfter }, { "every", ModEvery }, { "random", ModRandom },
@@ -1350,9 +1387,59 @@ void Script_Update()
     }
 }
 
-void Script_Create(const ScriptObject& o)                { Raise("OnCreate", o, false); }
-void Script_Damage(const ScriptObject& o, float fAmount)   { Raise("OnDamage", o, false, &fAmount); }
-void Script_Death(const ScriptObject& o)                 { Raise("OnDeath", o, false); }
+// Version 6's arguments: an object the script already knows, else nil (an attacker it has never
+// seen is no object to it), and a string or nil.
+namespace
+{
+void PushKnown(void* h)
+{
+    Entry* e = h ? Find(h) : NULL;
+    if (e && !e->removing) PushObject(h, NULL, NULL, NULL, e->player);
+    else lua_pushnil(g_L);
+}
+void PushOptString(const char* p)
+{
+    if (p) lua_pushstring(g_L, p);
+    else lua_pushnil(g_L);
+}
+// The object is pushed (and so registered) whether or not the event is heard.
+bool BeginEvent(const char* pEvent, const ScriptObject& so)
+{
+    if (!g_L) return false;
+    if (!PushHandler(pEvent))
+    {
+        PushObject(so, false);
+        lua_pop(g_L, 1);
+        return false;
+    }
+    PushObject(so, false);
+    return true;
+}
+} // namespace
+
+void Script_Create(const ScriptObject& o, bool bPlaced)
+{
+    if (!BeginEvent("OnCreate", o)) return;
+    lua_pushboolean(g_L, bPlaced ? 1 : 0);
+    if (!Call(2, "OnCreate", NULL)) Disable("OnCreate");
+}
+void Script_Damage(const ScriptObject& o, float fAmount, void* hFrom, const char* pKind)
+{
+    if (!BeginEvent("OnDamage", o)) return;
+    lua_pushnumber(g_L, fAmount);
+    PushKnown(hFrom);
+    PushOptString(pKind);
+    if (!Call(4, "OnDamage", NULL)) Disable("OnDamage");
+}
+void Script_Death(const ScriptObject& o, void* hKiller, const char* pKind, float fDamage)
+{
+    if (!BeginEvent("OnDeath", o)) return;
+    PushKnown(hKiller);
+    PushOptString(pKind);
+    if (fDamage >= 0.0f) lua_pushnumber(g_L, fDamage);
+    else lua_pushnil(g_L);
+    if (!Call(4, "OnDeath", NULL)) Disable("OnDeath");
+}
 void Script_Trigger(const ScriptObject& o, const char* pMsg, const char* pFrom)
 {
     Raise("OnTrigger", o, false, NULL, pMsg ? pMsg : "", pFrom ? pFrom : "");

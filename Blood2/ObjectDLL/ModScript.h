@@ -6,9 +6,10 @@
 //
 // The game side of the scripting layer, as Shogo's: the host the script
 // reaches (the console, the command manager, the game's time, an AI's health
-// and position), and the calls that raise its events. Only the mod's own
-// objects, AIs made as an AI.txt archetype, raise object events, so a script
-// cannot reach a retail enemy.
+// and position), and the calls that raise its events. Object events come from
+// the mod's own objects (AIs made as an AI.txt archetype) and from the AIs of a
+// class the mod names with AI.txt's Script = TRUE; never from a retail enemy the
+// mod did not name.
 //
 // ----------------------------------------------------------------------- //
 
@@ -23,11 +24,14 @@ class CBaseCharacter;
 void ModScript_Load();
 // A world has started; nothing on a restored save, as for the start commands.
 void ModScript_WorldStarted(const char* pWorld, DBOOL bRestoring);
-// The object events, for an AI made as an archetype.  pArchetype NULL or ""
-// is no event: an AI of a retail class is nothing the mod made.
-void ModScript_Created(CBaseCharacter* pChar, const char* pArchetype);
-void ModScript_Damaged(CBaseCharacter* pChar, const char* pArchetype, DFLOAT fAmount);
-void ModScript_Died(CBaseCharacter* pChar, const char* pArchetype);
+// The object events, for an AI the script hears (AI_Mgr::ModAI_Scripted): pArchetype is its
+// archetype, "" for a retail class the mod opted in, and NULL no event. bPlaced: the level made
+// it. hFrom, hKiller: the attacker, passed on if the script knows it; nType: the DAMAGE_TYPE_,
+// named for it; fDamage: the killing blow's own amount.
+void ModScript_Created(CBaseCharacter* pChar, const char* pArchetype, DBOOL bPlaced = DFALSE);
+void ModScript_Damaged(CBaseCharacter* pChar, const char* pArchetype, DFLOAT fAmount, HOBJECT hFrom = DNULL, int nType = -1);
+void ModScript_Died(CBaseCharacter* pChar, const char* pArchetype, HOBJECT hKiller = DNULL, int nType = -1,
+					DFLOAT fDamage = -1.0f);
 // Version 2 (lt1mod_script.h): a trigger message, with its sender's name.
 void ModScript_Triggered(CBaseCharacter* pChar, const char* pArchetype, const char* pMsg, HOBJECT hSender);
 // Before an object's memory goes, for any object a script may hold.

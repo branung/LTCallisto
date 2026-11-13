@@ -42,6 +42,9 @@ void Unload()
 struct Member { const char* pName; size_t nOffset, nSize; };
 #define M(m) { #m, offsetof(BloodModAIValues, m), sizeof(((BloodModAIValues*)0)->m) }
 #define W(n) { "m_szAIWeapon[" #n "]", offsetof(BloodModAIValues, m_szAIWeapon) + (n) * 32, 32 }
+#define DS(n) { "m_szModDeathSkin[" #n "]", offsetof(BloodModAIValues, m_szModDeathSkin) + (n) * (BLOODMOD_AI_MAX_SKIN + 1), BLOODMOD_AI_MAX_SKIN + 1 }
+#define DF(n) { "m_szModDeathFX[" #n "]", offsetof(BloodModAIValues, m_szModDeathFX) + (n) * 32, 32 }
+#define GL(n) { "m_nModGibLimb[" #n "]", offsetof(BloodModAIValues, m_nModGibLimb) + (n) * sizeof(int), sizeof(int) }
 const Member kMembers[] =
 {
 	M(m_fHearingDist), M(m_fSensingDist), M(m_fSmellingDist), M(m_fSeeingDist),
@@ -50,9 +53,19 @@ const Member kMembers[] =
 	M(m_szAIState), W(0), W(1), W(2), W(3), W(4),
 	M(m_fAIBullets), M(m_fAIBMG), M(m_fAIShells), M(m_fAIGrenades), M(m_fAIRockets),
 	M(m_fAIFlares), M(m_fAICells), M(m_fAICharges), M(m_fAIFuel), M(m_fProxBombs),
+	M(m_dwFlags), M(m_bCabal),
+	M(m_bModBestWeapon), M(m_bModChaseRun), M(m_bModChaseNear), M(m_szModAttackWeapon), M(m_szModNoAltFire),
+	M(m_fModFadeMax), M(m_fModFadeMin), M(m_nModLoopVolume), M(m_fModSpawnCooldown), M(m_fModSpawnInterval),
+	M(m_bModSpawnAlways), M(m_bModScript),
+	M(m_bModRobe), DS(0), DS(1), DS(2), DS(3), DS(4), DS(5), DS(6), DF(0), DF(1), DF(2), DF(3), DF(4), DF(5), DF(6),
+	M(m_bModDeathAnimRandom), M(m_szModDropOnDeath), M(m_szModDropDivine), M(m_nModCorpseLimbLoss), M(m_nModGibLimbs),
+	GL(0), GL(1), GL(2), GL(3), GL(4),
 };
 #undef M
 #undef W
+#undef DS
+#undef DF
+#undef GL
 const int kNumMembers = (int)(sizeof(kMembers) / sizeof(kMembers[0]));
 
 // A struct no mod value equals: every byte 0x5a, but each string "sentinel"
@@ -63,6 +76,11 @@ BloodModAIValues Sentinel()
 	memset(&v, 0x5a, sizeof(v));
 	strcpy(v.m_szAIState, "sentinel");
 	for (int i = 0; i < 5; ++i) strcpy(v.m_szAIWeapon[i], "sentinel");
+	strcpy(v.m_szModAttackWeapon, "sentinel");
+	strcpy(v.m_szModNoAltFire, "sentinel");
+	for (int k = 0; k < BLOODMOD_DEATH_KINDS; ++k) { strcpy(v.m_szModDeathSkin[k], "sentinel"); strcpy(v.m_szModDeathFX[k], "sentinel"); }
+	strcpy(v.m_szModDropOnDeath, "sentinel");
+	strcpy(v.m_szModDropDivine, "sentinel");
 	return v;
 }
 
@@ -190,7 +208,12 @@ void TestMembers()
 		const BloodModAIValues s = v;
 		std::string err;
 		const std::string key = BloodModAI_Key(f);
-		const std::string val = key.compare(0, 2, "AI") == 0 ? "\"X\"" : key == "Strength" ? "3" : "7.5";
+		const std::string sent = BloodModAI_Value(s, f);
+		const std::string val = key.compare(0, 7, "DeathFX") == 0 ? "\"SMOKING_3\"" :
+								key == "CorpseLimbLoss" || key == "GibLimbs" ? "1" :
+								sent[0] == '"' ? (key == "Flags" ? "\"NEVERGIB\"" : "\"X\"") :
+								sent == "TRUE" || sent == "FALSE" ? "FALSE" :
+								sent.find('.') == std::string::npos ? "3" : "7.5";
 		LoadAI("[CultistAI]\n" + key + " = " + val + "\n", err);
 		BloodModAI_Apply("CultistAI", v);
 		const std::vector<std::string> d = Differ(v, s);
@@ -198,7 +221,7 @@ void TestMembers()
 	}
 	char b[160];
 	snprintf(b, sizeof(b), "each of the %d keys moves its own member, and no two the same one", nKeys);
-	Check(nBad == 0 && nKeys == 29, b);
+	Check(nBad == 0 && nKeys == 68, b);
 	Check((int)reached.size() == kNumMembers, "every member of BloodModAIValues is some key's");
 	size_t nCovered = 0;
 	for (int m = 0; m < kNumMembers; ++m) nCovered += kMembers[m].nSize;
@@ -267,6 +290,31 @@ void TestErrors()
 		{ "a 100-character Skin",			"[CultistAI]\nSkin = \"SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS\"\n",
 											"Skin must be a file name" },
 		{ "a number for a Skin",			"[CultistAI]\nSkin = 3\n",				"is not a quoted string" },
+		// Flags and Cabal
+		{ "a flag that is not one",			"[CultistAI]\nFlags = \"CRAWL | FLY\"\n",	"\"FLY\" is not a flag" },
+		{ "a flag with its prefix",			"[CultistAI]\nFlags = \"FLAG_CRAWL\"\n",	"\"FLAG_CRAWL\" is not a flag" },
+		{ "a flag named twice",				"[CultistAI]\nFlags = \"JUMP | jump\"\n",	"\"jump\" is not a flag" },
+		{ "an empty part",					"[CultistAI]\nFlags = \"JUMP |\"\n",		"an empty part" },
+		{ "a number for the flags",			"[CultistAI]\nFlags = 2048\n",			"is not a quoted string" },
+		{ "a Cabal that is not a bool",		"[CultistAI]\nCabal = 1\n",				"is not TRUE or FALSE" },
+		{ "a Cabal on an archetype",		"[RedCultist]\nBase = \"CultistAI\"\nCabal = FALSE\n", "Cabal is a class's key" },
+		// Behavior and the difficulty
+		{ "a BestWeapon that is not a bool", "[CultistAI]\nBestWeapon = 0\n",		"is not TRUE or FALSE" },
+		{ "a negative LoopVolume",			"[DeathShroud]\nLoopVolume = -1\n",	"LoopVolume is out of range" },
+		{ "a 32-character AttackWeapon",	"[Prophet]\nAttackWeapon = \"COMBATCOMBATCOMBATCOMBATCOMBATCO\"\n", "longer than 31 characters" },
+		{ "a difficulty of one number",		"[Options]\nDifficultyDamage = 0.5\n",	"DifficultyDamage must be three scales" },
+		{ "a negative difficulty scale",	"[Options]\nDifficultyArmor = <0.25, -1.0, 1.0>\n", "DifficultyArmor must be three scales" },
+		{ "a difficulty that is a string",	"[Options]\nDifficultyHitPoints = \"0.5\"\n", "DifficultyHitPoints must be three scales" },
+		// Script
+		{ "a class Script that is not a bool", "[CultistAI]\nScript = 1\n",		"is not TRUE or FALSE" },
+		{ "an [Options] Script that is not a bool", "[Options]\nScript = \"yes\"\n", "is not TRUE or FALSE" },
+		// The death table
+		{ "an effect that is none",			"[CultistAI]\nDeathFXAcid = \"SMOKY\"\n",	"\"SMOKY\" is not an effect" },
+		{ "an effect with its prefix",		"[Options]\nDeathFXElectric = \"OBJFX_ELECTRIC_1\"\n", "is not an effect" },
+		{ "a mode of 3",					"[CultistAI]\nCorpseLimbLoss = 3\n",	"is 0 (never), 1 (always) or 2" },
+		{ "a 100-character death skin",		"[CultistAI]\nDeathSkinFire = \"SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS\"\n",
+											"longer than 99 characters" },
+		{ "a BulletGib that is not a bool",	"[Options]\nBulletGib = 0\n",			"is not TRUE or FALSE" },
 	};
 	for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); ++i)
 	{
@@ -287,6 +335,53 @@ void TestErrors()
 	Unload();
 }
 
+// The Flags key, against known words: AI_Mgr.h's values for the names, and what Extra Crispy's
+// constructors set
+void TestFlags()
+{
+	printf("AI: flags\n");
+	struct Case { const char* text; DDWORD dw; const char* back; };
+	const Case cases[] =
+	{
+		{ "\"\"",													0x000,	"\"\"" },
+		{ "\"  \"",													0x000,	"\"\"" },
+		{ "\"NEVERGIB\"",											0x800,	"\"NEVERGIB\"" },
+		{ "\"nevergib\"",											0x800,	"\"NEVERGIB\"" },
+		{ "\"ALWAYSCLEAR | NEVERGIB\"",								0x900,	"\"ALWAYSCLEAR | NEVERGIB\"" },
+		// EC's CultistAI: CRAWL | JUMP | LIMP | DODGE | ALWAYSRECOIL.
+		{ "\"CRAWL|JUMP|LIMP|DODGE|ALWAYSRECOIL\"",					0x02f,	"\"CRAWL | JUMP | LIMP | DODGE | ALWAYSRECOIL\"" },
+		// Written out of order, read as the same word, written back in the list's.
+		{ "\"NEVERGIB | CRAWL\"",									0x801,	"\"CRAWL | NEVERGIB\"" },
+		{ "\"CRAWL | JUMP | LIMP | DODGE | LIMBLOSS | ALWAYSRECOIL | ALWAYSGIB | CANASSIST | ALWAYSCLEAR | "
+		  "NOAMMOCOLLECT | NIGHTMAREDEATH | NEVERGIB\"",				0xfff,	DNULL },
+	};
+	int nBad = 0;
+	for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i)
+	{
+		std::string err;
+		BloodModAIValues v = Sentinel();
+		const bool bLoaded = LoadAI(std::string("[CultistAI]\nFlags = ") + cases[i].text + "\n", err);
+		BloodModAI_Apply("CultistAI", v);
+		int f = 0;
+		while (BloodModAI_Key(f) && strcmp(BloodModAI_Key(f), "Flags")) ++f;
+		const std::string back = BloodModAI_Value(v, f);
+		if (!bLoaded || v.m_dwFlags != cases[i].dw || (cases[i].back && back != cases[i].back))
+		{
+			++nBad;
+			printf("        %s: loaded %d, 0x%03x, \"%s\" %s\n", cases[i].text, (int)bLoaded, (unsigned)v.m_dwFlags,
+				   back.c_str(), err.c_str());
+		}
+	}
+	Check(nBad == 0, "Flags reads each name as AI_Mgr.h's bit, in any case and order, and writes the word back in the "
+		  "list's order");
+	BloodModAIValues v = Sentinel();
+	v.m_dwFlags = 0x1801;
+	int f = 0;
+	while (BloodModAI_Key(f) && strcmp(BloodModAI_Key(f), "Flags")) ++f;
+	Check(BloodModAI_Value(v, f) == "\"CRAWL | NEVERGIB | 0x00001000\"", "a bit with no name is written as hex, not dropped");
+	Unload();
+}
+
 void TestStrings()
 {
 	printf("AI: strings\n");
@@ -299,6 +394,58 @@ void TestStrings()
 		  v.m_szAIState[31] == 0, "and is terminated in its member, as is a short one, padded with NULs");
 	Check(!strcmp(v.m_szAIWeapon[2], "sentinel"), "the next weapon slot is untouched");
 	Unload();
+}
+
+void TestDifficulty()
+{
+	printf("AI: difficulty\n");
+	std::string err;
+	Unload();
+	Check(BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_DAMAGE, 1, 1.0f) == 1.0f &&
+		  BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_ARMOR, 2, 1.5f) == 1.5f, "with no mod each scale is the game's");
+	Check(LoadAI("[Options]\nDifficultyDamage = <0.25, 0.5, 1.0>\nDifficultyHitPoints = <0.1, 0.2, 0.3>\n", err),
+		  "Extra Crispy's damage scales and another hit-point set load" + (err.empty() ? std::string() : ": " + err));
+	Check(BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_DAMAGE, 0, 9.0f) == 0.25f &&
+		  BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_DAMAGE, 1, 9.0f) == 0.5f &&
+		  BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_DAMAGE, 2, 9.0f) == 1.0f &&
+		  BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_HITPOINTS, 1, 9.0f) == 0.2f,
+		  "each difficulty answers its own component, easy medium hard");
+	Check(BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_ARMOR, 1, 1.0f) == 1.0f,
+		  "a kind the mod does not name keeps the game's scale");
+	Check(BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_DAMAGE, 3, 1.0f) == 1.0f &&
+		  BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_DAMAGE, -1, 1.0f) == 1.0f,
+		  "insane, which the game scales by nothing, and nonsense answer the caller's value");
+	Check(BloodModAI_Summary() == "DifficultyDamage <0.25, 0.5, 1.0>\nDifficultyHitPoints <0.1, 0.2, 0.3>",
+		  "the summary names both:\n" + BloodModAI_Summary());
+	Unload();
+	Check(BloodModAI_DifficultyScale(BLOODMOD_DIFFICULTY_DAMAGE, 1, 1.0f) == 1.0f, "unloading restores the game's");
+
+	printf("AI: Script\n");
+	Check(!BloodModAI_ScriptAll(), "with no mod no class is heard by a script");
+	Check(LoadAI("[Options]\nScript = TRUE\n", err) && BloodModAI_ScriptAll() && BloodModAI_Summary() == "Script on, every class",
+		  "[Options] Script = TRUE opts every class in, and the summary says so: " + BloodModAI_Summary());
+	BloodModAIValues v = Sentinel();
+	Check(LoadAI("[Fanatic]\nScript = TRUE\n", err) && !BloodModAI_ScriptAll() && BloodModAI_Apply("Fanatic", v) == 1 &&
+		  v.m_bModScript && BloodModAI_Apply("CultistAI", v) == 0,
+		  "a class's Script = TRUE opts in that class alone");
+	Unload();
+	Check(!BloodModAI_ScriptAll(), "and unloading takes it away");
+
+	printf("AI: the death table\n");
+	Check(std::string(BloodModAI_DeathSkin(1)) == "skins\\enemies\\burned.dtx" && !BloodModAI_DeathSkin(2)[0] &&
+		  !BloodModAI_DeathFX(2)[0] && BloodModAI_BulletGib(),
+		  "with no mod the table is the game's: a fire death burns, nothing else, and a 90% hit gibs");
+	Check(BloodModAI_ObjFX("smoking_3") == 22 && BloodModAI_ObjFX("ELECTRIC_1") == 39 && BloodModAI_ObjFX("") == -1 &&
+		  BloodModAI_ObjFX("OBJFX_SMOKING_3") == -1, "effects by SFXMsgIds.h's names, any case, without the prefix");
+	Check(LoadAI("[Options]\nDeathSkinAcid = \"skins\\enemies\\burned_acid.dtx\"\nDeathFXAcid = \"SMOKING_3\"\n"
+				 "DeathSkinFire = \"\"\nBulletGib = FALSE\n", err),
+		  "Extra Crispy's every-class acid line, no fire skin and no bullet gibs load" + (err.empty() ? std::string() : ": " + err));
+	Check(std::string(BloodModAI_DeathSkin(2)) == "skins\\enemies\\burned_acid.dtx" && std::string(BloodModAI_DeathFX(2)) == "SMOKING_3" &&
+		  !BloodModAI_DeathSkin(1)[0] && !BloodModAI_BulletGib() && BloodModAI_DeathSkin(-1)[0] == 0 && BloodModAI_DeathSkin(7)[0] == 0,
+		  "each answers the mod's, an empty fire skin turns the game's off, and a kind out of range is none");
+	Unload();
+	Check(std::string(BloodModAI_DeathSkin(1)) == "skins\\enemies\\burned.dtx" && BloodModAI_BulletGib(),
+		  "and unloading brings the game's back");
 }
 
 void TestTrace()
@@ -420,12 +567,14 @@ std::string AIDump()
 
 void AISelfTest()
 {
-	Check(kNumMembers == 29, "kMembers lists BloodModAIValues' 29 members");
+	Check(kNumMembers == 68, "kMembers lists BloodModAIValues' 68 members");
 	TestClasses();
 	TestMembers();
 	TestMutation();
 	TestErrors();
 	TestStrings();
+	TestFlags();
+	TestDifficulty();
 	TestTrace();
 	TestArchetypes();
 	TestAIMod();

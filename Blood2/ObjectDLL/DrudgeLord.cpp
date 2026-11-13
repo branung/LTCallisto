@@ -336,7 +336,7 @@ void DrudgeLord::AI_STATE_AttackFar()
 							if(!IsLedge(m_MoveObj.GetForwardVector()) && fHeight <= m_vDims.y
 								&& m_nCurMetacmd != MC_FIRE_STAND)
 							{
-								MC_Walk();
+								MC_ChaseWalk();
 							}
 							else
 							{
@@ -357,7 +357,7 @@ void DrudgeLord::AI_STATE_AttackFar()
 							if(!IsLedge(m_MoveObj.GetForwardVector()) && fHeight <= m_vDims.y
 								&& m_nCurMetacmd != MC_FIRE_STAND)
 							{
-								MC_Walk();
+								MC_ChaseWalk();
 							}
 							else
 							{

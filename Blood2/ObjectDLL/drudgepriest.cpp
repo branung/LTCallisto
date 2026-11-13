@@ -58,6 +58,13 @@ DrudgePriest::DrudgePriest() : AI_Mgr()
 
 	m_fLastSpawn = 0.0f;
 
+	// The leeches' timing and the loop's volume, as members so a mod's SpawnCooldown,
+	// SpawnInterval, SpawnAlways and LoopVolume can set them
+	m_fModSpawnCooldown	= 30.0f;
+	m_fModSpawnInterval	= 1.5f;
+	m_bModSpawnAlways	= DFALSE;
+	m_nModLoopVolume	= 60;
+
 	// [blg]
 	m_fAIHitPoints   = 1000;
 	m_fAIRandomHP    = 0;
@@ -182,7 +189,7 @@ DBOOL DrudgePriest::InitialUpdate(DVector *pMovement)
 	playSoundInfo.m_nPriority = SOUNDPRIORITY_AI_MEDIUM;
 	playSoundInfo.m_fOuterRadius = 1000;
 	playSoundInfo.m_fInnerRadius = 1000 * 0.1f;
-	playSoundInfo.m_nVolume = 60;
+	playSoundInfo.m_nVolume = (DBYTE)(m_nModLoopVolume > 255 ? 255 : m_nModLoopVolume);
 	
 	g_pServerDE->PlaySound( &playSoundInfo );
 	m_hLoopSound = playSoundInfo.m_hSound;
@@ -202,7 +209,7 @@ void DrudgePriest::MC_Taunt_Bold()
 
     if (m_bAnimating == DFALSE || m_nCurMetacmd != MC_TAUNT_BOLD)
     {
-		if(m_pServerDE->GetTime() - m_fLastSpawn < 30.0f)
+		if(m_pServerDE->GetTime() - m_fLastSpawn < m_fModSpawnCooldown)
 		{
             m_bAnimating = DFALSE;
             Metacmd++;
@@ -211,7 +218,8 @@ void DrudgePriest::MC_Taunt_Bold()
 		//have to change cabal setting to search the right list
 		m_bCabal = DTRUE;
 
-		if(FindObjectInRadius(hClass, m_fSeeingDist, FIND_SPECIFIC_OBJ))
+		// A mod's SpawnAlways summons even with a leech already in sight.
+		if(!m_bModSpawnAlways && FindObjectInRadius(hClass, m_fSeeingDist, FIND_SPECIFIC_OBJ))
 		{
 			m_bCabal = DFALSE;
             m_bAnimating = DFALSE;
@@ -231,7 +239,7 @@ void DrudgePriest::MC_Taunt_Bold()
 	}
 	else
 	{
-		if(m_pServerDE->GetTime() - m_fLastSpawn >= 1.5f)
+		if(m_pServerDE->GetTime() - m_fLastSpawn >= m_fModSpawnInterval)
 		{
 			ObjectCreateStruct ocStruct;
 

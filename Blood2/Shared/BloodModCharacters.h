@@ -71,6 +71,7 @@ bool BloodModCharacters_Load(LT1Mod::FileSource &src, std::string &sError);
 void BloodModCharacters_Clear();
 std::string BloodModCharacters_Summary();
 std::string BloodModCharacters_Reference();
+std::string BloodModCharacters_Current();	// the same, for the table as it now is
 void BloodModCharacters_LoadAndReport(LT1Mod::FileSource &src, void (*pPrint)(const char *pLine), const char *pPrefix);
 
 #endif // __BLOODMODCHARACTERS_H__

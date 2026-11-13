@@ -156,6 +156,7 @@ bool BloodModWeapons_Load(LT1Mod::FileSource &src, std::string &sError)
 }
 std::string BloodModWeapons_Summary()							{ return g_Table.Summary(); }
 std::string BloodModWeapons_Reference()							{ return g_Table.Reference(); }
+std::string BloodModWeapons_Current()							{ return g_Table.Current(); }
 
 void BloodModWeapons_LoadAndReport(LT1Mod::FileSource &src, void (*pPrint)(const char *pLine), const char *pPrefix)
 {

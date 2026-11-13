@@ -103,6 +103,7 @@ public:
 	std::string	Summary();
 	// Every entry's every retail value, as the file: the reference
 	std::string	Reference();
+	std::string	Current();		// Reference()'s text for the table as it now is, mod and all
 	// Load, then print the summary or the error a console line at a time
 	void		LoadAndReport(LT1Mod::FileSource& src, void (*pPrint)(const char* pLine), const char* pPrefix);
 

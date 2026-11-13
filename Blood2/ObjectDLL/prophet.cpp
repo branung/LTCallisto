@@ -209,7 +209,9 @@ DBOOL Prophet::Fire(DBOOL bAltFire)
 	DFLOAT fVel = VEC_MAG(vVel);
 
 	if(fTargetVel <= 5.0f && fVel <= 5.0f && BloodModWeapon_Retail(pW->GetType()) != WEAP_ASSAULTRIFLE
-		&& BloodModWeapon_Retail(pW->GetType()) != WEAP_NAPALMCANNON && BloodModWeapon_Retail(pW->GetType()) != WEAP_SNIPERRIFLE)
+		&& BloodModWeapon_Retail(pW->GetType()) != WEAP_NAPALMCANNON && BloodModWeapon_Retail(pW->GetType()) != WEAP_SNIPERRIFLE
+		// A mod's NoAltFire adds one weapon to that list
+		&& !(m_szModNoAltFire[0] && pW->GetType() == WeaponStrToInt(m_szModNoAltFire)))
 	{
 		if(m_InventoryMgr.GetAmmoCount(pW->GetAmmoType(DFALSE)) >= pW->GetAltAmmoUse())
 			bFire = DTRUE;
@@ -365,7 +367,7 @@ void Prophet::AI_STATE_AttackClose()
 	switch(Metacmd)
 	{
 		case 1:		MC_FaceTarget();	break;
-		case 2:		MC_BestWeapon();	break;
+		case 2:		MC_AttackBestWeapon();	break;
 		case 3:		if(m_fStimuli[SIGHT] <= (m_fSeeingDist * 0.33) || m_nCurMetacmd == MC_FIRE_STAND
 						|| m_nCurMetacmd == MC_FIRE_CROUCH)
 					{
@@ -444,7 +446,7 @@ void Prophet::AI_STATE_AttackFar()
 	switch(Metacmd)
 	{
 		case 1:		MC_FaceTarget();	break;
-		case 2:		MC_BestWeapon();	break;
+		case 2:		MC_AttackBestWeapon();	break;
 		case 3:		if(m_fStimuli[SIGHT] <= (m_fSeeingDist * 0.75) || m_nCurMetacmd == MC_FIRE_STAND
 						|| m_nCurMetacmd == MC_FIRE_CROUCH || fHeight > m_vDims.y)
 					{
@@ -471,7 +473,7 @@ void Prophet::AI_STATE_AttackFar()
 							&& m_nCurMetacmd != MC_FIRE_CROUCH)
 						{
 							if(m_nInjuredLeg)
-								MC_Walk();
+								MC_ChaseWalk();
 							else
 								MC_Fire_Run();
 						}

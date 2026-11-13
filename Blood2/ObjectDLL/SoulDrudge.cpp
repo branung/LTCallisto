@@ -319,7 +319,7 @@ void SoulDrudge::AI_STATE_AttackFar()
 
 						if(!IsLedge(m_MoveObj.GetForwardVector()) && fHeight <= m_vDims.y)
 						{
-							MC_Walk();
+							MC_ChaseWalk();
 						}
 						else
 						{
