@@ -163,6 +163,13 @@ struct BloodModRulesValues
 	const char*	szVersionText;
 	int			bCustomLevelsMultiplayer;
 	int			bAddonIntroMovie;
+	// [Cheats]
+	int			bCheatInfiniteAmmo;		// "kfa" also makes ammo endless
+	const char*	szCheatMoreWeapons;		// "kfa2"'s weapons, WEAP_ names
+	const char*	szCheatAllItems;		// "giveallinv"'s items, INV_ names
+	// [Voice]
+	int			bWillpowerVoiceAtPickup;	// the power-up line on taking willpower, not its end
+	int			bSuicideVoice;			// a suicide's own line, else the death line
 };
 
 extern BloodModRulesValues gRules;

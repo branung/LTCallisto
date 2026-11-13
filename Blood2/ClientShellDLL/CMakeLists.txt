@@ -111,7 +111,10 @@ add_library(${PROJECT_NAME} SHARED
 	../Shared/BloodModCharacters.cpp
 	../Shared/AmmoValues.cpp
 	../Shared/BloodModAmmo.cpp
+	../Shared/BloodModLasers.cpp
+	../Shared/BloodModObjectFX.cpp
 	../Shared/BloodModRules.cpp
+	../Shared/BloodModExplosions.cpp
 	../Shared/BloodModStrings.cpp
 	ModStringsExport.cpp
 	../Misc/BareList.cpp

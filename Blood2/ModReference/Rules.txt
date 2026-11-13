@@ -100,3 +100,12 @@ WeaponTabsOnReset = FALSE
 VersionText = ""
 CustomLevelsMultiplayer = TRUE
 AddonIntroMovie = FALSE
+
+[Cheats]
+InfiniteAmmo = FALSE
+MoreWeapons = "BERETTA FLAREGUN HOWITZER SINGULARITY BUGSPRAY SNIPERRIFLE NAPALMCANNON MINIGUN DEATHRAY VOODOO ORB"
+AllItems = "MEDKIT FLASHLIGHT NIGHTGOGGLES THEEYE BINOCULARS"
+
+[Voice]
+WillpowerVoiceAtPickup = FALSE
+SuicideVoice = TRUE

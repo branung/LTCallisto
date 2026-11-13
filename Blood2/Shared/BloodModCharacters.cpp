@@ -69,6 +69,7 @@ const Field kFields[] =
 	L("StartItems",			szItems),		// INV_ names
 	L("StartAmmo",			szAmmo),		// AMMO_ names, each with its count
 	L("InitWeapons",		szInitWeapons),	// WEAP_ names, slots 1-9
+	{ "CheatWeapons", 3, offsetof(CharacterStart, szCheatWeapons), K_LIST, 0 },	// WEAP_ names, the "kfa" cheat's
 };
 #undef F
 #undef S
@@ -191,6 +192,7 @@ bool CheckStart(std::string& sError)
 		else if (!BloodModCharacter_StartItems(nId, it, &why)) pKey = "StartItems";
 		else if (!BloodModCharacter_StartAmmo(nId, am, &why)) pKey = "StartAmmo";
 		else if (!BloodModCharacter_InitWeapons(nId, w, &why)) pKey = "InitWeapons";
+		else if (!BloodMod_ParseWeapons(gCharacterStart[nId].szCheatWeapons, w, &why)) pKey = "CheatWeapons";
 		if (pKey)
 		{
 			snprintf(buf, sizeof(buf), "Mod\\Characters.txt: [%s]:%s: %s", pName, pKey, why.c_str());
@@ -240,6 +242,26 @@ bool BloodModCharacter_InitWeapons(int nId, std::vector<int>& out, std::string* 
 						"\"" + words[i] + "\" is " + (nWeapon <= WEAP_NONE ? "no weapon (the WEAP_ names without the prefix, "
 						"Blood2/ModReference/Weapons.txt)" : nRetail == WEAP_MELEE ? "the melee weapon, which slot 0 always holds" :
 						"a bomb, which a slot cannot hold");
+			out.clear();
+			return false;
+		}
+		out.push_back(nWeapon);
+	}
+	return true;
+}
+
+bool BloodMod_ParseWeapons(const char* pList, std::vector<int>& out, std::string* pWhy)
+{
+	out.clear();
+	const std::vector<std::string> words = Words(pList);
+	for (size_t i = 0; i < words.size(); ++i)
+	{
+		const int nWeapon = BloodModWeapon_Find(words[i].c_str());
+		if (nWeapon <= WEAP_NONE || BloodModWeapon_Retail(nWeapon) >= WEAP_BASEINVENTORY)
+		{
+			if (pWhy)
+				*pWhy = "\"" + words[i] + "\" is " + (nWeapon > WEAP_NONE ? "a bomb, an item rather than a weapon" :
+						"no weapon (the WEAP_ names without the prefix, Blood2/ModReference/Weapons.txt)");
 			out.clear();
 			return false;
 		}

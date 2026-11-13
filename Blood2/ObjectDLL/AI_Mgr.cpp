@@ -227,6 +227,15 @@ AI_Mgr::AI_Mgr() : CBaseCharacter(OT_MODEL)
 	m_nModGibLimb[2]		= 50;
 	m_nModGibLimb[3]		= 70;
 	m_nModGibLimb[4]		= 50;
+	strcpy(m_szModBurstSmokeNode, "");
+	m_fModBurstRange		= 0.0f;
+	strcpy(m_szModBurstProjectile, "");
+	strcpy(m_szModBurstSpawn, "");
+	m_nModBurstSpawnChance	= 0;
+	m_fModBurstSpawnGibDamage	= 0.0f;
+	strcpy(m_szModBurstSound[0], "");
+	strcpy(m_szModBurstSound[1], "");
+	strcpy(m_szModBurstSound[2], "");
 
 	memset(&m_Link, 0, sizeof(m_Link));
 

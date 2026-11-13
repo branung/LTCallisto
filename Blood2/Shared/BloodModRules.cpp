@@ -61,6 +61,13 @@ BloodModRulesValues gRules =
 	"",				// BloodClientShell.h's version_string
 	1,				// CMenuCustomLevel adds Worlds\Multi and Worlds_ao\Multi_ao
 	0,				// the add-on goes from the GTI logo to MOVIE_FINISHED
+	// CPlayerObj::HandleCheatCode's:
+	0,				// CHEAT_KFA: SetFullAmmo only
+	"BERETTA FLAREGUN HOWITZER SINGULARITY BUGSPRAY SNIPERRIFLE NAPALMCANNON MINIGUN DEATHRAY VOODOO ORB",	// CHEAT_KFA2
+	"MEDKIT FLASHLIGHT NIGHTGOGGLES THEEYE BINOCULARS",	// CHEAT_GIVEALLINV
+	// PlayerObj.cpp's:
+	0,				// VME_POWERUP when invulnerability ends (CheckPowerups)
+	1,				// VME_SUICIDE for a death by one's own hand
 };
 
 namespace
@@ -71,7 +78,7 @@ const char* const kPath = "Mod\\Rules.txt";
 bool EqualNoCase(const char* a, const char* b) { return LT1Mod::Registry::EqualNoCase(a, b); }
 
 // RK_INT is an int up to fMax; RK_PATH any string, "" too. fMax caps a float as well (0: none).
-enum Kind { RK_FLOAT, RK_PERCENT, RK_BOOL, RK_ITEMS, RK_AMMO, RK_OBJFX, RK_INT, RK_PATH };
+enum Kind { RK_FLOAT, RK_PERCENT, RK_BOOL, RK_ITEMS, RK_AMMO, RK_OBJFX, RK_INT, RK_PATH, RK_WEAPONS };
 struct Rule { const char* pSection; const char* pKey; Kind eKind; size_t nOffset; float fMax; };
 #define R(sec, key, kind, member) { sec, key, RK_##kind, offsetof(BloodModRulesValues, member), 0.0f }
 #define RM(sec, key, kind, member, mx) { sec, key, RK_##kind, offsetof(BloodModRulesValues, member), mx }
@@ -134,6 +141,11 @@ const Rule kRules[] =
 	R("Menus", "VersionText",			PATH,		szVersionText),
 	R("Menus", "CustomLevelsMultiplayer", BOOL,		bCustomLevelsMultiplayer),
 	R("Menus", "AddonIntroMovie",		BOOL,		bAddonIntroMovie),
+	R("Cheats", "InfiniteAmmo",			BOOL,		bCheatInfiniteAmmo),
+	R("Cheats", "MoreWeapons",			WEAPONS,	szCheatMoreWeapons),
+	R("Cheats", "AllItems",				ITEMS,		szCheatAllItems),
+	R("Voice", "WillpowerVoiceAtPickup", BOOL,		bWillpowerVoiceAtPickup),
+	R("Voice", "SuicideVoice",			BOOL,		bSuicideVoice),
 };
 #undef RM
 
@@ -195,6 +207,7 @@ bool CheckList(Kind k, const char* p, std::string& why)
 {
 	if (k == RK_ITEMS) { std::vector<int> v; return BloodMod_ParseItems(p, v, &why); }
 	if (k == RK_AMMO) { std::vector<BloodModAmmo> v; return BloodMod_ParseAmmo(p, v, &why); }
+	if (k == RK_WEAPONS) { std::vector<int> v; return BloodMod_ParseWeapons(p, v, &why); }
 	std::vector<int> v;
 	if (!BloodModRules_ObjFXList(p, v, &why)) return false;
 	if (v.empty()) { why = "it names no effect (one or more OBJFX_ names without the prefix)"; return false; }
@@ -337,7 +350,8 @@ bool BloodModRules_Load(LT1Mod::FileSource &src, std::string &sError)
 			else
 			{
 				const std::string s = a.GetString(tag, key, "");
-				if (a.Error() == before && s.size() > BloodMod::Table::kMaxString)
+				if (a.Error() == before &&
+					s.size() > (kind == RK_WEAPONS || kind == RK_ITEMS ? BloodMod::Table::kMaxList : BloodMod::Table::kMaxString))
 					bRange = false;
 				else if (a.Error() == before && kind != RK_PATH && !CheckList(kind, s.c_str(), why))
 				{

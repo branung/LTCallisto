@@ -15,6 +15,7 @@
 #include "PickupObject.h"
 #include "InventoryMgr.h"
 #include "BloodServerShell.h"
+#include "BloodModPickups.h"	// Mod\Pickups.txt
 
 
 // Class for general item pickups
@@ -32,6 +33,16 @@ class ItemPickup : public PickupObject
 	protected :
 
 		void		ObjectTouch (HOBJECT hObject);
+		// The class's row of Mod\Pickups.txt (BloodModPickups.h): the item, model, name and name string
+		// its constructor gave
+		void		SetItem(int nRow)
+		{
+			const BloodModItemPickup& p = BloodModPickup_Row(nRow);
+			m_nType			= p.nItem;
+			m_szFile		= p.szModel;
+			m_szObjectName	= p.szName;
+			m_nNameID		= BloodModPickup_NameId(p.nName);
+		}
 };
 
 

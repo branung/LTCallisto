@@ -9,7 +9,10 @@
 #include "BloodModWeapons.h"
 #include "BloodModCharacters.h"
 #include "BloodModAmmo.h"
+#include "BloodModLasers.h"
 #include "BloodModRules.h"
+#include "BloodModExplosions.h"
+#include "BloodModObjectFX.h"		// Mod\ObjectFX.txt
 #include "MenuCharacter.h"
 #include "BloodModStrings.h"
 #include "BloodModTable.h"
@@ -66,7 +69,12 @@ void B2Mod_Init(CClientDE* pClientDE)
 	// and muzzle smoke, and the camera, movement and effect constants. Before the effect manager's
 	// Init, which sizes its lists from [Effects]'s caps.
 	BloodModAmmo_LoadAndReport(src, PrintClientLine, "");
+	BloodModLasers_LoadAndReport(src, PrintClientLine, "");
 	BloodModRules_LoadAndReport(src, PrintClientLine, "");
+	// The mod's explosions, drawn by ExplosionFX.cpp
+	BloodModExplosions_LoadAndReport(src, PrintClientLine, "");
+	// And its object effects' particle recipes, by ObjectFX.cpp
+	BloodModObjectFX_LoadAndReport(src, PrintClientLine, "");
 
 	// The mod's strings, which the engine's FormatString asks this shell for through
 	// ModStringsExport.cpp

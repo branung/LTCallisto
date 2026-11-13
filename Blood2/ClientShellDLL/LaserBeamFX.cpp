@@ -9,6 +9,7 @@
 // ----------------------------------------------------------------------- //
 
 #include "LaserBeamFX.h"
+#include "BloodModLasers.h"	// Mod\Lasers.txt
 #include "cpp_client_de.h"
 #include "ClientUtilities.h"
 #include "ClientServerShared.h"
@@ -144,90 +145,33 @@ DBOOL CLaserBeamFX::Update()
 
 void CLaserBeamFX::SetupBeam()
 {
-	// Set the parameters of the laser and the model to use
-	switch(m_nType)
+	// Each laser's shape and skin (Mod\Lasers.txt, Shared/BloodModLasers.h): retail's two switches,
+	// transcribed there, or the mod's. m_hstrModel and m_hstrTexture point into the table, which keeps
+	// its strings for the module's life.
+	if (const LaserRecipe* pLaser = BloodModLaser_Get(m_nType))
 	{
-		case	LASER_RED_SMALL:
-		case	LASER_GREEN_SMALL:
-		case	LASER_BLUE_SMALL:
-		case	LASER_WHITE_SMALL:
-		case	LASER_YELLOW_SMALL:
-		case	LASER_ORANGE_SMALL:
-		case	LASER_PURPLE_SMALL:
-			m_fMinScale			= 0.05f;
-			m_fMaxScale			= 1.0f;
-			m_fDuration			= 0.5f;
-			m_fScaleTime		= 0.25f;
-			m_fFadeTime			= 0.25f;
-			m_fAlpha			= 0.5f;
-			m_bWaveForm			= 0;
-			m_hstrModel			= "Models\\Ammo\\beam.abc";
-			break;
-
-		case	LASER_RED_LARGE:
-		case	LASER_GREEN_LARGE:
-		case	LASER_BLUE_LARGE:
-		case	LASER_WHITE_LARGE:
-		case	LASER_YELLOW_LARGE:
-		case	LASER_ORANGE_LARGE:
-		case	LASER_PURPLE_LARGE:
-			m_fMinScale			= 0.1f;
-			m_fMaxScale			= 2.5f;
-			m_fDuration			= 1.0f;
-			m_fScaleTime		= 0.35f;
-			m_fFadeTime			= 0.35f;
-			m_fAlpha			= 0.5f;
-			m_bWaveForm			= 0;
-			m_hstrModel			= "Models\\Ammo\\beam.abc";
-			break;
-
-		default:
-			m_fMinScale			= 0.0f;
-			m_fMaxScale			= 1.0f;
-			m_fDuration			= 0.5f;
-			m_fScaleTime		= 0.25f;
-			m_fFadeTime			= 0.25f;
-			m_fAlpha			= 0.5f;
-			m_bWaveForm			= 0;
-			m_hstrModel			= "Models\\Ammo\\beam.abc";
-			break;
+		m_fMinScale			= pLaser->fMinScale;
+		m_fMaxScale			= pLaser->fMaxScale;
+		m_fDuration			= pLaser->fDuration;
+		m_fScaleTime		= pLaser->fScaleTime;
+		m_fFadeTime			= pLaser->fFadeTime;
+		m_fAlpha			= pLaser->fAlpha;
+		m_bWaveForm			= pLaser->bWaveForm ? DTRUE : DFALSE;
+		m_hstrModel			= pLaser->szModel;
+		m_hstrTexture		= pLaser->szSkin;
+		return;
 	}
 
-	// Set the texture to use
-	switch(m_nType)
-	{
-		case	LASER_RED_SMALL:
-		case	LASER_RED_LARGE:
-			m_hstrTexture		= "Skins\\Ammo\\beamred.dtx";
-			break;
-		case	LASER_GREEN_SMALL:
-		case	LASER_GREEN_LARGE:
-			m_hstrTexture		= "Skins\\Ammo\\beamgreen.dtx";
-			break;
-		case	LASER_BLUE_SMALL:
-		case	LASER_BLUE_LARGE:
-			m_hstrTexture		= "Skins\\Ammo\\beamblue.dtx";
-			break;
-		case	LASER_WHITE_SMALL:
-		case	LASER_WHITE_LARGE:
-			m_hstrTexture		= "Skins\\Ammo\\beamwhite.dtx";
-			break;
-		case	LASER_YELLOW_SMALL:
-		case	LASER_YELLOW_LARGE:
-			m_hstrTexture		= "Skins\\Ammo\\beamyellow.dtx";
-			break;
-		case	LASER_ORANGE_SMALL:
-		case	LASER_ORANGE_LARGE:
-			m_hstrTexture		= "Skins\\Ammo\\beamorange.dtx";
-			break;
-		case	LASER_PURPLE_SMALL:
-		case	LASER_PURPLE_LARGE:
-			m_hstrTexture		= "Skins\\Ammo\\beampurple.dtx";
-			break;
-		default:
-			m_hstrTexture		= "Skins\\Ammo\\beamred.dtx";
-			break;
-	}
+	// An id no laser has: retail's default case of both switches.
+	m_fMinScale			= 0.0f;
+	m_fMaxScale			= 1.0f;
+	m_fDuration			= 0.5f;
+	m_fScaleTime		= 0.25f;
+	m_fFadeTime			= 0.25f;
+	m_fAlpha			= 0.5f;
+	m_bWaveForm			= 0;
+	m_hstrModel			= "Models\\Ammo\\beam.abc";
+	m_hstrTexture		= "Skins\\Ammo\\beamred.dtx";
 }
 
 // ----------------------------------------------------------------------- //

@@ -99,7 +99,8 @@ void TestKeys()
 		{
 			const char* key = BloodModWeaponClass_Key(k);
 			std::string v = "2.0";
-			if (k == WK_MultiDamageBoost || k >= WK_MuzzleSmoke) v = "TRUE";
+			if (k == WK_Tracer) v = "\"YELLOW_SMALL\"";
+			else if (k == WK_MultiDamageBoost || k >= WK_MuzzleSmoke) v = "TRUE";
 			else if (k == WK_DamageType || k == WK_VoodooAltHit) v = "\"ACID\"";
 			else if (k == WK_AltAmmoType) v = "\"FUEL\"";
 			else if (k == WK_PickupName) v = "\"Mod Gun\"";
@@ -124,6 +125,8 @@ void TestKeys()
 					bOk = bOk && BloodModWeaponClass_ModInt(w, k) == AMMO_FUEL;
 				if (k == WK_PickupName)
 					bOk = bOk && !strcmp(BloodModWeaponClass_ModString(w, k), "Mod Gun");
+				if (k == WK_Tracer)
+					bOk = bOk && BloodModWeaponClass_Tracer(w) == LASER_YELLOW_SMALL;
 			}
 			else
 			{

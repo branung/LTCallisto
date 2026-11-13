@@ -742,6 +742,26 @@ class CSkullProjectile : public CProjectile
 		DBOOL		m_bState;
 };
 
+// ----------------------------------------------------------------------- //
+// CModProjectile: a class made to be a mod's Base (Mod\Projectiles.txt), every value from the
+// file. It flies as CProjectile does and bursts where it touches; what it looks, sounds and
+// lights like, and what it scatters, are keys.
+// ----------------------------------------------------------------------- //
+
+class CModProjectile : public CProjectile
+{
+	public :
+		CModProjectile();
+
+	protected:
+		virtual DBOOL	InitialUpdate(DVector *pMovement);
+		virtual DBOOL	Update(DVector *pMovement);
+		virtual void	AddExplosion(DVector vPos, DVector vNormal);
+
+	private:
+		void			AddChildren(DVector vPos, DVector vNormal);
+};
+
 #ifdef _ADD_ON
 
 // ----------------------------------------------------------------------- //

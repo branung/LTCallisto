@@ -87,6 +87,15 @@
 //     GibLeftArm  INT
 //     GibRightLeg  INT
 //     GibLeftLeg  INT
+//     BurstSmokeNode  STR
+//     BurstRange  FLOAT
+//     BurstProjectile  STR
+//     BurstSpawn  STR
+//     BurstSpawnChance  INT
+//     BurstSpawnGibDamage  FLOAT
+//     BurstSpawnSound1  PATH
+//     BurstSpawnSound2  PATH
+//     BurstSpawnSound3  PATH
 //     Skin  STR, a skin file of at most 99 characters, which replaces
 //           the one the class picks
 //
@@ -126,6 +135,17 @@
 //                    Cabal AI or a SoulDrudge
 //     GibHead, GibRightArm, GibLeftArm, GibRightLeg, GibLeftLeg  a gib throws
 //                    that limb when a roll of 0-100 is above it (80 70 50 70 50)
+//     BurstSmokeNode  Fanatic: the model node its last charge's smoke source
+//                    is made at (torso_extra1); it is attached to the torso
+//                    the next update
+//     BurstRange     Fanatic: how close its last charge gets before it bursts
+//                    (100); it bursts after 30 s whatever the range
+//     BurstProjectile  Fanatic: the shell the burst drops, a projectile class
+//                    (CHowitzerShell); "" drops none
+//     BurstSpawn     Fanatic: a class the burst leaves instead of the shell,
+//                    BurstSpawnChance percent of the time ("", 100), with
+//                    gibs of BurstSpawnGibDamage (50) and one of
+//                    BurstSpawnSound1-3 at random, where it stood
 //     Script         TRUE: the mod's Script.lua hears every AI of the class
 //                    (OnCreate, OnDamage, OnDeath, OnTrigger), not only its
 //                    archetypes

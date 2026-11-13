@@ -13,6 +13,12 @@
 #define		GAS_GRENADE_DAMAGE_DIST		200.0f
 #define		GAS_GRENADE_MAX_DAMAGE		3.0f
 #define		GAS_GRENADE_DAMAGE_DELAY	0.5f
+// and its Update's and AddExplosion's literals
+#define		GAS_GRENADE_LOOP_SOUND				"Sounds\\Weapons\\assault\\projectile.wav"
+#define		GAS_GRENADE_LOOP_SOUND_RADIUS		600.0f
+#define		GAS_GRENADE_EXPLOSION				EXP_GAS_GRENADE
+#define		GAS_GRENADE_EXPLOSION_SOUND			"Sounds\\Weapons\\c4\\explosion_1.wav"
+#define		GAS_GRENADE_EXPLOSION_SOUND_RADIUS	1000.0f
 
 // CDeathRayProjectile
 #define		DEATHRAY_BOUNCE_DIST		1500.0f
@@ -40,5 +46,23 @@
 
 // CSkullProjectile's flying sound (flyskull.wav), its radius
 #define		SKULL_FLY_SOUND_RADIUS		750.0f
+
+// CSingularityProjectile's AddExplosion literals
+#define		SINGULARITY_EXPLOSION				EXP_SINGULARITY_PRIMARY
+#define		SINGULARITY_EXPLOSION_SOUND			"Sounds\\Weapons\\Singularity\\impact.wav"
+#define		SINGULARITY_EXPLOSION_SOUND_RADIUS	2000.0f
+
+// CModProjectile, a class made to be a mod's Base: with none of its keys set it is
+// CProjectile's grenade model default, exploding as CProjectile::AddExplosion does. Its
+// children spread 0.15 pi..0.85 pi, at 0.75..3 x 35.
+#define		MODPROJ_EXPLOSION					EXP_GRENADE
+#define		MODPROJ_EXPLOSION_SOUND				"Sounds\\Weapons\\c4\\explosion_1.wav"
+#define		MODPROJ_EXPLOSION_SOUND_RADIUS		1000.0f
+#define		MODPROJ_LOOP_SOUND_RADIUS			750.0f
+#define		MODPROJ_CHILD_SPEED					35.0f
+#define		MODPROJ_CHILD_SIDE_MIN				0.75f
+#define		MODPROJ_CHILD_SIDE_MAX				3.0f
+#define		MODPROJ_CHILD_ANGLE_MIN				27.0f	// degrees
+#define		MODPROJ_CHILD_ANGLE_MAX				153.0f
 
 #endif // __PROJECTILECONSTANTS_H__

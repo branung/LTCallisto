@@ -10,6 +10,7 @@
 #include "lt1mod_script.h"
 #include "BloodModAI.h"			// mod.spawn: the archetypes
 #include "SFXMsgIds.h"			// mod.explode: EXP_, SFX_EXPLOSIONFX_ID
+#include "BloodModExplosions.h"
 #include "SoundTypes.h"
 #include <ctype.h>
 #include <math.h>
@@ -32,29 +33,9 @@ const char* DamageKind(int nType)
 	return kKinds[nType];
 }
 
-// mod.explode's effect names: SFXMsgIds.h's EXP_, without the prefix.
-struct Effect { const char* pName; DDWORD dwId; };
-#define E(n) { #n, EXP_##n }
-const Effect kEffects[] =
-{
-	E(DEFAULT_SMALL), E(DEFAULT_MEDIUM), E(DEFAULT_LARGE), E(GRENADE), E(NAPALM_PRIMARY), E(NAPALM_ALT),
-	E(NAPALM_FIREBALL), E(TESLA_PRIMARY), E(TESLA_ALT), E(HOWITZER_PRIMARY), E(HOWITZER_ALT), E(HOWITZER_MINI),
-	E(FLAME_SMALL), E(FLARE_FIZZLE), E(FLARE_BURST), E(FLARE_FRAG), E(LIFELEECH_PRIMARY), E(LIFELEECH_ALT),
-	E(SINGULARITY_PRIMARY), E(SHOCKBALL), E(SHOCKBALL_LARGE), E(ORB_BREAK), E(DIVINE_SHOCKBALL), E(RIFT_1),
-	E(RIFT_2), E(DEATHRAY_PRIMARY), E(BUGSPRAY_PRIMARY), E(BUGSPRAY_ALT), E(NAGA_EYE_BEAM), E(NAGA_SPIKE),
-	E(NAGA_STONE_CHUNK), E(NAGA_POUND_GROUND),
-#ifdef _ADD_ON
-	E(GAS_GRENADE), E(FLAYER_PRIMARY), E(FLAYER_ALT), E(FLAYER_RETRACT), E(FLAYER_SHATTER),
-#endif
-};
-#undef E
+// mod.explode's effect names: the EXP_ names without the prefix, retail's and a mod's new ones
+// (Shared/BloodModExplosions.h)
 
-bool SameNoCase(const char* a, const char* b)
-{
-	for (; *a && *b; ++a, ++b)
-		if (tolower((unsigned char)*a) != tolower((unsigned char)*b)) return false;
-	return *a == *b;
-}
 
 // The script's handle for an object: the CBaseCharacter it is, or NULL.
 void* ScriptHandle(HOBJECT h)
@@ -208,15 +189,13 @@ public:
 		VEC_SET(vNormal, 0.0f, 1.0f, 0.0f);
 		if (pEffect && pEffect[0])
 		{
-			const Effect* pE = DNULL;
-			for (size_t i = 0; i < sizeof(kEffects) / sizeof(kEffects[0]) && !pE; ++i)
-				if (SameNoCase(kEffects[i].pName, pEffect)) pE = &kEffects[i];
-			if (!pE) { sWhy = std::string("no explosion \"") + pEffect + "\" (SFXMsgIds.h's EXP_ names, without EXP_)"; return false; }
+			const int nExp = BloodModExplosion_Find(pEffect);
+			if (nExp < 0) { sWhy = std::string("no explosion \"") + pEffect + "\" (the EXP_ names, without EXP_, or a mod's new one)"; return false; }
 			HMESSAGEWRITE hMessage = g_pServerDE->StartInstantSpecialEffectMessage(&vPos);
 			g_pServerDE->WriteToMessageByte(hMessage, SFX_EXPLOSIONFX_ID);
 			g_pServerDE->WriteToMessageVector(hMessage, &vPos);
 			g_pServerDE->WriteToMessageVector(hMessage, &vNormal);
-			g_pServerDE->WriteToMessageDWord(hMessage, pE->dwId);
+			g_pServerDE->WriteToMessageDWord(hMessage, (DDWORD)nExp);
 			g_pServerDE->EndMessage(hMessage);
 		}
 		ObjectList* ol = g_pServerDE->FindObjectsTouchingSphere(&vPos, fRadius);

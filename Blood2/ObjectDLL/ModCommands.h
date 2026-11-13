@@ -28,9 +28,14 @@ void ModAmmo_LoadFile();
 // Reads Mod\Rules.txt into gRules (BloodModRules.h), likewise: the loose constants the player,
 // the items, the hits and the corpses read
 void ModRules_LoadFile();
+// Reads Mod\Explosions.txt (BloodModExplosions.h), likewise: the server needs only its names,
+// which number a mod's new explosions as the client numbers them. Before the projectile and
+// weapon classes, which name explosions.
+void ModExplosions_LoadFile();
 // Reads Mod\Projectiles.txt (BloodModProjectiles.h), likewise: CProjectile applies it to each
 // projectile as it is created
 void ModProjectiles_LoadFile();
+void ModPickups_LoadFile();		// Mod\Pickups.txt
 // Reads Mod\WeaponClasses.txt (BloodModWeaponClasses.h), likewise: CWeapon::Init and the weapon
 // pickups apply it
 void ModWeaponClasses_LoadFile();

@@ -150,8 +150,10 @@ LTRESULT CBloodServerShell::OnServerInitialized()
 	ModCharacters_LoadFile();
 	ModAmmo_LoadFile();
 	ModRules_LoadFile();
+	ModExplosions_LoadFile();
 	ModProjectiles_LoadFile();
 	ModWeaponClasses_LoadFile();
+	ModPickups_LoadFile();
 	ModAI_LoadFile();
 	ModCommands_LoadFile();
 	// ...and its script, Mod\Script.lua

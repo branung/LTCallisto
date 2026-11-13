@@ -250,6 +250,14 @@ protected:
 	int		m_nModCorpseLimbLoss;	// 0 never, 1 always, 2 the game's rule
 	int		m_nModGibLimbs;			// the same, for the limbs a gib throws
 	int		m_nModGibLimb[5];		// head, right arm, left arm, right leg, left leg
+	// The Fanatic's special; Fanatic's constructor sets the 1998 values
+	char	m_szModBurstSmokeNode[32];	// BurstSmokeNode: the node its smoke source is made at
+	DFLOAT	m_fModBurstRange;		// BurstRange: how close its charge gets before it bursts
+	char	m_szModBurstProjectile[32];	// BurstProjectile: the shell it drops, a CProjectile class
+	char	m_szModBurstSpawn[32];	// BurstSpawn: a class it may leave instead, "" for none
+	int		m_nModBurstSpawnChance;	// BurstSpawnChance: the percent chance of that
+	DFLOAT	m_fModBurstSpawnGibDamage;	// BurstSpawnGibDamage: its gibs' CreateGibs damage then
+	char	m_szModBurstSound[3][BLOODMOD_AI_MAX_SKIN + 1];	// BurstSpawnSound1-3: one at random then
 	DFLOAT	m_fAIBullets;
 	DFLOAT	m_fAIBMG;
 	DFLOAT	m_fAIShells;

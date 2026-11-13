@@ -25,13 +25,16 @@ add_library(${PROJECT_NAME} SHARED
 	BloodModAI.cpp
 	BloodModProjectiles.cpp
 	BloodModWeaponClasses.cpp
+	BloodModPickups.cpp
 	ModClassDefs.cpp
 	ModScript.cpp
 	../Shared/BloodModCharacters.cpp
 	../Shared/CharacterValues.cpp
 	../Shared/AmmoValues.cpp
 	../Shared/BloodModAmmo.cpp
+	../Shared/BloodModLasers.cpp
 	../Shared/BloodModRules.cpp
+	../Shared/BloodModExplosions.cpp
 	boneleech.cpp
 	BulletImpactSFX.cpp
 	CalebAI.cpp

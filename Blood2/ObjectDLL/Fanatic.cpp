@@ -12,6 +12,7 @@
 #include "Fanatic.h"
 #include "cpp_server_de.h"
 #include "SFXMsgIds.h"
+#include "SoundTypes.h"
 
 BEGIN_CLASS(Fanatic)
     ADD_REALPROP(RandomHitPoints, 0.0f) \
@@ -87,6 +88,16 @@ Fanatic::Fanatic() : AI_Mgr()
 	m_fAIFuel	  = 100;
 
 	m_fStartTime = 0.0f;
+
+	// The special's literals, which AI.txt's Burst keys can change: charge to within 100 units, then
+	// drop a howitzer shell; no spawn, and so no sounds for one. The smoke source is made at
+	// torso_extra1, the node the charge it carries hides.
+	strcpy(m_szModBurstSmokeNode, "torso_extra1");
+	m_fModBurstRange			= 100.0f;
+	strcpy(m_szModBurstProjectile, "CHowitzerShell");
+	strcpy(m_szModBurstSpawn, "");
+	m_nModBurstSpawnChance		= 100;
+	m_fModBurstSpawnGibDamage	= 50.0f;
 
 	m_hAttach		= DNULL;
 	m_hSmokeSource	= DNULL;
@@ -614,7 +625,7 @@ void Fanatic::AI_STATE_Special1()
 
 					ocStruct.m_ObjectType = OT_NORMAL;
 					ocStruct.m_NextUpdate = 0.01f;
-					g_pServerDE->GetModelNodeTransform(m_hObject, "torso_extra1",&ocStruct.m_Pos,&ocStruct.m_Rotation);
+					g_pServerDE->GetModelNodeTransform(m_hObject, m_szModBurstSmokeNode,&ocStruct.m_Pos,&ocStruct.m_Rotation);
 					ocStruct.m_Flags = FLAG_FORCECLIENTUPDATE;
 					
 					HCLASS hClass = g_pServerDE->GetClass("DEBaseClass");
@@ -630,7 +641,7 @@ void Fanatic::AI_STATE_Special1()
 		}
 		case 3:		m_fStimuli[SIGHT] = VEC_DIST(m_MoveObj.GetPos(),m_vTargetPos);
 			
-					if(m_fStimuli[SIGHT] <= 100.0f || 
+					if(m_fStimuli[SIGHT] <= m_fModBurstRange || 
 						m_pServerDE->GetTime() - m_fStartTime >= 30.0f)
 					{
 						Metacmd++;
@@ -645,29 +656,52 @@ void Fanatic::AI_STATE_Special1()
 					break;
 		case 4:		
 		{
-					ObjectCreateStruct ocStruct;
-					INIT_OBJECTCREATESTRUCT(ocStruct);
-
-					ROT_COPY(ocStruct.m_Rotation, m_MoveObj.GetRotation());
-					VEC_COPY(ocStruct.m_Pos, m_MoveObj.GetPos());
-
-					CProjectile	*pProject = NULL;
-
-					HCLASS hClass = m_pServerDE->GetClass("CHowitzerShell");
-					DFLOAT fVelocity = 250.0f;
-					int nRadius = 200;
-
-					if (hClass)
+					// BurstSpawn: a mod can have the burst leave a creature instead of the shell, some of the
+					// time, with a gentler shower of gibs and a sound of its own. No roll is made without one,
+					// so the game's random numbers are drawn as the 1998 code drew them.
+					HCLASS hSpawn = m_szModBurstSpawn[0] ? m_pServerDE->GetClass(m_szModBurstSpawn) : DNULL;
+					if (hSpawn && m_pServerDE->IntRandom(1, 100) <= m_nModBurstSpawnChance)
 					{
-						DVector vDown;
-						VEC_MULSCALAR(vDown, m_MoveObj.GetUpVector(), -1.0f);
+						ObjectCreateStruct ocStruct;
+						INIT_OBJECTCREATESTRUCT(ocStruct);
 
-						if (pProject = (CProjectile*)m_pServerDE->CreateObject(hClass, &ocStruct))
-							pProject->Setup(&vDown,	WEAP_HOWITZER, 50.0f, fVelocity, nRadius, m_hObject);
+						ROT_COPY(ocStruct.m_Rotation, m_MoveObj.GetRotation());
+						VEC_COPY(ocStruct.m_Pos, m_MoveObj.GetPos());
+
+						m_pServerDE->CreateObject(hSpawn, &ocStruct);
+
+						CreateGibs(m_MoveObj.GetUpVector(), ((int)m_damage.GetMass())>>5, 
+									DAMAGE_TYPE_EXPLODE, m_fModBurstSpawnGibDamage);
+
+						// One of the sounds the mod names, at random. It plays where the Fanatic stands, because
+						// the Fanatic is removed below, and the engine frees it.
+						int nSounds = 0;
+						const char* pSounds[3];
+						for (int i = 0; i < 3; ++i)
+							if (m_szModBurstSound[i][0]) pSounds[nSounds++] = m_szModBurstSound[i];
+						if (nSounds)
+						{
+							PlaySoundInfo playSoundInfo;
+							PLAYSOUNDINFO_INIT(playSoundInfo);
+
+							playSoundInfo.m_dwFlags = PLAYSOUND_3D | PLAYSOUND_REVERB | PLAYSOUND_CTRL_VOL;
+							SAFE_STRCPY(playSoundInfo.m_szSoundName, pSounds[m_pServerDE->IntRandom(1, nSounds) - 1]);
+							VEC_COPY(playSoundInfo.m_vPosition, m_MoveObj.GetPos());
+							playSoundInfo.m_nPriority = SOUNDPRIORITY_AI_MEDIUM;
+							playSoundInfo.m_fOuterRadius = 1000;
+							playSoundInfo.m_fInnerRadius = 1000 * 0.1f;
+							playSoundInfo.m_nVolume = 200;
+
+							m_pServerDE->PlaySound(&playSoundInfo);
+						}
 					}
+					else
+					{
+						DropBurstShell();
 
-					CreateGibs(m_MoveObj.GetUpVector(), ((int)m_damage.GetMass())>>5, 
-								DAMAGE_TYPE_EXPLODE, 50.0f);
+						CreateGibs(m_MoveObj.GetUpVector(), ((int)m_damage.GetMass())>>5, 
+									DAMAGE_TYPE_EXPLODE, 50.0f);
+					}
 
 					if(m_hAttach && m_hSmokeSource)
 					{
@@ -699,26 +733,7 @@ void Fanatic::AI_STATE_Dying()
 {
 	if(m_fStartTime)
 	{
-		ObjectCreateStruct ocStruct;
-		INIT_OBJECTCREATESTRUCT(ocStruct);
-
-		ROT_COPY(ocStruct.m_Rotation, m_MoveObj.GetRotation());
-		VEC_COPY(ocStruct.m_Pos, m_MoveObj.GetPos());
-
-		CProjectile	*pProject = NULL;
-
-		HCLASS hClass = m_pServerDE->GetClass("CHowitzerShell");
-		DFLOAT fVelocity = 250.0f;
-		int nRadius = 200;
-
-		if (hClass)
-		{
-			DVector vDown;
-			VEC_MULSCALAR(vDown, m_MoveObj.GetUpVector(), -1.0f);
-
-			if (pProject = (CProjectile*)m_pServerDE->CreateObject(hClass, &ocStruct))
-				pProject->Setup(&vDown,	WEAP_HOWITZER, 50.0f, fVelocity, nRadius, m_hObject);
-		}
+		DropBurstShell();
 
 		CreateGibs(m_MoveObj.GetUpVector(), ((int)m_damage.GetMass())>>5, 
 					DAMAGE_TYPE_EXPLODE, 50.0f);
@@ -738,6 +753,39 @@ void Fanatic::AI_STATE_Dying()
 		AI_Mgr::AI_STATE_Dying();
 
 	return;
+}
+
+// ----------------------------------------------------------------------- //
+// ROUTINE		: Fanatic::DropBurstShell
+// DESCRIPTION	: The shell the special ends with, fired straight down from
+//				  where the Fanatic stands, by the burst or by a death during
+//				  the charge. BurstProjectile names the class, retail's
+//				  CHowitzerShell; one that is not a projectile drops nothing.
+// RETURN TYPE	: void 
+// ----------------------------------------------------------------------- //
+
+void Fanatic::DropBurstShell()
+{
+	ObjectCreateStruct ocStruct;
+	INIT_OBJECTCREATESTRUCT(ocStruct);
+
+	ROT_COPY(ocStruct.m_Rotation, m_MoveObj.GetRotation());
+	VEC_COPY(ocStruct.m_Pos, m_MoveObj.GetPos());
+
+	CProjectile	*pProject = NULL;
+
+	HCLASS hClass = m_szModBurstProjectile[0] ? m_pServerDE->GetClass(m_szModBurstProjectile) : DNULL;
+	DFLOAT fVelocity = 250.0f;
+	int nRadius = 200;
+
+	if (hClass && m_pServerDE->IsKindOf(hClass, m_pServerDE->GetClass("CProjectile")))
+	{
+		DVector vDown;
+		VEC_MULSCALAR(vDown, m_MoveObj.GetUpVector(), -1.0f);
+
+		if (pProject = (CProjectile*)m_pServerDE->CreateObject(hClass, &ocStruct))
+			pProject->Setup(&vDown,	WEAP_HOWITZER, 50.0f, fVelocity, nRadius, m_hObject);
+	}
 }
 
 void Fanatic::Save(HMESSAGEWRITE hWrite, DDWORD dwSaveFlags)
@@ -763,7 +811,7 @@ void Fanatic::Load(HMESSAGEREAD hRead, DDWORD dwLoadFlags)
 
 		ocStruct.m_ObjectType = OT_NORMAL;
 		ocStruct.m_NextUpdate = 0.01f;
-		g_pServerDE->GetModelNodeTransform(m_hObject, "torso_extra1",&ocStruct.m_Pos,&ocStruct.m_Rotation);
+		g_pServerDE->GetModelNodeTransform(m_hObject, m_szModBurstSmokeNode,&ocStruct.m_Pos,&ocStruct.m_Rotation);
 		ocStruct.m_Flags = FLAG_FORCECLIENTUPDATE;
 		
 		HCLASS hClass = g_pServerDE->GetClass("DEBaseClass");

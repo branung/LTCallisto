@@ -58,7 +58,7 @@ import lt1mod_sig as SIG                                    # noqa: E402
 TABLES = {
     'shogo': ['Factions.txt', 'Weapons.txt', 'Models.txt', 'Characters.txt', 'PlayerModes.txt',
               'Surfaces.txt', 'Strings.txt', 'Classes.txt', 'Commands.txt', 'Script.lua', 'ClientScript.lua'],
-    'blood2': ['Weapons.txt', 'Characters.txt', 'Ammo.txt', 'Projectiles.txt', 'WeaponClasses.txt', 'Rules.txt', 'AI.txt', 'Commands.txt', 'Strings.txt', 'Script.lua',
+    'blood2': ['Weapons.txt', 'Characters.txt', 'Ammo.txt', 'Projectiles.txt', 'WeaponClasses.txt', 'Rules.txt', 'Explosions.txt', 'Lasers.txt', 'ObjectFX.txt', 'Pickups.txt', 'AI.txt', 'Commands.txt', 'Strings.txt', 'Script.lua',
                'ClientScript.lua'],
 }
 ALWAYS = ['Mod.txt', 'Placeholders.txt']

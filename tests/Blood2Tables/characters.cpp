@@ -84,7 +84,7 @@ const Member kMembers[] =
 	I(0), I(1), I(2), I(3), I(4),
 	A(nAttrib, 0), A(nAttrib, 1), A(nAttrib, 2), A(nAttrib, 3),
 	A(nSwitch, 0), A(nSwitch, 1), A(nSwitch, 2), A(nSwitch, 3),
-	L(szWeapons), L(szItems), L(szAmmo), L(szInitWeapons),
+	L(szWeapons), L(szItems), L(szAmmo), L(szInitWeapons), L(szCheatWeapons),
 };
 #undef S
 #undef P
@@ -573,10 +573,10 @@ void CharactersSelfTest()
 	memcpy(g_RetailSkins, gCharacterSkins, sizeof(g_RetailSkins));
 	memcpy(g_RetailPictures, gCharacterPictures, sizeof(g_RetailPictures));
 	memcpy(g_RetailStart, gCharacterStart, sizeof(g_RetailStart));
-	Check(kNumMembers == 33, "kMembers lists CharacterValues' 9 members, the 7 skin slots, the 5 pictures and "
-							 "CharacterStart's 12");
-	Check(sizeof(CharacterStart) == 8 * sizeof(int) + 4 * sizeof(char*),
-		  "and CharacterStart is those twelve");
+	Check(kNumMembers == 34, "kMembers lists CharacterValues' 9 members, the 7 skin slots, the 5 pictures and "
+							 "CharacterStart's 13");
+	Check(sizeof(CharacterStart) == 8 * sizeof(int) + 5 * sizeof(char*),
+		  "and CharacterStart is those thirteen");
 	Check(sizeof(CharacterValues) == 3 * sizeof(char*) + 6 * sizeof(DFLOAT) ||
 		  sizeof(CharacterValues) == 4 * sizeof(char*) + 6 * sizeof(DFLOAT),
 		  "and CharacterValues is those nine (at most padding after them)");

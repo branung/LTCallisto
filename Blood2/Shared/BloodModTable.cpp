@@ -35,7 +35,7 @@ size_t SizeOf(Kind e)
 {
 	switch (e)
 	{
-		case K_STRING: case K_STRNULL:	return sizeof(char*);
+		case K_STRING: case K_STRNULL: case K_LIST:	return sizeof(char*);
 		case K_NAMED:					return sizeof(DBYTE);
 		case K_WORD:					return sizeof(D_WORD);
 		case K_DWORD:					return sizeof(DDWORD);
@@ -162,6 +162,7 @@ std::string Table::ValueAt(const char* p, const Field& f) const
 	{
 		case K_STRING:
 		case K_STRNULL:
+		case K_LIST:
 		{
 			const char* s = At<char*>(p, f);
 			return std::string("\"") + (s ? s : "") + "\"";
@@ -260,7 +261,7 @@ bool Table::Load(LT1Mod::FileSource& src, std::string& sError)
 		const Field& f = m_pFields[nField];
 		// A string this entry sets replaces any it was waiting for: its Base's, copied with the
 		// Base's values below
-		if (f.eKind == K_STRING || f.eKind == K_STRNULL)
+		if (f.eKind == K_STRING || f.eKind == K_STRNULL || f.eKind == K_LIST)
 			for (size_t p = pending.size(); p-- > 0;)
 				if (pending[p].nId == nId && pending[p].nField == nField) pending.erase(pending.begin() + (long)p);
 		char* w = &table[(size_t)f.nArray][0] + m_Arrays[(size_t)f.nArray].nStride * (size_t)(nId - m_nFirstId);
@@ -271,9 +272,10 @@ bool Table::Load(LT1Mod::FileSource& src, std::string& sError)
 		{
 			case K_STRING:
 			case K_STRNULL:
+			case K_LIST:
 			{
 				const std::string s = a.GetString(tag, key, "");
-				bRange = s.size() <= kMaxString;
+				bRange = s.size() <= (f.eKind == K_LIST ? kMaxList : kMaxString);
 				if (f.eKind == K_STRNULL && s.empty())
 					At<char*>(w, f) = 0;
 				else
@@ -343,9 +345,9 @@ bool Table::Load(LT1Mod::FileSource& src, std::string& sError)
 		if (!bRange)
 		{
 			snprintf(buf, sizeof(buf), "%s: [%s]:%s is out of range", m_pPath, tag, key);
-			if (f.eKind == K_STRING || f.eKind == K_STRNULL)
+			if (f.eKind == K_STRING || f.eKind == K_STRNULL || f.eKind == K_LIST)
 				snprintf(buf, sizeof(buf), "%s: [%s]:%s is longer than %u characters", m_pPath, tag, key,
-						 (unsigned)kMaxString);
+						 (unsigned)(f.eKind == K_LIST ? kMaxList : kMaxString));
 			else if (f.eKind == K_NAMED)
 			{
 				std::string list;

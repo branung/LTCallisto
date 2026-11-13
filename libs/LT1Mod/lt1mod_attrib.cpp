@@ -214,6 +214,11 @@ std::string Attributes::GetString(const char* tag, const char* key, const char* 
     return m_pImpl->bm.GetString(tag, key, def ? def : "");
 }
 
+bool Attributes::IsString(const char* tag, const char* key) const
+{
+    return m_pImpl->bm.GetType(tag, key) == CButeMgr::StringType;
+}
+
 bool Attributes::GetVector(const char* tag, const char* key, float out[3]) const
 {
     CButeMgr::SymTypes t = m_pImpl->bm.GetType(tag, key);

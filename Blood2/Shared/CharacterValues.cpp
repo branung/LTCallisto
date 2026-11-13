@@ -212,17 +212,20 @@ char *gCharacterPictures[BLOOD2_CHARACTER_IDS][BLOOD2_CHARACTER_PICTURES] =
 
 // A character's attributes and start inventory (CharacterValues.h): retail's SetCharacterInfo,
 // TweakSaveValuesForCharacterChange and ResetPlayerInventory, as a table.
+// CPlayerObj's CHEAT_KFA case, every character's alike in retail
+#define CHEAT_KFA_WEAPONS	(char*)"BERETTA SUBMACHINEGUN SHOTGUN ASSAULTRIFLE LIFELEECH TESLACANNON ORB VOODOO DEATHRAY " \
+							"MINIGUN NAPALMCANNON SNIPERRIFLE"
 CharacterStart gCharacterStart[BLOOD2_CHARACTER_IDS] =
 {
-	{ { 5, 3, 3, 1 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA" },	// Caleb
-	{ { 2, 5, 1, 4 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA" },	// Ophelia
-	{ { 1, 3, 3, 5 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA" },	// Ishmael
-	{ { 5, 1, 5, 1 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA" },	// Gabriella
+	{ { 5, 3, 3, 1 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA", CHEAT_KFA_WEAPONS },	// Caleb
+	{ { 2, 5, 1, 4 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA", CHEAT_KFA_WEAPONS },	// Ophelia
+	{ { 1, 3, 3, 5 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA", CHEAT_KFA_WEAPONS },	// Ishmael
+	{ { 5, 1, 5, 1 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA", CHEAT_KFA_WEAPONS },	// Gabriella
 
 #ifdef _ADD_ON
-	{ { 5, 3, 3, 1 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA" },	// male cultist
-	{ { 2, 5, 1, 4 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA" },	// female cultist
-	{ { 1, 3, 3, 5 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA" },	// soul drudge
-	{ { 5, 1, 5, 1 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA" },	// prophet
+	{ { 5, 3, 3, 1 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA", CHEAT_KFA_WEAPONS },	// male cultist
+	{ { 2, 5, 1, 4 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA", CHEAT_KFA_WEAPONS },	// female cultist
+	{ { 1, 3, 3, 5 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA", CHEAT_KFA_WEAPONS },	// soul drudge
+	{ { 5, 1, 5, 1 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA", CHEAT_KFA_WEAPONS },	// prophet
 #endif
 };

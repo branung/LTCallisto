@@ -81,6 +81,10 @@ CProjectile::CProjectile(DBYTE nType) : DEBaseClass(nType)
 	m_hSound				= DNULL;
 
 	m_dwClientID			= 0;
+	m_nModClass				= -1;
+	m_fAppearDelay			= 0.0f;
+	m_fAppearStart			= 0.0f;
+	VEC_SET(m_vAppearScale, 1.0f, 1.0f, 1.0f);
 
 	VEC_SET(m_vDims, 1, 1, 1);
 	VEC_SET(m_vLightColor, 1, 1, 1);
@@ -140,6 +144,13 @@ DDWORD CProjectile::EngineMessageFn(DDWORD messageID, void *pData, DFLOAT fData)
 	{
 		case MID_UPDATE:
 		{
+			// A mod's AppearDelay, whatever the class's Update does
+			if (m_fAppearDelay > 0.0f && g_pServerDE &&
+				g_pServerDE->GetTime() - m_fAppearStart >= m_fAppearDelay)
+			{
+				g_pServerDE->ScaleObject(m_hObject, &m_vAppearScale);
+				m_fAppearDelay = 0.0f;
+			}
 			if (!Update((DVector *)pData))
 			{
 				CServerDE* pServerDE = DEBaseClass::GetServerDE();
@@ -169,6 +180,7 @@ DDWORD CProjectile::EngineMessageFn(DDWORD messageID, void *pData, DFLOAT fData)
 
 		case MID_INITIALUPDATE:
 		{
+			if (g_pServerDE) m_fAppearStart = g_pServerDE->GetTime();
 			if (fData != INITIALUPDATE_SAVEGAME)
 				InitialUpdate((DVector *)pData);
 			break;
@@ -294,6 +306,7 @@ void CProjectile::ModApply(ObjectCreateStruct *pStruct)
 		return;
 	const int nClass = BloodModProjectile_FindClass(szClass);
 	if (nClass < 0) return;
+	m_nModClass = nClass;
 
 	// With AI.txt's [Options] Trace, once per class: what its constructor gave it, and what the mod
 	// changes.
@@ -313,6 +326,48 @@ void CProjectile::ModApply(ObjectCreateStruct *pStruct)
 	m_bExplosion = bExplosion ? DTRUE : DFALSE;
 	if (nGravity == 1) m_dwFlags |= FLAG_GRAVITY;
 	else if (nGravity == 0) m_dwFlags &= ~FLAG_GRAVITY;
+	// Its look: a path the mod's table holds for the whole game
+	if (BloodModProjectile_Set(nClass, PK_Model))
+		{ m_pProjectileFilename = (char*)BloodModProjectile_ModString(nClass, PK_Model); ++nKeys; }
+	if (BloodModProjectile_Set(nClass, PK_Skin))
+		{ m_pProjectileSkin = (char*)BloodModProjectile_ModString(nClass, PK_Skin); ++nKeys; }
+	// And its kind, size and flags, for every class
+	const DDWORD dwModelFlags = FLAG_SHADOW | FLAG_MODELGOURAUDSHADE | FLAG_RAYHIT;
+	if (BloodModProjectile_Set(nClass, PK_Sprite))
+	{
+		// A sprite takes none of the model flags the constructor gives a model.
+		if (BloodModProjectile_ModInt(nClass, PK_Sprite))
+			{ pStruct->m_ObjectType = OT_SPRITE; m_dwFlags &= ~dwModelFlags; }
+		else
+			{ pStruct->m_ObjectType = OT_MODEL; m_dwFlags |= dwModelFlags; }
+		++nKeys;
+	}
+	if (BloodModProjectile_Set(nClass, PK_Scale))
+	{
+		const DFLOAT f = BloodModProjectile_ModFloat(nClass, PK_Scale);
+		VEC_SET(m_vInitScale, f, f, f);
+		++nKeys;
+	}
+	const DDWORD pairs[2][2] = { { PK_PointCollide, FLAG_POINTCOLLIDE }, { PK_NoSliding, FLAG_NOSLIDING } };
+	for (int i = 0; i < 2; ++i)
+		if (BloodModProjectile_Set(nClass, (int)pairs[i][0]))
+		{
+			if (BloodModProjectile_ModInt(nClass, (int)pairs[i][0])) m_dwFlags |= pairs[i][1];
+			else m_dwFlags &= ~pairs[i][1];
+			++nKeys;
+		}
+	if (BloodModProjectile_Set(nClass, PK_ClientFX))
+		{ m_bClientFX = BloodModProjectile_ModInt(nClass, PK_ClientFX) ? DTRUE : DFALSE; ++nKeys; }
+	if (BloodModProjectile_Set(nClass, PK_AppearDelay))
+	{
+		m_fAppearDelay = BloodModProjectile_ModFloat(nClass, PK_AppearDelay);
+		if (m_fAppearDelay > 0.0f)
+		{
+			VEC_COPY(m_vAppearScale, m_vInitScale);
+			VEC_INIT(m_vInitScale);
+		}
+		++nKeys;
+	}
 	nKeys += ModApplyClass(nClass, bTrace ? &sCtor : DNULL);
 
 	if (bTrace)

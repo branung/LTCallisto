@@ -44,6 +44,7 @@ class Fanatic : public AI_Mgr
 		void	AI_STATE_Dodge();
 		void	AI_STATE_Special1();
 		void	AI_STATE_Dying();
+		void	DropBurstShell();	// the shell its special ends with
 
 		void	CacheFiles();
 

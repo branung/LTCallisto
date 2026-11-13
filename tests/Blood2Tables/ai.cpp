@@ -45,6 +45,7 @@ struct Member { const char* pName; size_t nOffset, nSize; };
 #define DS(n) { "m_szModDeathSkin[" #n "]", offsetof(BloodModAIValues, m_szModDeathSkin) + (n) * (BLOODMOD_AI_MAX_SKIN + 1), BLOODMOD_AI_MAX_SKIN + 1 }
 #define DF(n) { "m_szModDeathFX[" #n "]", offsetof(BloodModAIValues, m_szModDeathFX) + (n) * 32, 32 }
 #define GL(n) { "m_nModGibLimb[" #n "]", offsetof(BloodModAIValues, m_nModGibLimb) + (n) * sizeof(int), sizeof(int) }
+#define BS(n) { "m_szModBurstSound[" #n "]", offsetof(BloodModAIValues, m_szModBurstSound) + (n) * (BLOODMOD_AI_MAX_SKIN + 1), BLOODMOD_AI_MAX_SKIN + 1 }
 const Member kMembers[] =
 {
 	M(m_fHearingDist), M(m_fSensingDist), M(m_fSmellingDist), M(m_fSeeingDist),
@@ -60,12 +61,15 @@ const Member kMembers[] =
 	M(m_bModRobe), DS(0), DS(1), DS(2), DS(3), DS(4), DS(5), DS(6), DF(0), DF(1), DF(2), DF(3), DF(4), DF(5), DF(6),
 	M(m_bModDeathAnimRandom), M(m_szModDropOnDeath), M(m_szModDropDivine), M(m_nModCorpseLimbLoss), M(m_nModGibLimbs),
 	GL(0), GL(1), GL(2), GL(3), GL(4),
+	M(m_szModBurstSmokeNode), M(m_fModBurstRange), M(m_szModBurstProjectile), M(m_szModBurstSpawn), M(m_nModBurstSpawnChance),
+	M(m_fModBurstSpawnGibDamage), BS(0), BS(1), BS(2),
 };
 #undef M
 #undef W
 #undef DS
 #undef DF
 #undef GL
+#undef BS
 const int kNumMembers = (int)(sizeof(kMembers) / sizeof(kMembers[0]));
 
 // A struct no mod value equals: every byte 0x5a, but each string "sentinel"
@@ -81,6 +85,10 @@ BloodModAIValues Sentinel()
 	for (int k = 0; k < BLOODMOD_DEATH_KINDS; ++k) { strcpy(v.m_szModDeathSkin[k], "sentinel"); strcpy(v.m_szModDeathFX[k], "sentinel"); }
 	strcpy(v.m_szModDropOnDeath, "sentinel");
 	strcpy(v.m_szModDropDivine, "sentinel");
+	strcpy(v.m_szModBurstSmokeNode, "sentinel");
+	strcpy(v.m_szModBurstProjectile, "sentinel");
+	strcpy(v.m_szModBurstSpawn, "sentinel");
+	for (int k = 0; k < 3; ++k) strcpy(v.m_szModBurstSound[k], "sentinel");
 	return v;
 }
 
@@ -226,7 +234,7 @@ void TestMembers()
 	}
 	char b[160];
 	snprintf(b, sizeof(b), "each of the %d keys moves its own member, and no two the same one", nKeys);
-	Check(nBad == 0 && nKeys == 68, b);
+	Check(nBad == 0 && nKeys == 77, b);
 	Check((int)reached.size() == kNumMembers, "every member of BloodModAIValues is some key's");
 	size_t nCovered = 0;
 	for (int m = 0; m < kNumMembers; ++m) nCovered += kMembers[m].nSize;
@@ -572,7 +580,7 @@ std::string AIDump()
 
 void AISelfTest()
 {
-	Check(kNumMembers == 68, "kMembers lists BloodModAIValues' 68 members");
+	Check(kNumMembers == 77, "kMembers lists BloodModAIValues' 77 members");
 	TestClasses();
 	TestMembers();
 	TestMutation();

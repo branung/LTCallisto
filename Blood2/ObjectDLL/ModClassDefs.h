@@ -2,7 +2,7 @@
 //
 // MODULE  : ModClassDefs.h
 //
-// PURPOSE : A mod's enemy types as class names
+// PURPOSE : A mod's enemy types and projectiles as class names
 //
 // ObjectDLLSetup reads the mod's AI.txt (BloodModAI.h) before it answers the
 // engine and returns, after the native classes, one class per archetype
@@ -13,6 +13,9 @@
 // archetype.  An Archetype property the level gives still wins.
 // The file is read once, when the engine binds the module, and an archetype
 // named like a native class stays reachable through its class only.
+//
+// Mod\Projectiles.txt's new classes (BloodModProjectiles.h) are appended the same way after
+// them: each its root retail class under its own name, which a weapon's ProjectileClass names.
 //
 // ----------------------------------------------------------------------- //
 

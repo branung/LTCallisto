@@ -2,8 +2,8 @@
 //
 //   testBlood2Tables --selftest
 //   testBlood2Tables --load-mod <dir>                  a mod folder's tables, as the shells load them
-//   testBlood2Tables --dump  weapons|characters|ai|ammo|projectiles|weaponclasses|rules|strings <out.txt>   Blood2/ModReference/<Table>.txt
-//   testBlood2Tables --check weapons|characters|ai|ammo|projectiles|weaponclasses|rules|strings <file>      0 if <file> is what --dump writes
+//   testBlood2Tables --dump  weapons|characters|ai|ammo|projectiles|weaponclasses|rules|explosions|lasers|objectfx|pickups|strings <out.txt>   Blood2/ModReference/<Table>.txt
+//   testBlood2Tables --check weapons|characters|ai|ammo|projectiles|weaponclasses|rules|explosions|lasers|objectfx|pickups|strings <file>      0 if <file> is what --dump writes
 //   testBlood2Tables --mod-dump <dir> weapons|characters <out>          --dump, with <dir>'s mod loaded
 //
 // Built from the game's own tables (Shared/WeaponDefs.cpp, Shared/CharacterValues.cpp) and the
@@ -35,6 +35,10 @@
 #include "BloodModProjectiles.h"
 #include "BloodModWeaponClasses.h"
 #include "BloodModRules.h"
+#include "BloodModExplosions.h"
+#include "BloodModLasers.h"
+#include "BloodModObjectFX.h"
+#include "BloodModPickups.h"
 #include "BloodModAI.h"
 #include "BloodModStrings.h"
 #include "lt1mod_registry.h"	// EqualNoCase: --load-mod's Mod\Scripts (API 7)
@@ -240,6 +244,7 @@ std::string Other(const std::string& key, const std::string& v)
 	if (key == "StartItems")		return v == "\"FLASHLIGHT\"" ? "\"MEDKIT\"" : "\"FLASHLIGHT\"";
 	if (key == "StartAmmo")		return v == "\"SHELL 20\"" ? "\"BULLET 50\"" : "\"SHELL 20\"";
 	if (key == "InitWeapons")	return v == "\"BERETTA SHOTGUN\"" ? "\"BERETTA\"" : "\"BERETTA SHOTGUN\"";
+	if (key == "CheatWeapons")	return v == "\"SHOTGUN\"" ? "\"BERETTA\"" : "\"SHOTGUN\"";
 	if (v == "TRUE")		return "FALSE";
 	if (v == "FALSE")		return "TRUE";
 	if (v[0] == '"')		return v == "\"\"" ? "\"Mod\\Test\\value.abc\"" : "\"" + v.substr(1, v.size() - 2) + "_mod\"";
@@ -689,6 +694,10 @@ int SelfTest()
 	ProjectilesSelfTest();
 	WeaponClassesSelfTest();
 	RulesSelfTest();
+	ExplosionsSelfTest();
+	LasersSelfTest();
+	ObjectFXSelfTest();
+	PickupsSelfTest();
 	StringsSelfTest();
 	printf("passed %d, failed %d\n", g_nPass, g_nFail);
 	return g_nFail ? 1 : 0;
@@ -729,8 +738,12 @@ static int LoadMod(const char* pDir)
 		{ "Mod\\Weapons.txt",		BloodModWeapons_Load,		BloodModWeapons_Summary },
 		{ "Mod\\Characters.txt",	BloodModCharacters_Load,	BloodModCharacters_Summary },
 		{ "Mod\\Ammo.txt",			BloodModAmmo_Load,			BloodModAmmo_Summary },
+		{ "Mod\\Lasers.txt",		BloodModLasers_Load,		BloodModLasers_Summary },
+		{ "Mod\\ObjectFX.txt",	BloodModObjectFX_Load,	BloodModObjectFX_Summary },
+		{ "Mod\\Explosions.txt",		BloodModExplosions_Load,	BloodModExplosions_Summary },
 		{ "Mod\\Projectiles.txt",	BloodModProjectiles_Load,	BloodModProjectiles_Summary },
 		{ "Mod\\WeaponClasses.txt",	BloodModWeaponClasses_Load,	BloodModWeaponClasses_Summary },
+		{ "Mod\\Pickups.txt",		BloodModPickups_Load,		BloodModPickups_Summary },
 		{ "Mod\\Rules.txt",			BloodModRules_Load,			BloodModRules_Summary },
 		{ "Mod\\AI.txt",			BloodModAI_Load,			BloodModAI_Summary },
 		{ "Mod\\Commands.txt",		LT1Mod::StartCommands_Load,	LT1Mod::StartCommands_Summary },
@@ -801,7 +814,11 @@ int main(int argc, char** argv)
 	const bool bProj = argc == 4 && !strcmp(argv[2], "projectiles");
 	const bool bWC = argc == 4 && !strcmp(argv[2], "weaponclasses");
 	const bool bRules = argc == 4 && !strcmp(argv[2], "rules");
-	if ((bWeapons || bCharacters || bAI || bStrings || bAmmo || bProj || bWC || bRules) && (!strcmp(argv[1], "--dump") || !strcmp(argv[1], "--check")))
+	const bool bExp = argc == 4 && !strcmp(argv[2], "explosions");
+	const bool bLasers = argc == 4 && !strcmp(argv[2], "lasers");
+	const bool bOFX = argc == 4 && !strcmp(argv[2], "objectfx");
+	const bool bPickups = argc == 4 && !strcmp(argv[2], "pickups");
+	if ((bWeapons || bCharacters || bAI || bStrings || bAmmo || bProj || bWC || bRules || bExp || bLasers || bOFX || bPickups) && (!strcmp(argv[1], "--dump") || !strcmp(argv[1], "--check")))
 	{
 		std::map<int, std::string> retail;
 		if (bStrings && !StringsRetail(retail))
@@ -809,7 +826,7 @@ int main(int argc, char** argv)
 			fprintf(stderr, "no string module at %s (BLOOD2_CRES names another)\n", g_CResPath.c_str());
 			return 1;
 		}
-		const std::string text = bWeapons ? Dump() : bCharacters ? CharactersDump() : bAI ? AIDump() : bAmmo ? AmmoDump() : bProj ? ProjectilesDump() : bWC ? WeaponClassesDump() : bRules ? RulesDump() : StringsDump(retail);
+		const std::string text = bWeapons ? Dump() : bCharacters ? CharactersDump() : bAI ? AIDump() : bAmmo ? AmmoDump() : bProj ? ProjectilesDump() : bWC ? WeaponClassesDump() : bRules ? RulesDump() : bExp ? ExplosionsDump() : bLasers ? LasersDump() : bOFX ? ObjectFXDump() : bPickups ? PickupsDump() : StringsDump(retail);
 		if (!strcmp(argv[1], "--dump"))
 		{
 			FILE* f = fopen(argv[3], "wb");
@@ -830,6 +847,6 @@ int main(int argc, char** argv)
 		if (lf != text) { fprintf(stderr, "%s is stale: testBlood2Tables --dump %s it\n", argv[3], argv[2]); return 1; }
 		return 0;
 	}
-	fprintf(stderr, "usage: testBlood2Tables --selftest | --load-mod <dir> | --mod-dump <dir> weapons|characters <out> | --dump weapons|characters|ai|ammo|projectiles|weaponclasses|rules|strings <out> | --check weapons|characters|ai|ammo|projectiles|weaponclasses|rules|strings <file>\n");
+	fprintf(stderr, "usage: testBlood2Tables --selftest | --load-mod <dir> | --mod-dump <dir> weapons|characters <out> | --dump weapons|characters|ai|ammo|projectiles|weaponclasses|rules|explosions|lasers|objectfx|pickups|strings <out> | --check weapons|characters|ai|ammo|projectiles|weaponclasses|rules|explosions|lasers|objectfx|pickups|strings <file>\n");
 	return 2;
 }

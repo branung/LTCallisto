@@ -82,10 +82,11 @@ void TestClasses()
 			 Join(extra).c_str(), why.c_str());
 	Check(!scanned.empty() && missing.empty() && extra.empty(), b);
 #ifdef _ADD_ON
-	Check(listed.size() == 41 && listed.count("CGasGrenade") && listed.count("CFlayerPortal"),
-		  "41 with the Nightmare Levels, CGasGrenade and CFlayerPortal among them");
+	Check(listed.size() == 42 && listed.count("CGasGrenade") && listed.count("CFlayerPortal") && listed.count("CModProjectile"),
+		  "42 with the Nightmare Levels, CGasGrenade, CFlayerPortal and CModProjectile among them");
 #else
-	Check(listed.size() == 36 && !listed.count("CGasGrenade"), "36 in the base game, without the add-on's CGasGrenade");
+	Check(listed.size() == 37 && !listed.count("CGasGrenade") && listed.count("CModProjectile"),
+		  "37 in the base game, CModProjectile (71.19) among them, without the add-on's CGasGrenade");
 #endif
 	Check(BloodModProjectile_FindClass("cgrenade") == BMP_CGrenade && BloodModProjectile_FindClass("CProjectile") < 0 &&
 		  BloodModProjectile_FindClass("Grenade") < 0, "names are matched without case and whole; CProjectile is not one");
@@ -168,43 +169,84 @@ void TestMembers()
 	Unload();
 }
 
+// The class-key sweep's value for key k, of its kind.
+bool SweepIsBool(int k)
+{
+	return k == PK_BurstAfterBounces || k == PK_SpinStops || k == PK_BurstOnExpire || k == PK_BurstOnTouch ||
+		   k == PK_ExplosionAlongNormal || k == PK_AttachToHead;
+}
+std::string SweepValue(int k)
+{
+	if (k == PK_BounceCount || k == PK_ChildCount) return "2";
+	if (k == PK_GasDamageType) return "\"ACID\"";
+	if (k == PK_ExplosionType) return "\"NAPALM_PRIMARY\"";
+	if (k == PK_ExplosionSound || k == PK_LoopSound) return "\"Sounds\\Weapons\\napalm\\altimpact.wav\"";
+	if (SweepIsBool(k)) return "TRUE";
+	if (k == PK_LightColor) return "<0.5, 0.25, 1>";
+	if (k == PK_Children) return "\"CGrenade\"";
+	if (k == PK_BurstFX) return "\"FLAMING_2 FLAMING_3\"";
+	if (k == PK_ChildSideSpeedMax || k == PK_ChildAngleMax) return "200.0";	// above its Min's retail value
+	return "2.0";
+}
+
+// One case of the sweep: class c given key k. It is kept out of line, because with the cases
+// inline GCC's loop unswitching at -O3 gave the keys that have a value of their own the wrong
+// value.
+#if defined(__GNUC__) && !defined(__clang__)
+__attribute__((noinline))
+#endif
+bool SweepCase(int c, int k, int& nRefused)
+{
+	std::string err;
+	const char* key = BloodModProjectile_Key(k);
+	const bool bBool = SweepIsBool(k);
+	const bool bPath = k == PK_ExplosionSound || k == PK_LoopSound;
+	const std::string v = SweepValue(k);
+	const std::string text = std::string("[") + BloodModProjectile_Class(c) + "]\n" + key + " = " + v + "\n";
+	const bool bLoaded = LoadProjectiles(text, err);
+	bool bOk;
+	if (BloodModProjectile_Has(c, k))
+	{
+		bOk = bLoaded && BloodModProjectile_Set(c, k);
+		float col[3];
+		BloodModProjectile_Vector(c, k, col);
+		int ids[4] = { -1, -1, -1, -1 };
+		if (k == PK_BounceCount || k == PK_ChildCount) bOk = bOk && BloodModProjectile_ModInt(c, k) == 2;
+		else if (k == PK_GasDamageType) bOk = bOk && BloodModProjectile_Int(c, k) == DAMAGE_TYPE_ACID;
+		else if (k == PK_ExplosionType) bOk = bOk && BloodModProjectile_Int(c, k) == EXP_NAPALM_PRIMARY;
+		else if (bPath)
+			bOk = bOk && !strcmp(BloodModProjectile_String(c, k), "Sounds\\Weapons\\napalm\\altimpact.wav");
+		else if (bBool) bOk = bOk && BloodModProjectile_Int(c, k) == 1;
+		else if (k == PK_LightColor) bOk = bOk && col[0] == 0.5f && col[1] == 0.25f && col[2] == 1.0f;
+		else if (k == PK_Children)
+			bOk = bOk && !strcmp(BloodModProjectile_String(c, k), "CGrenade") &&
+				  BloodModProjectile_Int(c, k) == BMP_CGrenade;
+		else if (k == PK_ChildSideSpeedMax || k == PK_ChildAngleMax) bOk = bOk && BloodModProjectile_Float(c, k) == 200.0f;
+		else if (k == PK_BurstFX)
+			bOk = bOk && BloodModProjectile_FXList(c, k, ids, 4) == 2 && ids[0] == OBJFX_FLAMING_2 && ids[1] == OBJFX_FLAMING_3;
+		else bOk = bOk && BloodModProjectile_Float(c, k) == 2.0f;
+	}
+	else
+	{
+		bOk = !bLoaded && err.find(std::string("]:") + key + ": only ") != std::string::npos;
+		nRefused += bOk;
+	}
+	if (!bOk)
+		printf("        [%s] %s = %s: loaded %d, %s\n", BloodModProjectile_Class(c), key, v.c_str(), (int)bLoaded,
+			   err.c_str());
+	return bOk;
+}
+
 void TestClassKeys()
 {
 	printf("projectiles: class keys\n");
-	std::string err;
 	int nCases = 0, nBad = 0, nRefused = 0;
 	for (int k = PK_BounceCount; k < PK_COUNT; ++k)
 		for (int c = 0; c < BMP_COUNT; ++c)
 		{
-			const char* key = BloodModProjectile_Key(k);
-			std::string v = "2.0";
-			if (k == PK_BounceCount) v = "2";
-			else if (k == PK_GasDamageType) v = "\"ACID\"";
-			else if (k == PK_ExplosionType) v = "\"NAPALM_PRIMARY\"";
-			else if (k == PK_ExplosionSound) v = "\"Sounds\\Weapons\\napalm\\altimpact.wav\"";
-			const std::string text = std::string("[") + BloodModProjectile_Class(c) + "]\n" + key + " = " + v + "\n";
 			++nCases;
-			err.clear();
-			const bool bLoaded = LoadProjectiles(text, err);
-			bool bOk;
-			if (BloodModProjectile_Has(c, k))
-			{
-				bOk = bLoaded && BloodModProjectile_Set(c, k);
-				if (k == PK_BounceCount) bOk = bOk && BloodModProjectile_ModInt(c, k) == 2;
-				else if (k == PK_GasDamageType) bOk = bOk && BloodModProjectile_Int(c, k) == DAMAGE_TYPE_ACID;
-				else if (k == PK_ExplosionType) bOk = bOk && BloodModProjectile_Int(c, k) == EXP_NAPALM_PRIMARY;
-				else if (k == PK_ExplosionSound)
-					bOk = bOk && !strcmp(BloodModProjectile_String(c, k), "Sounds\\Weapons\\napalm\\altimpact.wav");
-				else bOk = bOk && BloodModProjectile_Float(c, k) == 2.0f;
-			}
-			else
-			{
-				bOk = !bLoaded && err.find(std::string("]:") + key + ": only ") != std::string::npos;
-				nRefused += bOk;
-			}
-			if (!bOk && ++nBad <= 6)
-				printf("        [%s] %s = %s: loaded %d, %s\n", BloodModProjectile_Class(c), key, v.c_str(), (int)bLoaded,
-					   err.c_str());
+			if (!SweepCase(c, k, nRefused) && ++nBad > 6)
+				break;
 		}
 	char b[200];
 	snprintf(b, sizeof(b), "%d class-only overrides: each loads on the classes that have it, and the %d on any other "
@@ -264,6 +306,99 @@ void TestErrors()
 	Unload();
 }
 
+// Mod\Projectiles.txt's new classes: a Base, its keys and values
+void TestNewClasses()
+{
+	printf("projectiles: new classes\n");
+	std::string err;
+	Unload();
+	const bool bLoaded = LoadProjectiles(
+		"[CGrenade]\nBounceCount = 2\nBurstAfterBounces = TRUE\nSpinStops = FALSE\n"
+		"[CJugGrenade]\nBase = \"CGrenade\"\nLifeTime = 1.0\n", err);
+	const int nJug = BloodModProjectile_FindClass("cjuggrenade");
+	unsigned char nD = DAMAGE_TYPE_EXPLODE;
+	float fL = 3.0f;
+	int nG = -1;
+	unsigned int dwT = OBJFX_NONE, bE = 1;
+	const int nKeys = BloodModProjectile_Apply(nJug, nD, fL, nG, dwT, bE);
+	Check(bLoaded && nJug == BMP_COUNT && BloodModProjectile_ClassCount() == BMP_COUNT + 1 &&
+		  BloodModProjectile_NewCount() == 1 && BloodModProjectile_Base(nJug) == BMP_CGrenade &&
+		  BloodModProjectile_Root(nJug) == BMP_CGrenade && !strcmp(BloodModProjectile_Class(nJug), "CJugGrenade"),
+		  "a section with a Base is a new class, after retail's, built on its Base: " + err);
+	Check(nKeys == 1 && fL == 1.0f && BloodModProjectile_ModInt(nJug, PK_BounceCount) == 2 &&
+		  BloodModProjectile_Int(nJug, PK_BurstAfterBounces) == 1 && BloodModProjectile_Int(nJug, PK_SpinStops) == 0 &&
+		  BloodModProjectile_Int(BMP_CTimeBomb, PK_BounceCount) == 0,
+		  "it takes the values the file gives its Base, then its own; another class keeps retail's");
+	Check(BloodModProjectile_Has(nJug, PK_BounceCount) && !BloodModProjectile_Has(nJug, PK_TimeDelay),
+		  "and has its Base's keys and no others");
+	Check(BloodModProjectiles_Summary() ==
+		  "CGrenade: BounceCount 2, BurstAfterBounces TRUE, SpinStops FALSE\nCJugGrenade: Base \"CGrenade\", LifeTime 1.0",
+		  "the summary names each class's own values and a new class's Base: " + BloodModProjectiles_Summary());
+	Unload();
+	Check(BloodModProjectile_ClassCount() == BMP_COUNT && BloodModProjectile_FindClass("CJugGrenade") < 0,
+		  "unloading forgets the new classes");
+
+	// A chain, its Base given after it, on the class made to be a Base.
+	const bool bChain = LoadProjectiles(
+		"[CShellFrag]\nBase = \"CShell\"\nChildCount = 0\n"
+		"[CShell]\nBase = \"CModProjectile\"\nModel = \"Models\\Ammo\\Howitzer_Round.abc\"\nChildren = \"CShellFrag\"\n"
+		"ChildCount = 8\nLightColor = <1, 0.75, 0>\nExplosionType = \"HOWITZER_ALT\"\n", err);
+	const int nFrag = BloodModProjectile_FindClass("CShellFrag"), nShell = BloodModProjectile_FindClass("CShell");
+	float col[3];
+	BloodModProjectile_Vector(nFrag, PK_LightColor, col);
+	Check(bChain && BloodModProjectile_Root(nFrag) == BMP_CModProjectile && BloodModProjectile_Base(nFrag) == nShell &&
+		  BloodModProjectile_Int(nShell, PK_ChildCount) == 8 && BloodModProjectile_Int(nFrag, PK_ChildCount) == 0 &&
+		  BloodModProjectile_Int(nShell, PK_Children) == nFrag &&
+		  !strcmp(BloodModProjectile_ModString(nFrag, PK_Model), "Models\\Ammo\\Howitzer_Round.abc") &&
+		  col[0] == 1.0f && col[1] == 0.75f && col[2] == 0.0f &&
+		  BloodModProjectile_Int(nFrag, PK_ExplosionType) == EXP_HOWITZER_ALT &&
+		  BloodModProjectile_Float(nFrag, PK_ChildSpeed) == MODPROJ_CHILD_SPEED,
+		  "a Base may be a new class given later in the file, and a class's Children may be a new one: " + err);
+	Unload();
+
+	// The look and flag keys every class takes
+	const bool bLook = LoadProjectiles("[CGrenade]\nSprite = TRUE\nModel = \"Sprites\\napalm.spr\"\nScale = 0.25\n"
+									   "AppearDelay = 0.01\nPointCollide = TRUE\nNoSliding = FALSE\nClientFX = FALSE\n", err);
+	Check(bLook && BloodModProjectile_ModInt(BMP_CGrenade, PK_Sprite) == 1 &&
+		  BloodModProjectile_ModFloat(BMP_CGrenade, PK_Scale) == 0.25f &&
+		  BloodModProjectile_ModFloat(BMP_CGrenade, PK_AppearDelay) == 0.01f &&
+		  BloodModProjectile_Set(BMP_CGrenade, PK_NoSliding) && BloodModProjectile_ModInt(BMP_CGrenade, PK_NoSliding) == 0 &&
+		  BloodModProjectile_Set(BMP_CTeslaProjectile, PK_Sprite) == false,
+		  "every class takes Sprite, Scale, AppearDelay, PointCollide, NoSliding and ClientFX: " + err);
+	Unload();
+
+	struct Bad { const char* label; const char* text; const char* expect; };
+	const Bad bad[] =
+	{
+		{ "a new class without a Base",		"[CRocket]\nLifeTime = 1.0\n",	"and a new class needs a Base" },
+		{ "a Base on a retail class",			"[CGrenade]\nBase = \"CTimeBomb\"\n",	"[CGrenade]:Base: CGrenade is a retail class" },
+		{ "a Base there is not",				"[CRocket]\nBase = \"CMissile\"\n",	"\"CMissile\" is not a projectile class" },
+		{ "Bases in a ring",					"[CA]\nBase = \"CB\"\n[CB]\nBase = \"CA\"\n",	"its Bases come back to it" },
+		{ "a key its Base has not",			"[CRocket]\nBase = \"CGrenade\"\nTimeDelay = 1.0\n",
+												"only CTimeBomb has it, and a new class has its Base's keys" },
+		{ "Children there is not",				"[CRocket]\nBase = \"CModProjectile\"\nChildren = \"CNone\"\n",
+												"[CRocket]:Children: \"CNone\" is not a projectile class" },
+		{ "too many children",					"[CRocket]\nBase = \"CModProjectile\"\nChildCount = 65\n",	"ChildCount is out of range" },
+		{ "a colour above 1",					"[CRocket]\nBase = \"CModProjectile\"\nLightColor = <2, 0, 0>\n",	"LightColor is out of range" },
+		{ "a min above its max",				"[CRocket]\nBase = \"CModProjectile\"\nChildAngleMin = 160\n",
+												"[CRocket]: ChildAngleMin is above ChildAngleMax" },
+		{ "an angle past a turn",				"[CModProjectile]\nChildAngleMax = 400\n",	"ChildAngleMax is out of range" },
+#ifdef _ADD_ON
+		{ "a BurstFX there is not",			"[CGasGrenade]\nBurstFX = \"FLAMING_2 SPARKLE\"\n",
+												"[CGasGrenade]:BurstFX: \"SPARKLE\" is not an OBJFX_ name" },
+#endif
+	};
+	for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); ++i)
+	{
+		err.clear();
+		const bool bBad = LoadProjectiles(bad[i].text, err);
+		Check(!bBad && BloodModProjectile_ClassCount() == BMP_COUNT && Differ().empty() &&
+			  err.find(bad[i].expect) != std::string::npos,
+			  std::string(bad[i].label) + " loads nothing: " + err);
+	}
+	Unload();
+}
+
 } // namespace
 
 std::string ProjectilesDump()
@@ -288,6 +423,10 @@ std::string ProjectilesDump()
 		"//     [CGrenade]\n"
 		"//     LifeTime = 2.0\n"
 		"//\n"
+		"// A section named after no class is a new one, with Base = the class\n"
+		"// it is built on, retail's or the file's; it has that class's keys.\n"
+		"// CModProjectile is a class made to be a Base, every value a key.\n"
+		"//\n"
 		"// Blood2/ObjectDLL/BloodModProjectiles.h has the rest.\n"
 		+ BloodModProjectiles_Reference();
 }
@@ -302,4 +441,5 @@ void ProjectilesSelfTest()
 	TestClassKeys();
 	TestRoundTrip();
 	TestErrors();
+	TestNewClasses();
 }

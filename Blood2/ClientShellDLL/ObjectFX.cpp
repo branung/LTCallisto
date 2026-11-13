@@ -13,6 +13,22 @@
 #include "cpp_client_de.h"
 #include "ClientUtilities.h"
 #include "BloodClientShell.h"
+#include "BloodModObjectFX.h"		// Mod\ObjectFX.txt
+
+#include <set>
+
+// BloodModObjectFX.cpp names these by the values ObjectFX.h gives them, since
+// Shared cannot include a client header: a renumbering here must go there.
+static_assert(OBJPSFX_EMITLOCATION == 0 && OBJPSFX_EMITRING == 1 && OBJPSFX_EMITSPHERE == 2 &&
+			  OBJPSFX_EMITCYLINDER == 3 && OBJPSFX_EMITFILLEDRING == 4 && OBJPSFX_EMITFILLEDSPHERE == 5 &&
+			  OBJPSFX_EMITFILLEDCYLINDER == 6 && OBJPSFX_EMITCOMETTAIL == 7 && OBJPSFX_EMITPOWERRING == 8,
+			  "BloodModObjectFX.cpp's emit types");
+static_assert(OBJPSFX_RAMPALPHA == 0x01 && OBJPSFX_RAMPVELOCITY == 0x02 && OBJPSFX_RAMPNUMPARTICLES == 0x04 &&
+			  OBJPSFX_RAMPROTATION == 0x08 && OBJPSFX_RAMPPOSRADIUS == 0x10, "BloodModObjectFX.cpp's ramp flags");
+static_assert(OBJPSFX_REMOVESTOPPED == 0x01 && OBJPSFX_RAMPDOWNSTOPPED == 0x02 && OBJPSFX_MOVINGSOURCE == 0x04 &&
+			  OBJPSFX_MOVINGSTREAM == 0x08 && OBJPSFX_ROTATINGSOURCE == 0x10 && OBJPSFX_ALIGNROTATION == 0x20 &&
+			  OBJPSFX_SMOOTHSTOP == 0x03 && OBJPSFX_STREAMING == 0x0C && OBJPSFX_FREEROTATION == 0x30 &&
+			  OBJPSFX_ALL == 0xFF, "BloodModObjectFX.cpp's particle flags");
 
 // ----------------------------------------------------------------------- //
 //
@@ -664,6 +680,84 @@ DBOOL CObjectGeneralFX::Init(SFXCREATESTRUCT* psfxCreateStruct)
 	m_nFXFlags		= pOFXCS->nFXFlags;
 
 	return DTRUE;
+}
+
+// ----------------------------------------------------------------------- //
+//
+//	ROUTINE:	ApplyModObjectFX
+//
+//	PURPOSE:	A mod's recipe for this effect at this detail level, over
+//				retail's (Mod\ObjectFX.txt, BloodModObjectFX.h): the fields
+//				it names replace retail's, or with Replace it starts from an
+//				empty recipe that keeps only the objects retail's case set.
+//
+// ----------------------------------------------------------------------- //
+
+static void ApplyModObjectFX(CClientDE* pClientDE, OBJECTPARTICLEFXCS& ops, int nFXType, int nLevel)
+{
+	const BloodModObjFXRecipe* r = BloodModObjectFX_Recipe(nFXType, nLevel);
+	if (!r) return;
+
+	// Once per effect and level: proof the client used a mod's recipe.
+	static std::set<int> s_Told;
+	if (s_Told.insert(nFXType * 4 + nLevel).second)
+	{
+		int nSet = 0;
+		for (int f = 0; f < BMO_FIELDS; ++f) nSet += r->bSet[f] ? 1 : 0;
+		pClientDE->CPrint("Mod\\ObjectFX.txt: object effect %d at detail %d: %d field%s %s", nFXType, nLevel, nSet,
+						  nSet == 1 ? "" : "s", r->bReplace ? "instead of retail's recipe" : "over retail's");
+	}
+
+	if (r->bReplace)
+	{
+		OBJECTPARTICLEFXCS fresh;
+		fresh.hServerObj	= ops.hServerObj;
+		fresh.hObj			= ops.hObj;
+		if (ops.szParticle) pClientDE->FreeString(ops.szParticle);
+		ops = fresh;
+	}
+
+	const bool* s = r->bSet;
+	// A range is drawn as retail draws one, GetRandom(lo, hi); a number is
+	// itself.
+	#define DRAW(f, i)	(r->lo[f][i] == r->hi[f][i] ? r->lo[f][i] : GetRandom(r->lo[f][i], r->hi[f][i]))
+	#define VEC(f, m)	if (s[f]) { VEC_SET(ops.m, DRAW(f, 0), DRAW(f, 1), DRAW(f, 2)); }
+	#define NUM(f, m)	if (s[f]) ops.m = DRAW(f, 0);
+	// Not WORD: Windows defines that, and Blood 2 builds with /we4005.
+	#define SETWORD(f, m)	if (s[f]) ops.m = (DDWORD)r->n[f];
+	VEC(BMO_OFFSET, vOffset)
+	NUM(BMO_RAMPUPTIME, fRampUpTime)
+	NUM(BMO_RAMPDOWNTIME, fRampDownTime)
+	NUM(BMO_DURATION, fDuration)
+	NUM(BMO_ADDDELAY, fAddDelay)
+	NUM(BMO_RADIUS, fRadius)
+	NUM(BMO_GRAVITY, fGravity)
+	VEC(BMO_ROTATIONS, vRotations)
+	NUM(BMO_POSRADIUS, fPosRadius)
+	SETWORD(BMO_EMITTYPE, nEmitType)
+	SETWORD(BMO_NUMPARTICLES, nNumParticles)
+	NUM(BMO_DENSITY, fDensity)
+	NUM(BMO_ALPHA, fAlpha)
+	VEC(BMO_MINCOLOR, vMinColor)
+	VEC(BMO_MAXCOLOR, vMaxColor)
+	NUM(BMO_MINVELOCITY, fMinVelocity)
+	NUM(BMO_MAXVELOCITY, fMaxVelocity)
+	NUM(BMO_MINLIFETIME, fMinLifetime)
+	NUM(BMO_MAXLIFETIME, fMaxLifetime)
+	SETWORD(BMO_RAMPUPTYPE, nRampUpType)
+	SETWORD(BMO_RAMPDOWNTYPE, nRampDownType)
+	SETWORD(BMO_FXFLAGS, nFXFlags)
+	#undef DRAW
+	#undef VEC
+	#undef NUM
+	#undef SETWORD
+	if (s[BMO_PARTICLE])
+	{
+		// The effect takes the string over (CObjectParticleFX::Init), so the
+		// one retail's case made is freed here, never by both.
+		if (ops.szParticle) pClientDE->FreeString(ops.szParticle);
+		ops.szParticle = r->sParticle.empty() ? DNULL : pClientDE->CreateString((char*)r->sParticle.c_str());
+	}
 }
 
 // ----------------------------------------------------------------------- //
@@ -3755,6 +3849,10 @@ DBOOL CObjectGeneralFX::CreateObject(CClientDE *pClientDE)
 			}
 		}
 	}
+
+	// Mod\ObjectFX.txt, before the server's own flags and scale, which apply to a mod's recipe as to
+	// retail's
+	ApplyModObjectFX(pClientDE, ops, (int)m_nFXType, detail >= 2 ? 2 : (detail == 1 ? 1 : 0));
 
 	// Should we override the default flags?
 	if(m_nFXFlags)	ops.nFXFlags = m_nFXFlags;

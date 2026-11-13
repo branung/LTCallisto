@@ -62,6 +62,11 @@
 //     HitFragments      a melee weapon's (MELEE, or a new weapon on it):
 //                       every hit throws fragments; retail FALSE
 //
+// CWeapon::FireVector's, for every weapon that fires a vector:
+//
+//     Tracer            a LASER_ name without the prefix (Mod\Lasers.txt
+//                       draws it), or NONE: retail NONE for every weapon
+//
 // [Options] Trace = TRUE in Mod\AI.txt prints, the first time each weapon is made, its
 // constructor's values and the mod's. A key on a weapon that has not got it, an unknown name or a
 // number below 0 loads nothing.
@@ -81,6 +86,7 @@ enum BloodModWeaponClassKey
 	WK_HandExplosionType, WK_HandExplosionSound, WK_HandExplosionSoundRadius,	// PROXIMITYBOMB, TIMEBOMB
 	WK_MuzzleSmoke, WK_MuzzleLight, WK_Fragments,						// every weapon
 	WK_HitFragments,													// a melee weapon
+	WK_Tracer,															// every weapon
 	WK_COUNT
 };
 
@@ -102,6 +108,8 @@ int BloodModWeaponClass_HandExplosionType(int nWeapon);
 const char* BloodModWeaponClass_HandExplosionSound(int nWeapon);
 float BloodModWeaponClass_HandExplosionSoundRadius(int nWeapon);
 bool BloodModWeaponClass_Flag(int nWeapon, int nKey);		// MuzzleSmoke .. HitFragments
+// The LASER_ id a weapon's every shot draws from its muzzle to what it hits, or -1: retail none
+int BloodModWeaponClass_Tracer(int nWeapon);
 
 // A value as the file writes it, for the trace.
 std::string BloodModWeaponClass_Format(int nKey, float f, int n, const char* s);

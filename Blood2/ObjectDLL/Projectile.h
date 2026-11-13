@@ -43,6 +43,15 @@ class CProjectile : public DEBaseClass
 		// ModApplyClass, and appends its constructor's value to *pCtor first when tracing.
 		void          ModApply(ObjectCreateStruct *pStruct);
 		virtual int   ModApplyClass(int nClass, std::string* pCtor) { return 0; }
+		// The class Mod\Projectiles.txt knows this object as: its own, or a mod's new class built on
+		// it, whose constants it reads. nNative until MID_PRECREATE has asked.
+		int           ModClass(int nNative) const { return m_nModClass >= 0 ? m_nModClass : nNative; }
+		int           m_nModClass;
+		// AppearDelay: unseen until m_fAppearStart + m_fAppearDelay, then drawn at m_vAppearScale, for
+		// any class (EngineMessageFn)
+		DVector       m_vAppearScale;
+		DFLOAT        m_fAppearDelay;
+		DFLOAT        m_fAppearStart;
 		virtual DBOOL InitialUpdate(DVector* pMovement);
 		virtual DBOOL Update(DVector* pMovement);
 		virtual void  HandleTouch(HOBJECT hObj);

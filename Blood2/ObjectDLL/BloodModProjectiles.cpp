@@ -5,6 +5,7 @@
 #include "SFXMsgIds.h"
 #include "ProjectileConstants.h"
 #include "BloodModProjectiles.h"
+#include "BloodModExplosions.h"
 #include "BloodModAI.h"			// the OBJFX_ names, which the AI's death table shares
 #include "BloodModTable.h"		// PrintWrapped, DF
 
@@ -33,13 +34,15 @@ const char* const kClasses[BMP_COUNT] =
 #undef X
 };
 
-enum Kind { PF_FLOAT, PF_INT, PF_BOOL, PF_DAMAGE, PF_OBJFX, PF_EXP, PF_PATH };
+enum Kind { PF_FLOAT, PF_INT, PF_BOOL, PF_DAMAGE, PF_OBJFX, PF_EXP, PF_PATH, PF_COLOR, PF_CLASS, PF_OBJFXLIST };
 
 struct Key { const char* pName; Kind eKind; };
 const Key kKeys[PK_COUNT] =
 {
 	{ "DamageType", PF_DAMAGE }, { "LifeTime", PF_FLOAT }, { "Gravity", PF_BOOL }, { "TrailFX", PF_OBJFX },
-	{ "Explosion", PF_BOOL },
+	{ "Explosion", PF_BOOL }, { "Model", PF_PATH }, { "Skin", PF_PATH },
+	{ "Sprite", PF_BOOL }, { "Scale", PF_FLOAT }, { "AppearDelay", PF_FLOAT }, { "PointCollide", PF_BOOL },
+	{ "NoSliding", PF_BOOL }, { "ClientFX", PF_BOOL },
 	{ "BounceCount", PF_INT }, { "TimeDelay", PF_FLOAT },
 	{ "SmokeTime", PF_FLOAT }, { "GasDamage", PF_FLOAT }, { "GasDamageRadius", PF_FLOAT },
 	{ "GasDamageDelay", PF_FLOAT }, { "GasDamageType", PF_DAMAGE },
@@ -47,13 +50,22 @@ const Key kKeys[PK_COUNT] =
 	{ "AttractTime", PF_FLOAT }, { "SearchRange", PF_FLOAT }, { "ChainInterval", PF_FLOAT },
 	{ "ExplosionType", PF_EXP }, { "ExplosionSound", PF_PATH }, { "ExplosionSoundRadius", PF_FLOAT },
 	{ "FlySoundRadius", PF_FLOAT },
+	{ "BurstAfterBounces", PF_BOOL }, { "SpinStops", PF_BOOL },
+	{ "LightRadius", PF_FLOAT }, { "LightColor", PF_COLOR },
+	{ "LoopSound", PF_PATH }, { "LoopSoundRadius", PF_FLOAT },
+	{ "Children", PF_CLASS }, { "ChildCount", PF_INT }, { "ChildDamage", PF_FLOAT }, { "ChildRadius", PF_FLOAT },
+	{ "ChildSpeed", PF_FLOAT }, { "ChildSideSpeedMin", PF_FLOAT }, { "ChildSideSpeedMax", PF_FLOAT },
+	{ "ChildAngleMin", PF_FLOAT }, { "ChildAngleMax", PF_FLOAT },
+	{ "BurstOnExpire", PF_BOOL }, { "BurstOnTouch", PF_BOOL }, { "BurstFX", PF_OBJFXLIST },
+	{ "ExplosionAlongNormal", PF_BOOL }, { "AttachToHead", PF_BOOL },
 };
+const int kMaxChildren = 64;
 const int kFirstClassKey = PK_BounceCount;		// below it, every class has the key
 const int kFirstConstant = PK_SmokeTime;		// from it, retail's value is here
 
 // The keys some classes have, and retail's value for a class constant (a
 // member's is its constructor's, so none).
-struct ClassKey { int nClass; int nKey; float f; int n; const char* s; };
+struct ClassKey { int nClass; int nKey; float f; int n; const char* s; float v[3]; };
 const ClassKey kClassKeys[] =
 {
 	{ BMP_CGrenade, PK_BounceCount, 0, 0, 0 },
@@ -74,6 +86,28 @@ const ClassKey kClassKeys[] =
 	{ BMP_CRemoteBomb, PK_ExplosionSound, 0, 0, REMOTEBOMB_EXPLOSION_SOUND },
 	{ BMP_CRemoteBomb, PK_ExplosionSoundRadius, BOMB_EXPLOSION_SOUND_RADIUS, 0, 0 },
 	{ BMP_CSkullProjectile, PK_FlySoundRadius, SKULL_FLY_SOUND_RADIUS, 0, 0 },
+	{ BMP_CGrenade, PK_BurstAfterBounces, 0, 0, 0 },
+	{ BMP_CGrenade, PK_SpinStops, 0, 1, 0 },
+	{ BMP_CSingularityProjectile, PK_ExplosionType, 0, SINGULARITY_EXPLOSION, 0 },
+	{ BMP_CSingularityProjectile, PK_ExplosionSound, 0, 0, SINGULARITY_EXPLOSION_SOUND },
+	{ BMP_CSingularityProjectile, PK_ExplosionSoundRadius, SINGULARITY_EXPLOSION_SOUND_RADIUS, 0, 0 },
+	{ BMP_CModProjectile, PK_LightRadius, 0.0f, 0, 0 },
+	{ BMP_CModProjectile, PK_LightColor, 0, 0, 0, { 1.0f, 1.0f, 1.0f } },
+	{ BMP_CModProjectile, PK_LoopSound, 0, 0, "" },
+	{ BMP_CModProjectile, PK_LoopSoundRadius, MODPROJ_LOOP_SOUND_RADIUS, 0, 0 },
+	{ BMP_CModProjectile, PK_ExplosionType, 0, MODPROJ_EXPLOSION, 0 },
+	{ BMP_CModProjectile, PK_ExplosionSound, 0, 0, MODPROJ_EXPLOSION_SOUND },
+	{ BMP_CModProjectile, PK_ExplosionSoundRadius, MODPROJ_EXPLOSION_SOUND_RADIUS, 0, 0 },
+	{ BMP_CModProjectile, PK_Children, 0, -1, "" },
+	{ BMP_CModProjectile, PK_ChildCount, 0, 0, 0 },
+	{ BMP_CModProjectile, PK_ChildDamage, 1.0f, 0, 0 },
+	{ BMP_CModProjectile, PK_ChildRadius, 1.0f, 0, 0 },
+	{ BMP_CModProjectile, PK_ChildSpeed, MODPROJ_CHILD_SPEED, 0, 0 },
+	{ BMP_CModProjectile, PK_ChildSideSpeedMin, MODPROJ_CHILD_SIDE_MIN, 0, 0 },
+	{ BMP_CModProjectile, PK_ChildSideSpeedMax, MODPROJ_CHILD_SIDE_MAX, 0, 0 },
+	{ BMP_CModProjectile, PK_ChildAngleMin, MODPROJ_CHILD_ANGLE_MIN, 0, 0 },
+	{ BMP_CModProjectile, PK_ChildAngleMax, MODPROJ_CHILD_ANGLE_MAX, 0, 0 },
+	{ BMP_COrbProjectile, PK_AttachToHead, 0, 0, 0 },
 #ifdef _ADD_ON
 	{ BMP_CGasGrenade, PK_BounceCount, 0, 0, 0 },
 	{ BMP_CRockProjectile, PK_BounceCount, 0, 0, 0 },
@@ -84,12 +118,38 @@ const ClassKey kClassKeys[] =
 	{ BMP_CGasGrenade, PK_GasDamageType, 0, DAMAGE_TYPE_NORMAL, 0 },
 	{ BMP_CFlayerPortal, PK_SearchRange, FLAYER_ALT_SEARCH_RANGE, 0, 0 },
 	{ BMP_CFlayerPortal, PK_ChainInterval, FLAYER_ALT_CHAIN_INTERVAL, 0, 0 },
+	{ BMP_CGasGrenade, PK_BurstAfterBounces, 0, 0, 0 },
+	{ BMP_CGasGrenade, PK_SpinStops, 0, 1, 0 },
+	{ BMP_CGasGrenade, PK_LoopSound, 0, 0, GAS_GRENADE_LOOP_SOUND },
+	{ BMP_CGasGrenade, PK_LoopSoundRadius, GAS_GRENADE_LOOP_SOUND_RADIUS, 0, 0 },
+	{ BMP_CGasGrenade, PK_ExplosionType, 0, GAS_GRENADE_EXPLOSION, 0 },
+	{ BMP_CGasGrenade, PK_ExplosionSound, 0, 0, GAS_GRENADE_EXPLOSION_SOUND },
+	{ BMP_CGasGrenade, PK_ExplosionSoundRadius, GAS_GRENADE_EXPLOSION_SOUND_RADIUS, 0, 0 },
+	{ BMP_CGasGrenade, PK_ExplosionAlongNormal, 0, 0, 0 },
+	{ BMP_CGasGrenade, PK_BurstOnExpire, 0, 1, 0 },
+	{ BMP_CGasGrenade, PK_BurstOnTouch, 0, 0, 0 },
+	{ BMP_CGasGrenade, PK_BurstFX, 0, 0, "" },
 #endif
 };
 const int kNumClassKeys = (int)(sizeof(kClassKeys) / sizeof(kClassKeys[0]));
 
+// A mod's new classes: name and Base, an index into the whole list
+struct NewClass { std::string name; int nBase; };
+std::vector<NewClass> g_New;
+
+int RootOf(int nClass)
+{
+	for (int i = 0; i <= BLOODMOD_PROJECTILE_MAX_NEW && nClass >= BMP_COUNT; ++i)
+	{
+		const size_t n = (size_t)(nClass - BMP_COUNT);
+		nClass = n < g_New.size() ? g_New[n].nBase : -1;
+	}
+	return nClass >= 0 && nClass < BMP_COUNT ? nClass : -1;
+}
+
 const ClassKey* FindClassKey(int nClass, int nKey)
 {
+	nClass = RootOf(nClass);
 	for (int i = 0; i < kNumClassKeys; ++i)
 		if (kClassKeys[i].nClass == nClass && kClassKeys[i].nKey == nKey) return &kClassKeys[i];
 	return 0;
@@ -100,24 +160,8 @@ const char* const kDamage[] = { "NORMAL", "FIRE", "FREEZE", "SINGULARITY", "MELE
 								"FREEFALL", "BLIND", "SLOW", "DROPWEAPON", "VISION", "ELECTRIC", "ACID", "LEECH" };
 const int kNumDamage = (int)(sizeof(kDamage) / sizeof(kDamage[0]));
 
-// SFXMsgIds.h's EXP_ values, by name without the prefix (ModScript.cpp's
-// mod.explode takes the same).
-struct Exp { const char* pName; int nId; };
-#define E(n) { #n, EXP_##n },
-const Exp kExp[] =
-{
-	E(DEFAULT_SMALL) E(DEFAULT_MEDIUM) E(DEFAULT_LARGE) E(GRENADE) E(NAPALM_PRIMARY) E(NAPALM_ALT)
-	E(NAPALM_FIREBALL) E(TESLA_PRIMARY) E(TESLA_ALT) E(HOWITZER_PRIMARY) E(HOWITZER_ALT) E(HOWITZER_MINI)
-	E(FLAME_SMALL) E(FLARE_FIZZLE) E(FLARE_BURST) E(FLARE_FRAG) E(LIFELEECH_PRIMARY) E(LIFELEECH_ALT)
-	E(SINGULARITY_PRIMARY) E(SHOCKBALL) E(SHOCKBALL_LARGE) E(ORB_BREAK) E(DIVINE_SHOCKBALL) E(RIFT_1)
-	E(RIFT_2) E(DEATHRAY_PRIMARY) E(BUGSPRAY_PRIMARY) E(BUGSPRAY_ALT) E(NAGA_EYE_BEAM) E(NAGA_SPIKE)
-	E(NAGA_STONE_CHUNK) E(NAGA_POUND_GROUND)
-#ifdef _ADD_ON
-	E(GAS_GRENADE) E(FLAYER_PRIMARY) E(FLAYER_ALT) E(FLAYER_RETRACT) E(FLAYER_SHATTER)
-#endif
-};
-#undef E
-const int kNumExp = (int)(sizeof(kExp) / sizeof(kExp[0]));
+// The EXP_ names, retail's and a mod's new ones (Mod\Explosions.txt): the shared list in
+// Shared/BloodModExplosions.h
 
 int FindName(const char* pName, int nKind)
 {
@@ -128,8 +172,7 @@ int FindName(const char* pName, int nKind)
 	}
 	if (nKind == PF_EXP)
 	{
-		for (int i = 0; i < kNumExp; ++i) if (EqualNoCase(kExp[i].pName, pName)) return kExp[i].nId;
-		return -1;
+		return BloodModExplosion_Find(pName);
 	}
 	if (EqualNoCase(pName, "NONE")) return OBJFX_NONE;
 	return BloodModAI_ObjFX(pName);
@@ -140,21 +183,28 @@ const char* NameOf(int nKind, int n)
 	if (nKind == PF_DAMAGE) return n >= 0 && n < kNumDamage ? kDamage[n] : 0;
 	if (nKind == PF_EXP)
 	{
-		for (int i = 0; i < kNumExp; ++i) if (kExp[i].nId == n) return kExp[i].pName;
-		return 0;
+		return BloodModExplosion_Name(n);
 	}
 	return n == OBJFX_NONE ? "NONE" : BloodModAI_ObjFXName(n);
 }
 
-struct Value { bool bSet; float f; int n; std::string s; };
+struct Value { bool bSet; float f; int n; std::string s; float v[3]; };
 std::vector<std::vector<Value> > g_Mod;		// [class][key], empty with no mod
 std::set<int> g_Traced;
 
+// The class's own value, or the one its Base has from the mod.
 const Value* ModValue(int nClass, int nKey)
 {
-	if (g_Mod.empty() || nClass < 0 || nClass >= BMP_COUNT || nKey < 0 || nKey >= PK_COUNT) return 0;
-	const Value& v = g_Mod[(size_t)nClass][(size_t)nKey];
-	return v.bSet ? &v : 0;
+	if (nKey < 0 || nKey >= PK_COUNT) return 0;
+	for (int i = 0; i <= BLOODMOD_PROJECTILE_MAX_NEW && nClass >= 0 && (size_t)nClass < g_Mod.size(); ++i)
+	{
+		const Value& v = g_Mod[(size_t)nClass][(size_t)nKey];
+		if (v.bSet) return &v;
+		if (nClass < BMP_COUNT) return 0;
+		const size_t n = (size_t)(nClass - BMP_COUNT);
+		nClass = n < g_New.size() ? g_New[n].nBase : -1;
+	}
+	return 0;
 }
 
 std::string ValueText(int nKey, const Value& v)
@@ -163,26 +213,40 @@ std::string ValueText(int nKey, const Value& v)
 	if (k == PF_FLOAT) return BloodMod::DF(v.f);
 	if (k == PF_INT) return std::to_string(v.n);
 	if (k == PF_BOOL) return v.n ? "TRUE" : "FALSE";
-	if (k == PF_PATH) return "\"" + v.s + "\"";
+	if (k == PF_PATH || k == PF_CLASS || k == PF_OBJFXLIST) return "\"" + v.s + "\"";
+	if (k == PF_COLOR) return "<" + BloodMod::DF(v.v[0]) + ", " + BloodMod::DF(v.v[1]) + ", " + BloodMod::DF(v.v[2]) + ">";
 	const char* p = NameOf(k, v.n);
 	return std::string("\"") + (p ? p : "?") + "\"";
 }
 
 } // namespace
 
-const char* BloodModProjectile_Class(int nClass)	{ return nClass >= 0 && nClass < BMP_COUNT ? kClasses[nClass] : 0; }
+int BloodModProjectile_ClassCount()				{ return BMP_COUNT + (int)g_New.size(); }
+int BloodModProjectile_NewCount()					{ return (int)g_New.size(); }
+const char* BloodModProjectile_Class(int nClass)
+{
+	if (nClass >= 0 && nClass < BMP_COUNT) return kClasses[nClass];
+	const size_t n = (size_t)(nClass - BMP_COUNT);
+	return nClass >= BMP_COUNT && n < g_New.size() ? g_New[n].name.c_str() : 0;
+}
+int BloodModProjectile_Base(int nClass)
+{
+	const size_t n = (size_t)(nClass - BMP_COUNT);
+	return nClass >= BMP_COUNT && n < g_New.size() ? g_New[n].nBase : -1;
+}
+int BloodModProjectile_Root(int nClass)				{ return RootOf(nClass); }
 const char* BloodModProjectile_Key(int nKey)		{ return nKey >= 0 && nKey < PK_COUNT ? kKeys[nKey].pName : 0; }
 
 int BloodModProjectile_FindClass(const char* pName)
 {
-	for (int i = 0; pName && i < BMP_COUNT; ++i)
-		if (EqualNoCase(kClasses[i], pName)) return i;
+	for (int i = 0; pName && i < BloodModProjectile_ClassCount(); ++i)
+		if (EqualNoCase(BloodModProjectile_Class(i), pName)) return i;
 	return -1;
 }
 
 bool BloodModProjectile_Has(int nClass, int nKey)
 {
-	if (nClass < 0 || nClass >= BMP_COUNT || nKey < 0 || nKey >= PK_COUNT) return false;
+	if (RootOf(nClass) < 0 || nKey < 0 || nKey >= PK_COUNT) return false;
 	return nKey < kFirstClassKey || FindClassKey(nClass, nKey) != 0;
 }
 
@@ -191,7 +255,8 @@ float BloodModProjectile_ModFloat(int nClass, int nKey)			{ const Value* v = Mod
 int BloodModProjectile_ModInt(int nClass, int nKey)				{ const Value* v = ModValue(nClass, nKey); return v ? v->n : 0; }
 const char* BloodModProjectile_ModString(int nClass, int nKey)
 {
-	const Value* v = kKeys[nKey < 0 || nKey >= PK_COUNT ? 0 : nKey].eKind == PF_PATH ? ModValue(nClass, nKey) : 0;
+	const int k = kKeys[nKey < 0 || nKey >= PK_COUNT ? 0 : nKey].eKind;
+	const Value* v = k == PF_PATH || k == PF_CLASS || k == PF_OBJFXLIST ? ModValue(nClass, nKey) : 0;
 	return v ? v->s.c_str() : "";
 }
 
@@ -211,10 +276,34 @@ int BloodModProjectile_Int(int nClass, int nKey)
 
 const char* BloodModProjectile_String(int nClass, int nKey)
 {
-	if (nKey < 0 || nKey >= PK_COUNT || kKeys[nKey].eKind != PF_PATH) return "";
+	if (nKey < 0 || nKey >= PK_COUNT ||
+		(kKeys[nKey].eKind != PF_PATH && kKeys[nKey].eKind != PF_CLASS && kKeys[nKey].eKind != PF_OBJFXLIST)) return "";
 	if (const Value* v = ModValue(nClass, nKey)) return v->s.c_str();
 	const ClassKey* c = FindClassKey(nClass, nKey);
 	return c && c->s ? c->s : "";
+}
+
+int BloodModProjectile_FXList(int nClass, int nKey, int* pOut, int nMax)
+{
+	const std::string list = BloodModProjectile_String(nClass, nKey);
+	int n = 0;
+	size_t i = 0;
+	while (i < list.size() && n < nMax)
+	{
+		const size_t j = list.find(' ', i);
+		const std::string name = list.substr(i, j == std::string::npos ? std::string::npos : j - i);
+		i = j == std::string::npos ? list.size() : j + 1;
+		const int id = name.empty() ? -1 : BloodModAI_ObjFX(name.c_str());
+		if (id >= 0) pOut[n++] = id;
+	}
+	return n;
+}
+
+void BloodModProjectile_Vector(int nClass, int nKey, float out[3])
+{
+	const Value* v = ModValue(nClass, nKey);
+	const ClassKey* c = v ? 0 : FindClassKey(nClass, nKey);
+	for (int i = 0; i < 3; ++i) out[i] = v ? v->v[i] : c ? c->v[i] : 0.0f;
 }
 
 int BloodModProjectile_Apply(int nClass, unsigned char& nDamageType, float& fLifeTime, int& nGravity,
@@ -242,6 +331,7 @@ bool BloodModProjectile_FirstOfClass(int nClass)	{ return g_Traced.insert(nClass
 void BloodModProjectiles_Clear()
 {
 	g_Mod.clear();
+	g_New.clear();
 	g_Traced.clear();
 }
 
@@ -263,28 +353,107 @@ bool BloodModProjectiles_Load(LT1Mod::FileSource &src, std::string &sError)
 		return false;
 	}
 
-	// Built in scratch and committed only if the whole file is good.
-	std::vector<std::vector<Value> > mod((size_t)BMP_COUNT, std::vector<Value>((size_t)PK_COUNT));
-	for (size_t c = 0; c < mod.size(); ++c)
-		for (size_t k = 0; k < mod[c].size(); ++k) { mod[c][k].bSet = false; mod[c][k].f = 0.0f; mod[c][k].n = 0; }
+	// Built in scratch and committed only if the whole file is good.  The new
+	// classes go in at once, so that the checks below see them; a bad file
+	// puts the old ones back.
 	char buf[512];
-
 	const std::vector<std::string>& tags = a.Tags();
+	std::vector<NewClass> added;
+	std::vector<std::string> bases;
+	for (size_t t = 0; t < tags.size(); ++t)
+	{
+		const char* tag = tags[t].c_str();
+		const bool bNative = BloodModProjectile_FindClass(tag) >= 0 && BloodModProjectile_FindClass(tag) < BMP_COUNT;
+		const std::string before = a.Error();
+		const std::string sBase = a.GetString(tag, "Base", "");
+		if (a.Error() != before)
+		{
+			sError = std::string(kPath) + ": " + a.Error();
+			return false;
+		}
+		if (bNative && !sBase.empty())
+		{
+			snprintf(buf, sizeof(buf), "%s: [%s]:Base: %s is a retail class, with code of its own; Base makes a new "
+					 "class, under a name no class has", kPath, tag, tag);
+			sError = buf;
+			return false;
+		}
+		if (bNative)
+			continue;
+		if (sBase.empty())
+		{
+			snprintf(buf, sizeof(buf), "%s: [%s] is not a Blood 2 projectile class (a weapon's ProjectileClass: "
+					 "CGrenade, CTeslaProjectile, ...; Blood2/ModReference/Projectiles.txt lists them), and a new "
+					 "class needs a Base", kPath, tag);
+			sError = buf;
+			return false;
+		}
+		for (size_t i = 0; i < added.size(); ++i)
+			if (EqualNoCase(added[i].name.c_str(), tag))
+			{
+				snprintf(buf, sizeof(buf), "%s: [%s] is given twice", kPath, tag);
+				sError = buf;
+				return false;
+			}
+		if (added.size() >= (size_t)BLOODMOD_PROJECTILE_MAX_NEW)
+		{
+			snprintf(buf, sizeof(buf), "%s: [%s]: at most %d new classes", kPath, tag, BLOODMOD_PROJECTILE_MAX_NEW);
+			sError = buf;
+			return false;
+		}
+		NewClass nc;
+		nc.name = tag;
+		nc.nBase = -1;
+		added.push_back(nc);
+		bases.push_back(sBase);
+	}
+
+	std::vector<NewClass> old;
+	old.swap(g_New);
+	g_New = added;
+	struct Restore
+	{
+		std::vector<NewClass>& g; std::vector<NewClass>& o; bool bKeep;
+		~Restore() { if (!bKeep) g.swap(o); }
+	} restore = { g_New, old, false };
+
+	for (size_t i = 0; i < g_New.size(); ++i)
+	{
+		g_New[i].nBase = BloodModProjectile_FindClass(bases[i].c_str());
+		if (g_New[i].nBase < 0)
+		{
+			snprintf(buf, sizeof(buf), "%s: [%s]:Base: \"%s\" is not a projectile class, retail's or this file's",
+					 kPath, g_New[i].name.c_str(), bases[i].c_str());
+			sError = buf;
+			return false;
+		}
+	}
+	for (size_t i = 0; i < g_New.size(); ++i)
+		if (RootOf(BMP_COUNT + (int)i) < 0)
+		{
+			snprintf(buf, sizeof(buf), "%s: [%s]:Base: its Bases come back to it", kPath, g_New[i].name.c_str());
+			sError = buf;
+			return false;
+		}
+
+	std::vector<std::vector<Value> > mod((size_t)BloodModProjectile_ClassCount(), std::vector<Value>((size_t)PK_COUNT));
+	for (size_t c = 0; c < mod.size(); ++c)
+		for (size_t k = 0; k < mod[c].size(); ++k)
+		{
+			Value& v = mod[c][k];
+			v.bSet = false; v.f = 0.0f; v.n = 0; v.v[0] = v.v[1] = v.v[2] = 0.0f;
+		}
+
 	for (size_t t = 0; t < tags.size(); ++t)
 	{
 		const char* tag = tags[t].c_str();
 		const int nClass = BloodModProjectile_FindClass(tag);
-		if (nClass < 0)
-		{
-			snprintf(buf, sizeof(buf), "%s: [%s] is not a Blood 2 projectile class (a weapon's ProjectileClass: "
-					 "CGrenade, CTeslaProjectile, ...; Blood2/ModReference/Projectiles.txt lists them)", kPath, tag);
-			sError = buf;
-			return false;
-		}
 		const std::vector<std::string> keys = a.Keys(tag);
 		for (size_t k = 0; k < keys.size(); ++k)
 		{
 			const char* key = keys[k].c_str();
+			if (EqualNoCase(key, "Base"))
+				continue;
 			int nKey = -1;
 			for (int i = 0; i < PK_COUNT && nKey < 0; ++i)
 				if (EqualNoCase(kKeys[i].pName, key)) nKey = i;
@@ -301,8 +470,9 @@ bool BloodModProjectiles_Load(LT1Mod::FileSource &src, std::string &sError)
 				for (int i = 0; i < kNumClassKeys; ++i)
 					if (kClassKeys[i].nKey == nKey)
 						who += std::string(who.empty() ? "" : ", ") + kClasses[kClassKeys[i].nClass];
-				snprintf(buf, sizeof(buf), "%s: [%s]:%s: only %s %s it", kPath, tag, key, who.c_str(),
-						 who.find(',') == std::string::npos ? "has" : "have");
+				snprintf(buf, sizeof(buf), "%s: [%s]:%s: only %s %s it%s", kPath, tag, key, who.c_str(),
+						 who.find(',') == std::string::npos ? "has" : "have",
+						 nClass >= BMP_COUNT ? ", and a new class has its Base's keys" : "");
 				sError = buf;
 				return false;
 			}
@@ -316,18 +486,55 @@ bool BloodModProjectiles_Load(LT1Mod::FileSource &src, std::string &sError)
 				case PF_FLOAT:
 					v.f = a.GetFloat(tag, key, 0.0f);
 					bRange = v.f >= 0.0f && v.f <= 1e30f;
+					if (nKey == PK_ChildAngleMin || nKey == PK_ChildAngleMax) bRange = bRange && v.f <= 360.0f;
 					break;
 				case PF_INT:
 					v.n = a.GetInt(tag, key, 0);
 					v.f = (float)v.n;
-					bRange = v.n >= 0;
+					bRange = v.n >= 0 && (nKey != PK_ChildCount || v.n <= kMaxChildren);
 					break;
 				case PF_BOOL:
 					v.n = a.GetBool(tag, key, false) ? 1 : 0;
 					break;
 				case PF_PATH:
+				case PF_CLASS:
 					v.s = a.GetString(tag, key, "");
 					bRange = v.s.size() <= BloodMod::Table::kMaxString;
+					if (kind == PF_CLASS && a.Error() == before && !v.s.empty() &&
+						(v.n = BloodModProjectile_FindClass(v.s.c_str())) < 0)
+					{
+						snprintf(buf, sizeof(buf), "%s: [%s]:%s: \"%s\" is not a projectile class, retail's or this "
+								 "file's", kPath, tag, key, v.s.c_str());
+						sError = buf;
+						return false;
+					}
+					if (kind == PF_CLASS && v.s.empty()) v.n = -1;
+					break;
+				case PF_OBJFXLIST:
+				{
+					// OBJFX_ names, space-separated, each one the game has.
+					v.s = a.GetString(tag, key, "");
+					bRange = v.s.size() <= BloodMod::Table::kMaxString;
+					size_t i = 0;
+					while (a.Error() == before && i < v.s.size())
+					{
+						const size_t j = v.s.find(' ', i);
+						const std::string name = v.s.substr(i, j == std::string::npos ? std::string::npos : j - i);
+						i = j == std::string::npos ? v.s.size() : j + 1;
+						if (!name.empty() && (EqualNoCase(name.c_str(), "NONE") || BloodModAI_ObjFX(name.c_str()) < 0))
+						{
+							snprintf(buf, sizeof(buf), "%s: [%s]:%s: \"%s\" is not an OBJFX_ name without the prefix",
+									 kPath, tag, key, name.c_str());
+							sError = buf;
+							return false;
+						}
+					}
+					break;
+				}
+				case PF_COLOR:
+					a.GetVector(tag, key, v.v);
+					bRange = v.v[0] >= 0.0f && v.v[1] >= 0.0f && v.v[2] >= 0.0f &&
+							 v.v[0] <= 1.0f && v.v[1] <= 1.0f && v.v[2] <= 1.0f;
 					break;
 				default:
 				{
@@ -358,7 +565,24 @@ bool BloodModProjectiles_Load(LT1Mod::FileSource &src, std::string &sError)
 			}
 		}
 	}
+
+	// Min below max, the class's own or its Base's, once the whole file is in.
 	g_Mod.swap(mod);
+	for (int c = 0; c < BloodModProjectile_ClassCount(); ++c)
+	{
+		const int pairs[2][2] = { { PK_ChildSideSpeedMin, PK_ChildSideSpeedMax }, { PK_ChildAngleMin, PK_ChildAngleMax } };
+		for (int p = 0; p < 2; ++p)
+			if (BloodModProjectile_Has(c, pairs[p][0]) &&
+				BloodModProjectile_Float(c, pairs[p][0]) > BloodModProjectile_Float(c, pairs[p][1]))
+			{
+				snprintf(buf, sizeof(buf), "%s: [%s]: %s is above %s", kPath, BloodModProjectile_Class(c),
+						 kKeys[pairs[p][0]].pName, kKeys[pairs[p][1]].pName);
+				sError = buf;
+				g_Mod.swap(mod);
+				return false;
+			}
+	}
+	restore.bKeep = true;
 	return true;
 }
 
@@ -374,14 +598,20 @@ std::string BloodModProjectile_ClassSummary(int nClass)
 std::string BloodModProjectiles_Summary()
 {
 	std::string out;
-	for (int c = 0; c < BMP_COUNT && !g_Mod.empty(); ++c)
+	for (int c = 0; c < BloodModProjectile_ClassCount() && !g_Mod.empty(); ++c)
 	{
+		// A class's own values; a new class's Base, which it starts from.
 		std::string line;
+		if (c >= BMP_COUNT)
+			line = std::string("Base \"") + BloodModProjectile_Class(BloodModProjectile_Base(c)) + "\"";
 		for (int k = 0; k < PK_COUNT; ++k)
-			if (const Value* v = ModValue(c, k))
-				line += std::string(line.empty() ? "" : ", ") + kKeys[k].pName + " " + ValueText(k, *v);
+		{
+			const Value& v = g_Mod[(size_t)c][(size_t)k];
+			if (v.bSet)
+				line += std::string(line.empty() ? "" : ", ") + kKeys[k].pName + " " + ValueText(k, v);
+		}
 		if (!line.empty())
-			out += std::string(out.empty() ? "" : "\n") + kClasses[c] + ": " + line;
+			out += std::string(out.empty() ? "" : "\n") + BloodModProjectile_Class(c) + ": " + line;
 	}
 	return out;
 }
@@ -404,6 +634,7 @@ std::string BloodModProjectiles_Reference()
 			}
 			Value v;
 			v.bSet = true; v.f = ck.f; v.n = ck.n; v.s = ck.s ? ck.s : "";
+			for (int i = 0; i < 3; ++i) v.v[i] = ck.v[i];
 			out += std::string(kKeys[ck.nKey].pName) + " = " + ValueText(ck.nKey, v) + "\n";
 		}
 		if (!members.empty())

@@ -73,6 +73,14 @@ struct BloodModAIValues
 	int		m_nModCorpseLimbLoss;
 	int		m_nModGibLimbs;
 	int		m_nModGibLimb[5];
+	// The Fanatic's special
+	char	m_szModBurstSmokeNode[32];
+	float	m_fModBurstRange;
+	char	m_szModBurstProjectile[32];
+	char	m_szModBurstSpawn[32];
+	int		m_nModBurstSpawnChance;
+	float	m_fModBurstSpawnGibDamage;
+	char	m_szModBurstSound[3][BLOODMOD_AI_MAX_SKIN + 1];
 };
 
 // AI.txt's Flags key names AI_Mgr's m_dwFlags bits, AI_Mgr.h's FLAG_ names without the prefix
@@ -164,7 +172,16 @@ struct BloodModAIValues
 	X(GibRightArm,		m_nModGibLimb[1],	INT) \
 	X(GibLeftArm,		m_nModGibLimb[2],	INT) \
 	X(GibRightLeg,		m_nModGibLimb[3],	INT) \
-	X(GibLeftLeg,		m_nModGibLimb[4],	INT)
+	X(GibLeftLeg,		m_nModGibLimb[4],	INT) \
+	X(BurstSmokeNode,	m_szModBurstSmokeNode, STR) \
+	X(BurstRange,		m_fModBurstRange,	FLOAT) \
+	X(BurstProjectile,	m_szModBurstProjectile, STR) \
+	X(BurstSpawn,		m_szModBurstSpawn,	STR) \
+	X(BurstSpawnChance,	m_nModBurstSpawnChance, INT) \
+	X(BurstSpawnGibDamage, m_fModBurstSpawnGibDamage, FLOAT) \
+	X(BurstSpawnSound1,	m_szModBurstSound[0], PATH) \
+	X(BurstSpawnSound2,	m_szModBurstSound[1], PATH) \
+	X(BurstSpawnSound3,	m_szModBurstSound[2], PATH)
 
 // The BLOODMOD_AI_FIELDS members AI_Mgr::Save does not write, which a restore takes from the mod
 // again (ModAI_ApplyRestored, ModAI_ApplyUnsaved). m_bCabal is separate: it is needed before the
@@ -190,6 +207,13 @@ struct BloodModAIValues
 	X(m_szModDropDivine) \
 	X(m_nModCorpseLimbLoss) \
 	X(m_nModGibLimbs) \
-	X(m_nModGibLimb)
+	X(m_nModGibLimb) \
+	X(m_szModBurstSmokeNode) \
+	X(m_fModBurstRange) \
+	X(m_szModBurstProjectile) \
+	X(m_szModBurstSpawn) \
+	X(m_nModBurstSpawnChance) \
+	X(m_fModBurstSpawnGibDamage) \
+	X(m_szModBurstSound)
 
 #endif // __BLOODMODAIFIELDS_H__

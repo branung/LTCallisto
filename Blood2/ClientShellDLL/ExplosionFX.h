@@ -601,6 +601,9 @@ class CExplosionFX : public CSpecialFX
 
 	private :
 
+		// Mod\Explosions.txt's pieces (BloodModExplosions.h)
+		void	CreateModPieces(CClientDE* pClientDE, class CSFXMgr* psfxMgr, const struct BloodModFxRecipe& recipe);
+
 		DVector	m_vPos;				// Position of the light
 		DVector	m_vNormal;			// Normal of the surface hit
 		DDWORD	m_nExpID;			// Type of explosion to create at this location

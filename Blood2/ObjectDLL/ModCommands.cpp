@@ -18,9 +18,11 @@
 #include "BloodModCharacters.h"
 #include "BloodModAI.h"
 #include "BloodModAmmo.h"
+#include "BloodModPickups.h"
 #include "BloodModProjectiles.h"
 #include "BloodModWeaponClasses.h"
 #include "BloodModRules.h"
+#include "BloodModExplosions.h"
 
 #include <stdlib.h>
 #include <string>
@@ -99,6 +101,13 @@ void ModAmmo_LoadFile()
 	BloodModAmmo_LoadAndReport(src, PrintServerLine, "Server: ");
 }
 
+void ModExplosions_LoadFile()
+{
+	if (!g_pServerDE) return;
+	LT1Mod::EngineSource src(g_pServerDE, g_pServerDE->GetFileList, g_pServerDE->FreeFileList);
+	BloodModExplosions_LoadAndReport(src, PrintServerLine, "Server: ");
+}
+
 void ModRules_LoadFile()
 {
 	if (!g_pServerDE) return;
@@ -111,6 +120,13 @@ void ModProjectiles_LoadFile()
 	if (!g_pServerDE) return;
 	LT1Mod::EngineSource src(g_pServerDE, g_pServerDE->GetFileList, g_pServerDE->FreeFileList);
 	BloodModProjectiles_LoadAndReport(src, PrintServerLine, "Server: ");
+}
+
+void ModPickups_LoadFile()
+{
+	if (!g_pServerDE) return;
+	LT1Mod::EngineSource src(g_pServerDE, g_pServerDE->GetFileList, g_pServerDE->FreeFileList);
+	BloodModPickups_LoadAndReport(src, PrintServerLine, "Server: ");
 }
 
 void ModWeaponClasses_LoadFile()

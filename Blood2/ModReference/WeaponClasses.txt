@@ -19,71 +19,85 @@
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [SUBMACHINEGUN]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [FLAREGUN]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [SHOTGUN]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [SNIPERRIFLE]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [HOWITZER]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [NAPALMCANNON]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [SINGULARITY]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [ASSAULTRIFLE]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [BUGSPRAY]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [MINIGUN]
 MuzzleSmoke = FALSE
 MuzzleLight = FALSE
 Fragments = FALSE
+Tracer = "NONE"
 
 [DEATHRAY]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [TESLACANNON]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [VOODOO]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 VoodooHits = "NORMAL NORMAL BLIND DROPWEAPON SLOW"
 VoodooAltHit = "VISION"
 VoodooFX = "VOODOO_6"
@@ -92,177 +106,212 @@ VoodooFX = "VOODOO_6"
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [LIFELEECH]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [MELEE]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
 HitFragments = FALSE
+Tracer = "NONE"
 
 [SHIKARI_CLAW]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [SHIKARI_SPIT]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [SOUL_CROWBAR]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [SOUL_AXE]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [SOUL_PIPE]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [SOUL_HOOK]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [BEHEMOTH_CLAW]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [ZEALOT_HEAL]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [ZEALOT_SHIELD]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [ZEALOT_ENERGYBLAST]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [ZEALOT_GROUNDFIRE]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [ZEALOT_SHOCKWAVE]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [DRUDGE_FIREBALL]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [DRUDGE_LIGHTNING]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [HAND_SQUEEZE]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [BONELEECH_SUCK]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [THIEF_SUCK]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [NIGHTMARE_BITE]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [BEHEMOTH_SHOCKWAVE]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [DEATHSHROUD_ZAP]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [NAGA_EYEBEAM]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [NAGA_SPIKE]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [NAGA_DEBRIS]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [GIDEON_SHIELD]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [GIDEON_WIND]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [GIDEON_VOMIT]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [GIDEON_GOO]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [GIDEON_SPEAR]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [ANCIENTONE_BEAM]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [ANCIENTONE_TENTACLE]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [SKULL]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [PROXIMITYBOMB]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 HandExplosionType = "DEFAULT_SMALL"
 HandExplosionSound = "Sounds\Weapons\time\explode.wav"
 HandExplosionSoundRadius = 1000.0
@@ -271,11 +320,13 @@ HandExplosionSoundRadius = 1000.0
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 
 [TIMEBOMB]
 MuzzleSmoke = TRUE
 MuzzleLight = FALSE
 Fragments = TRUE
+Tracer = "NONE"
 HandExplosionType = "DEFAULT_SMALL"
 HandExplosionSound = "Sounds\Weapons\time\explode.wav"
 HandExplosionSoundRadius = 1000.0

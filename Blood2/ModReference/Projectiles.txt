@@ -17,9 +17,15 @@
 //     [CGrenade]
 //     LifeTime = 2.0
 //
+// A section named after no class is a new one, with Base = the class
+// it is built on, retail's or the file's; it has that class's keys.
+// CModProjectile is a class made to be a Base, every value a key.
+//
 // Blood2/ObjectDLL/BloodModProjectiles.h has the rest.
 
 [CGrenade]
+BurstAfterBounces = FALSE
+SpinStops = TRUE
 // and, the constructor's: BounceCount
 
 [CTimeBomb]
@@ -70,6 +76,7 @@ BounceDist = 1500.0
 [COrbProjectile]
 DetectRadius = 175.0
 DamageTime = 5.1
+AttachToHead = FALSE
 
 [COrbAltProjectile]
 DamageTime = 5.1
@@ -82,6 +89,9 @@ DamageTime = 5.1
 
 [CSingularityProjectile]
 AttractTime = 5.0
+ExplosionType = "SINGULARITY_PRIMARY"
+ExplosionSound = "Sounds\Weapons\Singularity\impact.wav"
+ExplosionSoundRadius = 2000.0
 
 [CSingularityAltProjectile]
 AttractTime = 5.0
@@ -108,3 +118,21 @@ AttractTime = 5.0
 
 [CSkullProjectile]
 FlySoundRadius = 750.0
+
+[CModProjectile]
+LightRadius = 0.0
+LightColor = <1.0, 1.0, 1.0>
+LoopSound = ""
+LoopSoundRadius = 750.0
+ExplosionType = "GRENADE"
+ExplosionSound = "Sounds\Weapons\c4\explosion_1.wav"
+ExplosionSoundRadius = 1000.0
+Children = ""
+ChildCount = 0
+ChildDamage = 1.0
+ChildRadius = 1.0
+ChildSpeed = 35.0
+ChildSideSpeedMin = 0.75
+ChildSideSpeedMax = 3.0
+ChildAngleMin = 27.0
+ChildAngleMax = 153.0

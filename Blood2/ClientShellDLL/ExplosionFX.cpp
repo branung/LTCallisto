@@ -15,6 +15,9 @@
 #include "BloodClientShell.h"
 #include "ObjectFX.h"
 #include <mbstring.h>
+#include "BloodModExplosions.h"		// Mod\Explosions.txt
+#include <set>
+#include <stdio.h>
 
 // ----------------------------------------------------------------------- //
 //
@@ -1231,6 +1234,28 @@ DBOOL CExplosionFX::CreateObject(CClientDE *pClientDE)
 
 	HCONSOLEVAR hVar = pClientDE->GetConsoleVar("ExplosionsDetail");
 	DBYTE	detail = (DBYTE)pClientDE->GetVarValueFloat(hVar);
+
+	// Mod\Explosions.txt: a mod's pieces for this explosion at this detail, drawn instead of retail's
+	// or after them. A mod's new explosion has no retail case and draws its own alone.
+	const BloodModFxRecipe* pMod = BloodModExplosion_Recipe((int)m_nExpID, detail >= 2 ? 2 : (detail == 1 ? 1 : 0));
+	if (pMod)
+	{
+		// Once per explosion and level: proof the client drew a mod's recipe.
+		static std::set<int> s_Told;
+		const int nLevel = detail >= 2 ? 2 : (detail == 1 ? 1 : 0);
+		if (s_Told.insert((int)m_nExpID * 4 + nLevel).second)
+		{
+			const char* pName = BloodModExplosion_Name((int)m_nExpID);
+			pClientDE->CPrint("Mod\\Explosions.txt: %s at detail %d: %u piece%s %s", pName ? pName : "?", nLevel,
+							  (unsigned)pMod->pieces.size(), pMod->pieces.size() == 1 ? "" : "s",
+							  pMod->bReplace ? "instead of retail's" : (m_nExpID >= BLOODMOD_EXP_FIRST_NEW ? "(new)" : "after retail's"));
+		}
+	}
+	if (pMod && pMod->bReplace)
+	{
+		CreateModPieces(pClientDE, psfxMgr, *pMod);
+		return DTRUE;
+	}
 
 	if(detail >= 2)
 	{
@@ -8339,5 +8364,164 @@ DBOOL CExplosionFX::CreateObject(CClientDE *pClientDE)
 #endif
 		}
 	}
+	if (pMod)
+		CreateModPieces(pClientDE, psfxMgr, *pMod);
 	return DTRUE;
+}
+
+// ----------------------------------------------------------------------- //
+//
+//	ROUTINE:	CExplosionFX::CreateModPieces
+//
+//	PURPOSE:	A mod's pieces for this explosion (BloodModExplosions.h)
+//
+// ----------------------------------------------------------------------- //
+
+// A piece's number, a random one where it gives a range; a vector likewise.
+static DFLOAT ModNum(const BloodModFxValue& v, int c = 0)
+{
+	return v.lo[c] == v.hi[c] ? v.lo[c] : GetRandom(v.lo[c], v.hi[c]);
+}
+
+static void ModVec(DVector& out, const BloodModFxValue& v)
+{
+	VEC_SET(out, ModNum(v, 0), ModNum(v, 1), ModNum(v, 2));
+}
+
+// A path, with the piece's Pick put for its %d.
+static HSTRING ModString(CClientDE* pClientDE, const BloodModFxValue& v, int nPick)
+{
+	if (!v.bSet) return DNULL;
+	if (v.s.find("%d") == std::string::npos) return pClientDE->CreateString(const_cast<char*>(v.s.c_str()));
+	char sz[256];
+	snprintf(sz, sizeof(sz), v.s.c_str(), nPick);
+	return pClientDE->CreateString(sz);
+}
+
+void CExplosionFX::CreateModPieces(CClientDE* pClientDE, CSFXMgr* psfxMgr, const BloodModFxRecipe& recipe)
+{
+	for (size_t p = 0; p < recipe.pieces.size(); ++p)
+	{
+		const BloodModFxPiece& piece = recipe.pieces[p];
+		const BloodModFxValue* v = piece.v;
+		const BloodModFxValue& c = v[BMF_COUNT];
+		const int nCount = !c.bSet ? 1 : (c.lo[0] == c.hi[0] ? (int)c.lo[0] : GetRandom((int)c.lo[0], (int)c.hi[0]));
+		for (int n = 0; n < nCount; ++n)
+		{
+			// Every piece: out along the normal by Offset, facing the normal or
+			// NormalVector.  Any field not given is the struct's zero.
+			DVector vPos, vNormal, temp;
+			VEC_MULSCALAR(temp, m_vNormal, v[BMF_OFFSET].bSet ? ModNum(v[BMF_OFFSET]) : 0.0f);
+			VEC_ADD(vPos, m_vPos, temp);
+			VEC_INIT(vNormal);
+			if (v[BMF_NORMALVECTOR].bSet)			ModVec(vNormal, v[BMF_NORMALVECTOR]);
+			else if (v[BMF_NORMAL].bSet && ModNum(v[BMF_NORMAL]) != 0.0f)	VEC_COPY(vNormal, m_vNormal);
+			const BloodModFxValue& pk = v[BMF_PICK];
+			const int nPick = !pk.bSet ? 0 : (pk.lo[0] == pk.hi[0] ? (int)pk.lo[0] : GetRandom((int)pk.lo[0], (int)pk.hi[0]));
+#define NUM(f)		(v[f].bSet ? ModNum(v[f]) : 0.0f)
+#define VEC(d, f)	{ if (v[f].bSet) ModVec(d, v[f]); }
+			switch (piece.nKind)
+			{
+				case BMX_MODEL:
+				{
+					EXPLOSIONMODELCS cs;
+					VEC_COPY(cs.vPos, vPos); VEC_COPY(cs.vNormal, vNormal);
+					VEC(cs.vScale1, BMF_SCALE1) VEC(cs.vScale2, BMF_SCALE2) VEC(cs.vRotations, BMF_ROTATIONS)
+					cs.fDuration = NUM(BMF_DURATION); cs.fAlpha = NUM(BMF_ALPHA);
+					cs.bWaveForm = (DBYTE)NUM(BMF_WAVEFORM); cs.bFadeType = (DBYTE)NUM(BMF_FADETYPE);
+					cs.bRandomRot = (DBYTE)NUM(BMF_RANDOMROT);
+					cs.szModel = ModString(pClientDE, v[BMF_MODEL], nPick); cs.szSkin = ModString(pClientDE, v[BMF_SKIN], nPick);
+					psfxMgr->CreateSFX(SFX_EXPLOSION_ID, &cs, DFALSE, this);
+					if (cs.szModel) pClientDE->FreeString(cs.szModel);
+					if (cs.szSkin) pClientDE->FreeString(cs.szSkin);
+					break;
+				}
+				case BMX_SPRITE:
+				{
+					EXPLOSIONSPRITECS cs;
+					VEC_COPY(cs.vPos, vPos); VEC_COPY(cs.vNormal, vNormal);
+					VEC(cs.vScale1, BMF_SCALE1) VEC(cs.vScale2, BMF_SCALE2)
+					cs.fDuration = NUM(BMF_DURATION); cs.fAlpha = NUM(BMF_ALPHA);
+					cs.bWaveForm = (DBYTE)NUM(BMF_WAVEFORM); cs.bFadeType = (DBYTE)NUM(BMF_FADETYPE);
+					cs.bAlign = (DBYTE)NUM(BMF_ALIGN);
+					cs.szSprite = ModString(pClientDE, v[BMF_SPRITE], nPick);
+					psfxMgr->CreateSFX(SFX_EXPLOSIONSPRITE_ID, &cs, DFALSE, this);
+					if (cs.szSprite) pClientDE->FreeString(cs.szSprite);
+					break;
+				}
+				case BMX_RING:
+				{
+					EXPLOSIONRINGCS cs;
+					VEC_COPY(cs.vPos, vPos); VEC_COPY(cs.vNormal, vNormal);
+					VEC(cs.vColor, BMF_COLOR)
+					cs.fRadius = NUM(BMF_RADIUS); cs.fPosRadius = NUM(BMF_POSRADIUS); cs.fVelocity = NUM(BMF_VELOCITY);
+					cs.fGravity = NUM(BMF_GRAVITY); cs.fRotation = NUM(BMF_ROTATION);
+					cs.nParticles = (DDWORD)NUM(BMF_PARTICLES); cs.fDuration = NUM(BMF_DURATION);
+					cs.fAlpha = NUM(BMF_ALPHA); cs.fDelay = NUM(BMF_DELAY); cs.bFadeType = (DBYTE)NUM(BMF_FADETYPE);
+					cs.bRotateType = (DBYTE)NUM(BMF_ROTATETYPE); cs.bAlign = (DBYTE)NUM(BMF_ALIGN);
+					cs.szParticle = ModString(pClientDE, v[BMF_PARTICLE], nPick);
+					psfxMgr->CreateSFX(SFX_EXPLOSIONRING_ID, &cs, DFALSE, this);
+					if (cs.szParticle) pClientDE->FreeString(cs.szParticle);
+					break;
+				}
+				case BMX_LIGHT:
+				{
+					EXPLOSIONLIGHTCS cs;
+					VEC_COPY(cs.vPos, vPos);
+					VEC(cs.vColor1, BMF_COLOR1) VEC(cs.vColor2, BMF_COLOR2)
+					cs.fDuration = NUM(BMF_DURATION); cs.fDelay = NUM(BMF_DELAY);
+					cs.fRadius1 = NUM(BMF_RADIUS1); cs.fRadius2 = NUM(BMF_RADIUS2);
+					psfxMgr->CreateSFX(SFX_EXPLOSIONLIGHT_ID, &cs, DFALSE, this);
+					break;
+				}
+				case BMX_FRAG:
+				{
+					EXPLOSIONFRAGCS cs;
+					VEC_COPY(cs.vPos, vPos); VEC_COPY(cs.vNormal, vNormal);
+					VEC(cs.vScale, BMF_SCALE) VEC(cs.vRotateMax, BMF_ROTATEMAX)
+					cs.fSpread = NUM(BMF_SPREAD); cs.fDuration = NUM(BMF_DURATION); cs.fVelocity = NUM(BMF_VELOCITY);
+					cs.fBounceMod = NUM(BMF_BOUNCEMOD); cs.fGravity = NUM(BMF_GRAVITY); cs.fFadeTime = NUM(BMF_FADETIME);
+					cs.fInitAlpha = NUM(BMF_INITALPHA); cs.bRandDir = (DBOOL)NUM(BMF_RANDDIR);
+					cs.bSpawnExp = (DBOOL)NUM(BMF_SPAWNEXP);
+					cs.nSpawnType = v[BMF_SPAWNTYPE].bSet ? (DDWORD)v[BMF_SPAWNTYPE].nId : 0;
+					cs.nTrailType = v[BMF_TRAILTYPE].bSet ? (DDWORD)v[BMF_TRAILTYPE].nId : 0;
+					cs.szModel = ModString(pClientDE, v[BMF_MODEL], nPick); cs.szSkin = ModString(pClientDE, v[BMF_SKIN], nPick);
+					psfxMgr->CreateSFX(SFX_EXPLOSIONFRAG_ID, &cs, DFALSE, this);
+					if (cs.szModel) pClientDE->FreeString(cs.szModel);
+					if (cs.szSkin) pClientDE->FreeString(cs.szSkin);
+					break;
+				}
+				case BMX_WAVE:
+				{
+					EXPLOSIONWAVECS cs;
+					VEC_COPY(cs.vPos, vPos); VEC_COPY(cs.vNormal, vNormal);
+					VEC(cs.vScale1, BMF_SCALE1) VEC(cs.vScale2, BMF_SCALE2)
+					cs.fDuration = NUM(BMF_DURATION); cs.fAlpha = NUM(BMF_ALPHA); cs.fDelay = NUM(BMF_DELAY);
+					cs.bWaveForm = (DBYTE)NUM(BMF_WAVEFORM); cs.bFadeType = (DBYTE)NUM(BMF_FADETYPE);
+					cs.bAlign = (DBYTE)NUM(BMF_ALIGN);
+					cs.szWave = ModString(pClientDE, v[BMF_WAVE], nPick);
+					psfxMgr->CreateSFX(SFX_EXPLOSIONWAVE_ID, &cs, DFALSE, this);
+					if (cs.szWave) pClientDE->FreeString(cs.szWave);
+					break;
+				}
+				case BMX_FLAME:
+				{
+					EXPLOSIONFLAMECS cs;
+					VEC_COPY(cs.vPos, vPos); VEC_COPY(cs.vNormal, vNormal);
+					VEC(cs.vColor1, BMF_COLOR1) VEC(cs.vColor2, BMF_COLOR2) VEC(cs.vColor3, BMF_COLOR3)
+					VEC(cs.vLifeTimes, BMF_LIFETIMES) VEC(cs.vLifeOffsets, BMF_LIFEOFFSETS) VEC(cs.vFXTimes, BMF_FXTIMES)
+					cs.nParticles = (DDWORD)NUM(BMF_PARTICLES); cs.fRadius = NUM(BMF_RADIUS);
+					cs.fPosRadius = NUM(BMF_POSRADIUS); cs.fGravity = NUM(BMF_GRAVITY); cs.fVelocity = NUM(BMF_VELOCITY);
+					cs.fDelay = NUM(BMF_DELAY); cs.fAlpha = NUM(BMF_ALPHA); cs.bFadeType = (DBYTE)NUM(BMF_FADETYPE);
+					cs.bRampFlags = (DBYTE)NUM(BMF_RAMPFLAGS);
+					cs.szParticle = ModString(pClientDE, v[BMF_PARTICLE], nPick);
+					psfxMgr->CreateSFX(SFX_EXPLOSIONFLAME_ID, &cs, DFALSE, this);
+					if (cs.szParticle) pClientDE->FreeString(cs.szParticle);
+					break;
+				}
+			}
+#undef NUM
+#undef VEC
+		}
+	}
 }

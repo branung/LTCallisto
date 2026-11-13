@@ -58,6 +58,8 @@ std::string OtherRule(const std::string& key, const std::string& v)
 	if (key == "BurnFX" || key == "SmokeFX")	return "\"FLAMING_2 FLAMING_3\"";
 	if (key == "LiquidMark")	return v == "\"\"" ? "\"sprites/ripple.spr\"" : "\"\"";
 	if (key == "VersionText")	return v == "\"\"" ? "\"MOD v1.0\"" : "\"\"";
+	if (key == "MoreWeapons")	return v == "\"SHOTGUN\"" ? "\"BERETTA\"" : "\"SHOTGUN\"";
+	if (key == "AllItems")		return v == "\"MEDKIT\"" ? "\"FLASHLIGHT\"" : "\"MEDKIT\"";
 	if (v == "TRUE")	return "FALSE";
 	if (v == "FALSE")	return "TRUE";
 	if (key.find("Chance") != std::string::npos) return v == "50" ? "40" : "50";

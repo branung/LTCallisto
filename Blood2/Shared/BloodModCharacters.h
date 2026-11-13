@@ -92,6 +92,9 @@ bool BloodModCharacter_StartAmmo(int nId, std::vector<BloodModAmmo>& out, std::s
 bool BloodModCharacter_InitWeapons(int nId, std::vector<int>& out, std::string* pWhy = 0);
 // The same lists' grammar for any string (Mod\Rules.txt's SpawnItems and SpawnAmmo): INV_
 // names, and AMMO_ name and count pairs.
+// A list of WEAP_ names (the cheats' lists), as ids; false and pWhy on a name that is no weapon,
+// or a bomb.
+bool BloodMod_ParseWeapons(const char* pList, std::vector<int>& out, std::string* pWhy = 0);
 bool BloodMod_ParseItems(const char* pList, std::vector<int>& out, std::string* pWhy = 0);
 bool BloodMod_ParseAmmo(const char* pList, std::vector<BloodModAmmo>& out, std::string* pWhy = 0);
 

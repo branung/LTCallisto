@@ -4,8 +4,10 @@
 #include "SharedDefs.h"
 #include "SFXMsgIds.h"
 #include "BloodModWeaponClasses.h"
+#include "BloodModExplosions.h"	// the EXP_ names
 #include "BloodModWeapons.h"	// the WEAP_ names, a mod's new weapons too
 #include "BloodModAI.h"			// the OBJFX_ names
+#include "BloodModLasers.h"		// the LASER_ names
 #include "BloodModTable.h"		// PrintWrapped, DF
 
 #include "lt1mod.h"
@@ -26,7 +28,8 @@ const char* const kPath = "Mod\\WeaponClasses.txt";
 
 bool EqualNoCase(const char* a, const char* b) { return LT1Mod::Registry::EqualNoCase(a, b); }
 
-enum Kind { WF_FLOAT, WF_BOOL, WF_DAMAGE, WF_AMMO, WF_STRING, WF_DAMAGE5, WF_OBJFX, WF_EXP, WF_PATH };
+enum Kind { WF_FLOAT, WF_BOOL, WF_DAMAGE, WF_AMMO, WF_STRING, WF_DAMAGE5, WF_OBJFX, WF_EXP, WF_PATH, WF_LASER };
+const int kNoLaser = 255;	// a Tracer of NONE
 struct Key { const char* pName; Kind eKind; };
 const Key kKeys[WK_COUNT] =
 {
@@ -36,6 +39,7 @@ const Key kKeys[WK_COUNT] =
 	{ "HandExplosionType", WF_EXP }, { "HandExplosionSound", WF_PATH }, { "HandExplosionSoundRadius", WF_FLOAT },
 	{ "MuzzleSmoke", WF_BOOL }, { "MuzzleLight", WF_BOOL }, { "Fragments", WF_BOOL },
 	{ "HitFragments", WF_BOOL },
+	{ "Tracer", WF_LASER },
 };
 const size_t kMaxName = 63;
 
@@ -78,22 +82,6 @@ const int kNumDamage = (int)(sizeof(kDamage) / sizeof(kDamage[0]));
 const char* const kAmmo[] = { "NONE", "BULLET", "SHELL", "BMG", "FLARE", "DIEBUGDIE", "HOWITZER", "FUEL", "BATTERY",
 							  "FOCUS", "PROXIMITYBOMB", "REMOTEBOMB", "TIMEBOMB" };
 const int kNumAmmo = (int)(sizeof(kAmmo) / sizeof(kAmmo[0]));
-struct Exp { const char* pName; int nId; };
-#define E(n) { #n, EXP_##n },
-const Exp kExp[] =
-{
-	E(DEFAULT_SMALL) E(DEFAULT_MEDIUM) E(DEFAULT_LARGE) E(GRENADE) E(NAPALM_PRIMARY) E(NAPALM_ALT)
-	E(NAPALM_FIREBALL) E(TESLA_PRIMARY) E(TESLA_ALT) E(HOWITZER_PRIMARY) E(HOWITZER_ALT) E(HOWITZER_MINI)
-	E(FLAME_SMALL) E(FLARE_FIZZLE) E(FLARE_BURST) E(FLARE_FRAG) E(LIFELEECH_PRIMARY) E(LIFELEECH_ALT)
-	E(SINGULARITY_PRIMARY) E(SHOCKBALL) E(SHOCKBALL_LARGE) E(ORB_BREAK) E(DIVINE_SHOCKBALL) E(RIFT_1)
-	E(RIFT_2) E(DEATHRAY_PRIMARY) E(BUGSPRAY_PRIMARY) E(BUGSPRAY_ALT) E(NAGA_EYE_BEAM) E(NAGA_SPIKE)
-	E(NAGA_STONE_CHUNK) E(NAGA_POUND_GROUND)
-#ifdef _ADD_ON
-	E(GAS_GRENADE) E(FLAYER_PRIMARY) E(FLAYER_ALT) E(FLAYER_RETRACT) E(FLAYER_SHATTER)
-#endif
-};
-#undef E
-const int kNumExp = (int)(sizeof(kExp) / sizeof(kExp[0]));
 
 int FindIn(const char* const* pNames, int n, const char* p)
 {
@@ -107,9 +95,10 @@ int FindName(Kind k, const char* p)
 	if (k == WF_AMMO) { const int n = FindIn(kAmmo, kNumAmmo, p); return n > 0 ? n : -1; }
 	if (k == WF_EXP)
 	{
-		for (int i = 0; i < kNumExp; ++i) if (EqualNoCase(kExp[i].pName, p)) return kExp[i].nId;
-		return -1;
+		return BloodModExplosion_Find(p);		// retail's and a mod's new ones
 	}
+	if (k == WF_LASER)
+		return EqualNoCase(p, "NONE") ? kNoLaser : BloodModLaser_Find(p);
 	return BloodModAI_ObjFX(p);
 }
 
@@ -119,8 +108,13 @@ const char* NameOf(Kind k, int n)
 	if (k == WF_AMMO) return n >= 0 && n < kNumAmmo ? kAmmo[n] : "?";
 	if (k == WF_EXP)
 	{
-		for (int i = 0; i < kNumExp; ++i) if (kExp[i].nId == n) return kExp[i].pName;
-		return "?";
+		const char* pName = BloodModExplosion_Name(n);
+		return pName ? pName : "?";
+	}
+	if (k == WF_LASER)
+	{
+		const char* pName = n == kNoLaser ? "NONE" : BloodModLaser_Name(n);
+		return pName ? pName : "?";
 	}
 	const char* p = BloodModAI_ObjFXName(n);
 	return p ? p : "?";
@@ -243,6 +237,12 @@ bool BloodModWeaponClass_Flag(int nWeapon, int nKey)
 		case WK_MuzzleSmoke: case WK_Fragments:	return nRetail != WEAP_MINIGUN;
 		default:								return false;
 	}
+}
+
+int BloodModWeaponClass_Tracer(int nWeapon)
+{
+	const Value* v = ModValue(nWeapon, WK_Tracer);
+	return v && v->n != kNoLaser ? v->n : -1;
 }
 
 std::string BloodModWeaponClass_Format(int nKey, float f, int n, const char* s)
@@ -381,7 +381,9 @@ bool BloodModWeaponClasses_Load(LT1Mod::FileSource &src, std::string &sError)
 					snprintf(buf, sizeof(buf), "%s: [%s]:%s: \"%s\" is not %s", kPath, tag, key, v.s.c_str(),
 							 kind == WF_DAMAGE ? "a DAMAGE_TYPE_ name without the prefix" :
 							 kind == WF_AMMO ? "an AMMO_ name without the prefix" :
-							 kind == WF_EXP ? "an EXP_ name without the prefix" : "an OBJFX_ name without the prefix");
+							 kind == WF_EXP ? "an EXP_ name without the prefix" :
+							 kind == WF_LASER ? "a LASER_ name without the prefix (YELLOW_SMALL, ...), or NONE" :
+							 "an OBJFX_ name without the prefix");
 					sError = buf;
 					return false;
 				}
@@ -425,6 +427,7 @@ std::string BloodModWeaponClasses_Reference()
 		for (int k = WK_MuzzleSmoke; k <= WK_HitFragments; ++k)
 			if (BloodModWeaponClass_Has(w, k))
 				out += std::string(kKeys[k].pName) + " = " + (BloodModWeaponClass_Flag(w, k) ? "TRUE" : "FALSE") + "\n";
+		out += "Tracer = \"NONE\"\n";
 		if (w == WEAP_VOODOO)
 		{
 			std::string hits;

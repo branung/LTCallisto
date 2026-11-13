@@ -41,6 +41,8 @@
 #include "AmmoValues.h"				// EjectShell (Mod\Ammo.txt)
 #include "BloodModRules.h"			// Mod\Rules.txt
 
+bool IgnoreTypeFilterFn(HOBJECT hObj, void *pUserData);	// GameWeapons.cpp
+
 void BPrint(char*);
 
 
@@ -760,6 +762,37 @@ DBOOL CWeapon::FireVector(DVector *vFire, DFLOAT dist, DBOOL bTracer)
 {
 	CServerDE* pServerDE = DEBaseClass::GetServerDE();
 	if (!pServerDE)		return DFALSE;
+
+	// Mod\WeaponClasses.txt's Tracer: a laser from the muzzle to the first thing in the line of fire
+	// that is not of the owner's class
+	const int nTracer = BloodModWeaponClass_Tracer(m_nType);
+	if (nTracer >= 0)
+	{
+		IntersectQuery	tq;
+		IntersectInfo	ti;
+		DVector			vTDist, vDest;
+		HCLASS			hOwnerClass = pServerDE->GetObjectClass(m_hOwner);
+
+		tq.m_Flags = INTERSECT_OBJECTS | IGNORE_NONSOLID;
+		tq.m_FilterFn = IgnoreTypeFilterFn;
+		tq.m_pUserData = (void *)&hOwnerClass;
+
+		VEC_COPY(tq.m_From, m_vPosition);
+		VEC_MULSCALAR(vTDist, *vFire, dist);
+		VEC_ADD(tq.m_To, m_vPosition, vTDist);
+
+		if (pServerDE->IntersectSegment(&tq, &ti))
+			{ VEC_COPY(vDest, ti.m_Point); }
+		else
+			{ VEC_COPY(vDest, tq.m_To); }
+
+		HMESSAGEWRITE hMessage = pServerDE->StartInstantSpecialEffectMessage(&(tq.m_From));
+		pServerDE->WriteToMessageByte(hMessage, SFX_LASERBEAM_ID);
+		pServerDE->WriteToMessageVector(hMessage, &m_vPosition);
+		pServerDE->WriteToMessageVector(hMessage, &vDest);
+		pServerDE->WriteToMessageByte(hMessage, (DBYTE)nTracer);
+		pServerDE->EndMessage2(hMessage, MESSAGE_GUARANTEED | MESSAGE_NAGGLEFAST);
+	}
 
 	IntersectQuery	iq;
 	IntersectInfo	ii;

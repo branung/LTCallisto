@@ -3366,43 +3366,36 @@ void CPlayerObj::ProcessCheat(DBYTE nCheatCode, DBOOL bState)
 	switch (nCheatCode)
 	{
 		case CHEAT_KFA:
+		{
 			m_InventoryMgr.SetFullAmmo();
-
-			if (!m_InventoryMgr.HasWeapon(WEAP_BERETTA)) m_InventoryMgr.ObtainWeapon(WEAP_BERETTA);
-			if (!m_InventoryMgr.HasWeapon(WEAP_SUBMACHINEGUN)) m_InventoryMgr.ObtainWeapon(WEAP_SUBMACHINEGUN);
-			if (!m_InventoryMgr.HasWeapon(WEAP_SHOTGUN)) m_InventoryMgr.ObtainWeapon(WEAP_SHOTGUN);
-			if (!m_InventoryMgr.HasWeapon(WEAP_ASSAULTRIFLE)) m_InventoryMgr.ObtainWeapon(WEAP_ASSAULTRIFLE);
-			if (!m_InventoryMgr.HasWeapon(WEAP_LIFELEECH)) m_InventoryMgr.ObtainWeapon(WEAP_LIFELEECH);
-			if (!m_InventoryMgr.HasWeapon(WEAP_TESLACANNON)) m_InventoryMgr.ObtainWeapon(WEAP_TESLACANNON);
-			if (!m_InventoryMgr.HasWeapon(WEAP_ORB)) m_InventoryMgr.ObtainWeapon(WEAP_ORB);
-			if (!m_InventoryMgr.HasWeapon(WEAP_VOODOO)) m_InventoryMgr.ObtainWeapon(WEAP_VOODOO);
-			if (!m_InventoryMgr.HasWeapon(WEAP_DEATHRAY)) m_InventoryMgr.ObtainWeapon(WEAP_DEATHRAY);
-			if (!m_InventoryMgr.HasWeapon(WEAP_MINIGUN)) m_InventoryMgr.ObtainWeapon(WEAP_MINIGUN);
-			if (!m_InventoryMgr.HasWeapon(WEAP_NAPALMCANNON)) m_InventoryMgr.ObtainWeapon(WEAP_NAPALMCANNON);
-			if (!m_InventoryMgr.HasWeapon(WEAP_SNIPERRIFLE)) m_InventoryMgr.ObtainWeapon(WEAP_SNIPERRIFLE);
+			// Mod\Rules.txt's [Cheats] InfiniteAmmo, and the character's CheatWeapons (Mod\Characters.txt).
+			// Retail gave every character one list, which is each one's retail value.
+			if (gRules.bCheatInfiniteAmmo) m_InventoryMgr.SetInfiniteAmmo(DTRUE);
+			std::vector<int> weapons;
+			if (m_nCharacter < BloodModCharacter_Count())
+				BloodMod_ParseWeapons(gCharacterStart[m_nCharacter].szCheatWeapons, weapons);
+			for (size_t i = 0; i < weapons.size(); ++i)
+				if (!m_InventoryMgr.HasWeapon(weapons[i])) m_InventoryMgr.ObtainWeapon(weapons[i]);
 
 			PlayVoiceGroupEventOnClient(VME_WEAPON, DTRUE);
 
 			break;
+		}
 
 		case CHEAT_KFA2:
+		{
 			m_InventoryMgr.SetFullAmmo();
 
-			if (!m_InventoryMgr.HasWeapon(WEAP_BERETTA)) m_InventoryMgr.ObtainWeapon(WEAP_BERETTA);
-			if (!m_InventoryMgr.HasWeapon(WEAP_FLAREGUN)) m_InventoryMgr.ObtainWeapon(WEAP_FLAREGUN);
-			if (!m_InventoryMgr.HasWeapon(WEAP_HOWITZER)) m_InventoryMgr.ObtainWeapon(WEAP_HOWITZER);
-			if (!m_InventoryMgr.HasWeapon(WEAP_SINGULARITY)) m_InventoryMgr.ObtainWeapon(WEAP_SINGULARITY);
-			if (!m_InventoryMgr.HasWeapon(WEAP_BUGSPRAY)) m_InventoryMgr.ObtainWeapon(WEAP_BUGSPRAY);
-			if (!m_InventoryMgr.HasWeapon(WEAP_SNIPERRIFLE)) m_InventoryMgr.ObtainWeapon(WEAP_SNIPERRIFLE);
-			if (!m_InventoryMgr.HasWeapon(WEAP_NAPALMCANNON)) m_InventoryMgr.ObtainWeapon(WEAP_NAPALMCANNON);
-			if (!m_InventoryMgr.HasWeapon(WEAP_MINIGUN)) m_InventoryMgr.ObtainWeapon(WEAP_MINIGUN);
-			if (!m_InventoryMgr.HasWeapon(WEAP_DEATHRAY)) m_InventoryMgr.ObtainWeapon(WEAP_DEATHRAY);
-			if (!m_InventoryMgr.HasWeapon(WEAP_VOODOO)) m_InventoryMgr.ObtainWeapon(WEAP_VOODOO);
-			if (!m_InventoryMgr.HasWeapon(WEAP_ORB)) m_InventoryMgr.ObtainWeapon(WEAP_ORB);
+			// [Cheats] MoreWeapons: retail's list, or the mod's
+			std::vector<int> weapons;
+			BloodMod_ParseWeapons(gRules.szCheatMoreWeapons, weapons);
+			for (size_t i = 0; i < weapons.size(); ++i)
+				if (!m_InventoryMgr.HasWeapon(weapons[i])) m_InventoryMgr.ObtainWeapon(weapons[i]);
 
 			PlayVoiceGroupEventOnClient(VME_WEAPON, DTRUE);
 
 			break;
+		}
 
 		case CHEAT_GOD:
 			m_damage.SetGodMode(bState);
@@ -3503,11 +3496,11 @@ void CPlayerObj::ProcessCheat(DBYTE nCheatCode, DBOOL bState)
 
 		case CHEAT_GIVEALLINV:
 		{
-			m_InventoryMgr.AddItem(INV_MEDKIT, 100);
-			m_InventoryMgr.AddItem(INV_FLASHLIGHT, 100);
-			m_InventoryMgr.AddItem(INV_NIGHTGOGGLES, 100);
-			m_InventoryMgr.AddItem(INV_THEEYE, 100);
-			m_InventoryMgr.AddItem(INV_BINOCULARS, 100);
+			// [Cheats] AllItems: retail's five, or the mod's
+			std::vector<int> items;
+			BloodMod_ParseItems(gRules.szCheatAllItems, items);
+			for (size_t i = 0; i < items.size(); ++i)
+				m_InventoryMgr.AddItem((DBYTE)items[i], 100);
 			break;
 		}
 
@@ -3647,6 +3640,9 @@ void CPlayerObj::AddPowerup(HOBJECT hSender, DBYTE nType, DFLOAT fValue)
 				bPickedUp = DTRUE;
 				m_bPowerupActivated[PU_INVULNERABLE] = DTRUE;
 				StartPowerupSound( PU_INVULNERABLE );
+				// [Voice] WillpowerVoiceAtPickup: the line here, not when it runs out
+				if (gRules.bWillpowerVoiceAtPickup)
+					PlayVoiceGroupEventOnClient(VME_POWERUP, DTRUE);
 
 				DDWORD dwUsrFlags = pServerDE->GetObjectUserFlags(m_hObject);
 				pServerDE->SetObjectUserFlags(m_hObject, dwUsrFlags | USRFLG_WILLPOWERGLOW);
@@ -3738,7 +3734,8 @@ void CPlayerObj::CheckPowerups()
 		pServerDE->FreeString(hstr);
 
 		EndPowerupSound( PU_INVULNERABLE );
-		PlayVoiceGroupEventOnClient(VME_POWERUP, DTRUE);
+		if (!gRules.bWillpowerVoiceAtPickup)
+			PlayVoiceGroupEventOnClient(VME_POWERUP, DTRUE);
 		DDWORD dwUsrFlags = pServerDE->GetObjectUserFlags(m_hObject);
 		pServerDE->SetObjectUserFlags(m_hObject, dwUsrFlags & ~USRFLG_WILLPOWERGLOW);
 	}
@@ -7370,7 +7367,9 @@ void CPlayerObj::DoDeath(DBOOL bHumiliation)
 
 	if (m_damage.GetWhoKilledMeLast() == m_hObject)
 	{
-		PlayVoiceGroupEventOnClient(VME_SUICIDE, DTRUE);
+		// [Voice] SuicideVoice: FALSE plays no line
+		if (gRules.bSuicideVoice)
+			PlayVoiceGroupEventOnClient(VME_SUICIDE, DTRUE);
 	}
 	else
 	{

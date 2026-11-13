@@ -52,6 +52,9 @@ public:
     bool        GetBool(const char* tag, const char* key, bool def) const;
     std::string GetString(const char* tag, const char* key, const char* def) const;
     bool        GetVector(const char* tag, const char* key, float out[3]) const;
+    // Whether a key holds a quoted string, so that a key which takes a
+    // number may take a range written as text ("75..100") instead.
+    bool        IsString(const char* tag, const char* key) const;
 
     // The keys of one tag, sorted case-insensitively (ButeMgr doesn't keep their order)
     std::vector<std::string> Keys(const char* tag) const;

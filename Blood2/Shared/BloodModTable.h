@@ -30,6 +30,7 @@ enum Kind
 {
 	K_STRING,		// char*, never NULL in retail: "" is ""
 	K_STRNULL,		// char*, NULL in retail where an entry has none, never "": "" is NULL
+	K_LIST,			// char*, a K_STRING of names, not a path: up to kMaxList
 	K_NAMED,		// an unsigned char, one of pNames, written as a quoted name
 	K_WORD,			// an unsigned short, 0-65535
 	K_DWORD,		// an unsigned int, 0 or more
@@ -110,6 +111,9 @@ public:
 	// The longest string a mod may give: LT1's MAX_CS_FILENAME_LEN less its NUL, the smaller of
 	// the two engines' filename buffers
 	static const size_t kMaxString = 99;
+	// A list of names (a character's cheat weapons) is no filename, and the
+	// engine never holds one in a buffer: room for every weapon name.
+	static const size_t kMaxList = 255;
 
 private:
 	void		TakeRetail();

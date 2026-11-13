@@ -13,6 +13,7 @@
 #include "SharedDefs.h"
 #include "generic_msg_de.h"
 #include "ClientServerShared.h"
+#include "BloodModPickups.h"
 
 
 // *********************************************************************** //
@@ -111,10 +112,7 @@ END_CLASS_DEFAULT(BinocularsPU, ItemPickupCharged, NULL, NULL)
 // Constructor
 BinocularsPU::BinocularsPU() : ItemPickupCharged()
 {
-	m_nType		= INV_BINOCULARS;
-	m_szFile		= "Binoculars_pu";
-	m_szObjectName	= "Binoculars";
-	m_nNameID	= IDS_ITEM_BINOCULARS;
+	SetItem(BMPU_BINOCULARS);	// Mod\Pickups.txt
 }
 
 
@@ -132,10 +130,7 @@ END_CLASS_DEFAULT(TheEyePU, ItemPickupCharged, NULL, NULL)
 // Constructor
 TheEyePU::TheEyePU() : ItemPickupCharged()
 {
-	m_nType		= INV_THEEYE;
-	m_szFile		= "TheEye_pu";
-	m_szObjectName	= "The Eye";
-	m_nNameID	= IDS_ITEM_EYE;
+	SetItem(BMPU_THEEYE);	// Mod\Pickups.txt
 }
 
 // *********************************************************************** //
@@ -152,10 +147,7 @@ END_CLASS_DEFAULT(FlashlightPU, ItemPickupCharged, NULL, NULL)
 // Constructor
 FlashlightPU::FlashlightPU() : ItemPickupCharged()
 {
-	m_nType		= INV_FLASHLIGHT;
-	m_szFile		= "Flashlight_pu";
-	m_szObjectName	= "Flashlight";
-	m_nNameID	= IDS_ITEM_FLASHLIGHT;
+	SetItem(BMPU_FLASHLIGHT);	// Mod\Pickups.txt
 }
 
 
@@ -173,10 +165,7 @@ END_CLASS_DEFAULT(MedKitPU, ItemPickupCharged, NULL, NULL)
 // Constructor
 MedKitPU::MedKitPU() : ItemPickupCharged()
 {
-	m_nType		= INV_MEDKIT;
-	m_szFile		= "Medkit_pu";
-	m_szObjectName	= "Medkit";
-	m_nNameID	= IDS_ITEM_MEDKIT;
+	SetItem(BMPU_MEDKIT);	// Mod\Pickups.txt
 }
 
 
@@ -194,10 +183,7 @@ END_CLASS_DEFAULT(NightGogglesPU, ItemPickupCharged, NULL, NULL)
 // Constructor
 NightGogglesPU::NightGogglesPU() : ItemPickupCharged()
 {
-	m_nType		= INV_NIGHTGOGGLES;
-	m_szFile		= "NightGoggles_pu";
-	m_szObjectName	= "Night Goggles";
-	m_nNameID	= IDS_ITEM_GOGGLES;
+	SetItem(BMPU_NIGHTGOGGLES);	// Mod\Pickups.txt
 }
 
 
@@ -269,10 +255,7 @@ END_CLASS_DEFAULT(ProximitiesPU, ItemPickupWeapon, NULL, NULL)
 // Constructor
 ProximitiesPU::ProximitiesPU() : ItemPickupWeapon()
 {
-	m_nType		= INV_PROXIMITY;
-	m_szFile		= "Proximities_pu";
-	m_szObjectName	= "Proximity Bomb";
-	m_nNameID	= IDS_ITEM_PROX;
+	SetItem(BMPU_PROXIMITIES);	// Mod\Pickups.txt
 }
 
 
@@ -290,10 +273,7 @@ END_CLASS_DEFAULT(RemotesPU, ItemPickupWeapon, NULL, NULL)
 // Constructor
 RemotesPU::RemotesPU() : ItemPickupWeapon()
 {
-	m_nType		= INV_REMOTE;
-	m_szFile		= "Remotes_pu";
-	m_szObjectName	= "Remote Bomb";
-	m_nNameID	= IDS_ITEM_REMOTE;
+	SetItem(BMPU_REMOTES);	// Mod\Pickups.txt
 }
 
 
@@ -311,10 +291,7 @@ END_CLASS_DEFAULT(TimeBombPU, ItemPickupWeapon, NULL, NULL)
 // Constructor
 TimeBombPU::TimeBombPU() : ItemPickupWeapon()
 {
-	m_nType		= INV_TIMEBOMB;
-	m_szFile		= "TimeBomb_pu";
-	m_szObjectName	= "Time Bomb";
-	m_nNameID	= IDS_ITEM_TIME;
+	SetItem(BMPU_TIMEBOMB);	// Mod\Pickups.txt
 }
 
 

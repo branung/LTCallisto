@@ -55,6 +55,7 @@ struct CharacterStart
 	char*	szItems;
 	char*	szAmmo;
 	char*	szInitWeapons;	// the client's single-player init: weapon slots 1-9
+	char*	szCheatWeapons;	// what the "kfa" cheat gives, WEAP_ names
 };
 
 extern CharacterStart gCharacterStart[BLOOD2_CHARACTER_IDS];
