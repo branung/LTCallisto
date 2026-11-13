@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <mbstring.h>
 #include "SoundTypes.h"
+#include "AmmoValues.h"		// Mod\Ammo.txt's casings
 
 extern PhysicsState g_normalPhysicsState;
 extern PhysicsState g_waterPhysicsState;
@@ -63,10 +64,9 @@ DBOOL CShellCasingFX::Init(SFXCREATESTRUCT* psfxCreateStruct)
 	m_nAmmoType		= pShell->nAmmoType;
 	m_bLeftHanded	= pShell->bLeftHanded;
 
-	if(m_nAmmoType == AMMO_SHELL)
-		{ VEC_SET(m_vScale, 2.25f, 2.25f, 2.25f); }
-	else
-		{ VEC_SET(m_vScale, 1.5f, 1.5f, 1.5f); }
+	// Retail 2.25 for SHELL and 1.5 for any other: Mod\Ammo.txt's CasingScale
+	const AmmoValues& ammo = gAmmoValues[m_nAmmoType <= AMMO_MAXAMMOTYPES ? m_nAmmoType : AMMO_NONE];
+	VEC_SET(m_vScale, ammo.vCasingScale.x, ammo.vCasingScale.y, ammo.vCasingScale.z);
 
 	return DTRUE;
 }
@@ -116,11 +116,14 @@ DBOOL CShellCasingFX::CreateObject(CClientDE *pClientDE)
 	if(m_bLeftHanded)
 		VEC_NEGATE(vR, vR);
 
-	DFLOAT fUpVel = GetRandom(60.0f, 90.0f);
+	// Retail up 60-90, right 50-70, forward 10-25 for every type: Mod\Ammo.txt's CasingVelocityMin
+	// and CasingVelocityMax
+	const AmmoValues& ammo = gAmmoValues[m_nAmmoType <= AMMO_MAXAMMOTYPES ? m_nAmmoType : AMMO_NONE];
+	DFLOAT fUpVel = GetRandom(ammo.vCasingVelMin.x, ammo.vCasingVelMax.x);
 	VEC_MULSCALAR(vU, vU, fUpVel);
-	DFLOAT fRightVel = GetRandom(50.0f, 70.0f);
+	DFLOAT fRightVel = GetRandom(ammo.vCasingVelMin.y, ammo.vCasingVelMax.y);
 	VEC_MULSCALAR(vR, vR, fRightVel);
-	DFLOAT fForwardVel = GetRandom(10.0f, 25.0f);
+	DFLOAT fForwardVel = GetRandom(ammo.vCasingVelMin.z, ammo.vCasingVelMax.z);
 	VEC_MULSCALAR(vF, vF, fForwardVel);
 
 	VEC_ADD(vVel, vU, vR);
@@ -273,22 +276,17 @@ DBOOL CShellCasingFX::GetFileNames(char **pModelName, char **pSkinName)
 	if (!pModelName || !pSkinName)
 		return DFALSE;
 
-	if (m_nAmmoType == AMMO_BULLET)
-	{
-		*pModelName	= "models/ammo/bshell.abc";
-		*pSkinName	= "skins/ammo/bshell.dtx";
-	}
-	else if (m_nAmmoType == AMMO_SHELL)
-	{
-		*pModelName	= "models/ammo/sshell.abc";
-		*pSkinName	= "skins/ammo/sshell.dtx";
-	}
-	else
+	// Retail BULLET's bshell and SHELL's sshell, and no casing for any other type: Mod\Ammo.txt's
+	// CasingModel and CasingSkin
+	const AmmoValues& ammo = gAmmoValues[m_nAmmoType <= AMMO_MAXAMMOTYPES ? m_nAmmoType : AMMO_NONE];
+	if (!ammo.szCasingModel || !ammo.szCasingModel[0])
 	{
 		*pModelName	= NULL;
 		*pSkinName	= NULL;
 		return DFALSE;
 	}
+	*pModelName	= ammo.szCasingModel;
+	*pSkinName	= ammo.szCasingSkin;
 
 	return DTRUE;
 }

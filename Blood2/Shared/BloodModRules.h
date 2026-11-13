@@ -27,6 +27,55 @@
 //                               seconds a full charge lasts (120, 30)
 //   [Impacts]  BloodSpurtDamage a flesh hit spurts blood above this
 //                               damage, and one hit in four besides (25)
+//
+// and the client's, with the swim jump and the liquid mark read by both modules:
+//
+//   [Camera]   BobVertical, BobHorizontal, SwayVertical, SwayHorizontal
+//                               the view's bob and the weapon's sway as
+//                               the player walks (24, 16, 32, 80)
+//              ShakeScale       a screen shake's magnitude (3)
+//   [ViewWeapon] IdleDelayMin, IdleDelayMax
+//                               seconds before a held weapon plays its
+//                               idle animation, a random value between
+//                               (20, 60)
+//   [Movement] LadderStopTime   seconds a ladder (and a conveyor) takes to
+//                               stop the player (0.2)
+//              SwimJumpRepeat   TRUE: a swimmer can jump out of the water
+//                               from the start and after every jump
+//              SurfaceFloat     FALSE: breaking the surface never floats
+//                               the player there (TRUE)
+//   [Items]    FlashlightRadius the flashlight's light radius per unit of
+//                               distance to what it lights (0.4)
+//   [Impacts]  SplatScaleMin, SplatScaleMax, SpurtEmittersMin,
+//              SpurtEmittersMax, BigMetalSparkTime, MetalSparkTime,
+//              BloodSparkEmissionRadius, BloodSparkRadius, FragmentsMin,
+//              FragmentsMax, BubblesInLiquid, SmokeDelay, SmokeScale,
+//              BubbleGravity    WeaponFX.cpp's impact constants
+//              LiquidMark       the mark a shot leaves on liquid: "" for
+//                               the stone's, as retail
+//   [Effects]  FleshGibChance, FleshGibMore, FleshGibScale
+//                               at high detail, the percent chance a flesh
+//                               gib burst is multiplied by FleshGibMore,
+//                               and by FleshGibScale otherwise (20, 2, 1)
+//              GeneralCap .. ObjectCap
+//                               the most of each kind of effect alive at
+//                               once (SFXMgr.cpp)
+//   [Camera]   WonkyVision      FALSE: the screen never warbles, not for
+//                               a gas grenade, a voodoo wonky, a thief on
+//                               the player, or slow death
+//   [ViewWeapon] DualAltAsPrimary
+//                               TRUE: with two guns, alt fire fires both as
+//                               primary (retail); FALSE fires their alts
+//   [HUD]      WeaponTabsOnReset
+//                               TRUE: the weapon tabs scroll in when the
+//                               status bar resets (a level start)
+//   [Menus]    VersionText      the main menu's version line: "" for the
+//                               build's own
+//              CustomLevelsMultiplayer
+//                               FALSE: the custom level list leaves out the
+//                               multiplayer worlds
+//              AddonIntroMovie  TRUE: the add-on plays the intro movie
+//                               after the logos, as the base game does
 //   [Corpse]   BurnFX, SmokeFX  OBJFX_ names, one picked at random, for a
 //                               burning and a smoking corpse (FLAMING_2,
 //                               SMOKING_2)
@@ -40,8 +89,9 @@
 //                               percent: the head, each arm and each leg a
 //                               gibbed corpse throws (100, 80, 60)
 //
-// The server alone reads these. An unknown section or key, a value of the wrong kind or out of
-// range loads nothing, and the error says where.
+// Both modules load the file and read their own keys. An unknown section or key, a value of the
+// wrong kind or out of range, or a minimum above its maximum loads nothing, and the error says
+// where.
 
 #ifndef __BLOODMODRULES_H__
 #define __BLOODMODRULES_H__
@@ -59,11 +109,42 @@ struct BloodModRulesValues
 	float		fIdleVoiceTime;
 	const char*	szSpawnItems;
 	const char*	szSpawnAmmo;
+	// [Camera] (the client's)
+	float		fBobVertical;
+	float		fBobHorizontal;
+	float		fSwayVertical;
+	float		fSwayHorizontal;
+	float		fShakeScale;
+	int			bWonkyVision;
+	// [ViewWeapon]
+	float		fIdleDelayMin;
+	float		fIdleDelayMax;
+	int			bDualAltAsPrimary;
+	// [Movement]
+	float		fLadderStopTime;
+	int			bSwimJumpRepeat;		// both modules
+	int			bSurfaceFloat;
 	// [Items]
 	float		fFlashlightChargeTime;
 	float		fGogglesChargeTime;
+	float		fFlashlightRadius;		// the client's
 	// [Impacts]
 	float		fBloodSpurtDamage;
+	float		fSplatScaleMin;			// the client's, to LiquidMark
+	float		fSplatScaleMax;
+	int			nSpurtEmittersMin;
+	int			nSpurtEmittersMax;
+	float		fBigMetalSparkTime;
+	float		fMetalSparkTime;
+	float		fBloodSparkEmissionRadius;
+	float		fBloodSparkRadius;
+	int			nFragmentsMin;
+	int			nFragmentsMax;
+	int			bBubblesInLiquid;
+	float		fSmokeDelay;
+	float		fSmokeScale;
+	float		fBubbleGravity;
+	const char*	szLiquidMark;			// both modules
 	// [Corpse]
 	const char*	szBurnFX;
 	const char*	szSmokeFX;
@@ -71,6 +152,17 @@ struct BloodModRulesValues
 	int			nGibHeadChance;
 	int			nGibArmChance;
 	int			nGibLegChance;
+	// [Effects] (the client's)
+	int			nFleshGibChance;
+	int			nFleshGibMore;
+	int			nFleshGibScale;
+	int			nCaps[8];				// SFXMgr's dynamic effect lists
+	// [HUD] (the client's)
+	int			bWeaponTabsOnReset;
+	// [Menus]
+	const char*	szVersionText;
+	int			bCustomLevelsMultiplayer;
+	int			bAddonIntroMovie;
 };
 
 extern BloodModRulesValues gRules;

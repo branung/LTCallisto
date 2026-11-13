@@ -16,6 +16,7 @@
 #include <mbstring.h>
 #include "SoundTypes.h"
 #include "BloodClientShell.h"
+#include "BloodModRules.h"		// Mod\Rules.txt
 
 //*************************************************************************
 
@@ -1141,7 +1142,7 @@ void CNewStatusBar::Reset()
 	m_nOldAltAmmo = -1;
 
 	m_nInvLevel = 0;
-	m_nWeapLevel = 0;
+	m_nWeapLevel = gRules.bWeaponTabsOnReset ? WEAPTAB_SCROLL_IN : 0;	// retail 0 (Mod\Rules.txt)
 	m_nObjLevel = 0;
 	m_nObjIcon = 0;
 	m_nPowerBar = 0;

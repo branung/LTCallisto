@@ -21,6 +21,7 @@
 #include "MenuBase.h"
 #include "MenuCommands.h"
 #include "SoundTypes.h"
+#include "BloodModRules.h"		// Mod\Rules.txt
 
 //*******************************************************************
 // Global variable declarations
@@ -718,7 +719,8 @@ void CMainMenus::DrawVersionString(HSURFACE hSurf)
 		
 	int y=dwScreenHeight-pFont->GetHeight();
 
-	HSTRING hString=m_pClientDE->CreateString(version_string);
+	// Mod\Rules.txt's VersionText, or the build's own
+	HSTRING hString=m_pClientDE->CreateString((gRules.szVersionText && gRules.szVersionText[0]) ? (char*)gRules.szVersionText : (char*)version_string);
 	pFont->DrawSolid(hString, hSurf, 0, y, CF_JUSTIFY_LEFT, SETRGB(100,0,0));	
 
 	if (hString)

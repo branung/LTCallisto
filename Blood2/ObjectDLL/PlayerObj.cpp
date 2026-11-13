@@ -245,7 +245,7 @@ CPlayerObj::CPlayerObj() : CBaseCharacter(OT_MODEL)
 	m_fOldAirLevel			= MAX_AIR_LEVEL;
 	m_fAirLevel				= MAX_AIR_LEVEL;
 
-	m_bCanSwimJump			    = DFALSE;
+	m_bCanSwimJump			    = gRules.bSwimJumpRepeat ? DTRUE : DFALSE;	// retail DFALSE (Mod\Rules.txt)
 	m_bSwimmingJump				= DFALSE;
 
 	m_eLastSurface		= SURFTYPE_UNKNOWN;
@@ -1006,7 +1006,7 @@ DBOOL CPlayerObj::HandleMovement()
 						if (m_bCanSwimJump)
 						{
 							m_bSwimmingJump = DTRUE;
-							m_bCanSwimJump  = DFALSE;
+							m_bCanSwimJump  = gRules.bSwimJumpRepeat ? DTRUE : DFALSE;	// retail DFALSE
 						}
 						// If our head is out of the liquid and we're standing on the
 						// ground, let us jump out of the water...

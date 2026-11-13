@@ -24,8 +24,20 @@
 //                       it fires, and only then shows its muzzle smoke and
 //                       light (Weapon.cpp); retail BULLET and SHELL
 //
-// A Pickup on a type with no pickup, or a Regen on any but FOCUS, is an error. The server alone
-// loads it.
+// and the client's, for a shot that ejects:
+//
+//     CasingModel, CasingSkin   the casing; "" draws none (retail: BULLET's
+//                       and SHELL's only)
+//     CasingScale       <x, y, z>; Casings: how many a shot ejects (SHELL 2)
+//     CasingVelocityMin, CasingVelocityMax
+//                       <up, right, forward>: each a random value between
+//     MuzzleSmokeTime, MuzzleSmokeAlpha, MuzzleSmokeScaleMin,
+//     MuzzleSmokeScaleMax, MuzzleSmokeSideways
+//                       the muzzle's smoke puff; Sideways drifts it out to
+//                       the side, as retail's SHELL does
+//
+// A Pickup on a type with no pickup, or a Regen on any but FOCUS, is an error. Both modules load
+// it, each reading its own keys.
 
 #ifndef __BLOODMODAMMO_H__
 #define __BLOODMODAMMO_H__

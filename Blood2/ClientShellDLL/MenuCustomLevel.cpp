@@ -10,6 +10,7 @@
 #include "BloodClientShell.h"
 #include "VKDefs.h"
 #include "ClientRes.h"
+#include "BloodModRules.h"		// Mod\Rules.txt
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -69,10 +70,12 @@ void CMenuCustomLevel::InitCustomLevels()
 	{
 		AddCustomLevels("Worlds", "");
 		AddCustomLevels("Worlds\\Test", "\\test\\");
-		AddCustomLevels("Worlds\\Multi", "\\multi\\");
+		if (gRules.bCustomLevelsMultiplayer)		// Mod\Rules.txt
+			AddCustomLevels("Worlds\\Multi", "\\multi\\");
 #ifdef _ADDON
 		AddCustomLevels("Worlds_ao", "\\Worlds_ao\\");
-		AddCustomLevels("Worlds_ao\\Multi_ao", "\\multi_ao\\");
+		if (gRules.bCustomLevelsMultiplayer)
+			AddCustomLevels("Worlds_ao\\Multi_ao", "\\multi_ao\\");
 #endif // _ADDON
 	}		
 }

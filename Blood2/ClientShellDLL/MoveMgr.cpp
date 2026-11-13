@@ -7,12 +7,13 @@
 #include "ClientServerShared.h"
 #include "SharedDefs.h"
 #include "ClientUtilities.h"
+#include "BloodModRules.h"		// Mod\Rules.txt
 
 
 #define MIN_SWIM_ON_SURFACE_TIME	0.5f
 #define SPECTATOR_ACCELERATION		100000.0f
 
-#define LADDER_STOP_TIME			0.2f
+#define LADDER_STOP_TIME			(gRules.fLadderStopTime)	// retail 0.2f (Mod\Rules.txt)
 #define SWIM_STOP_TIME				1.0f
 #define DEFAULT_JUMPVEL				600.0f
 
@@ -99,7 +100,7 @@ DBOOL CMoveMgr::Init(ClientDE *pClientDE)
 	m_bOnGround = DTRUE;
 	m_nMouseStrafeFlags = 0;
 	m_bSwimmingOnSurface = DFALSE;
-	m_bCanSwimJump = DFALSE;
+	m_bCanSwimJump = gRules.bSwimJumpRepeat ? DTRUE : DFALSE;	// retail DFALSE
 
 	m_fLeashLen = 100.0f;
 	m_fBaseMoveAccel = 0.0f;
@@ -867,7 +868,7 @@ void CMoveMgr::UpdateMotion()
 			// See if we just broke the surface of water...
 			if ((IsLiquid(m_eLastContainerCode) && !bHeadInLiquid) && !m_bOnGround && !m_bBodyOnLadder)
 			{
-				m_bSwimmingOnSurface = DTRUE;
+				m_bSwimmingOnSurface = gRules.bSurfaceFloat ? DTRUE : DFALSE;	// retail DTRUE
 			}
 			else if (bHeadInLiquid)  // See if we went back under...
 			{
@@ -935,7 +936,7 @@ void CMoveMgr::UpdateMotion()
 						if (m_bCanSwimJump)
 						{
 							m_bSwimmingJump = DTRUE;
-							m_bCanSwimJump  = DFALSE;
+							m_bCanSwimJump  = gRules.bSwimJumpRepeat ? DTRUE : DFALSE;	// retail DFALSE
 						}
 						// If our head is out of the liquid and we're standing on the
 						// ground, let us jump out of the water...

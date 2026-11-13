@@ -68,6 +68,7 @@ const Field kFields[] =
 	L("StartWeapons",		szWeapons),		// WEAP_ names without the prefix
 	L("StartItems",			szItems),		// INV_ names
 	L("StartAmmo",			szAmmo),		// AMMO_ names, each with its count
+	L("InitWeapons",		szInitWeapons),	// WEAP_ names, slots 1-9
 };
 #undef F
 #undef S
@@ -189,6 +190,7 @@ bool CheckStart(std::string& sError)
 		if (!BloodModCharacter_StartWeapons(nId, w, &why)) pKey = "StartWeapons";
 		else if (!BloodModCharacter_StartItems(nId, it, &why)) pKey = "StartItems";
 		else if (!BloodModCharacter_StartAmmo(nId, am, &why)) pKey = "StartAmmo";
+		else if (!BloodModCharacter_InitWeapons(nId, w, &why)) pKey = "InitWeapons";
 		if (pKey)
 		{
 			snprintf(buf, sizeof(buf), "Mod\\Characters.txt: [%s]:%s: %s", pName, pKey, why.c_str());
@@ -214,6 +216,30 @@ bool BloodModCharacter_StartWeapons(int nId, std::vector<int>& out, std::string*
 			if (pWhy)
 				*pWhy = "\"" + words[i] + "\" is " + (nWeapon > WEAP_NONE ? "a bomb, which StartItems gives" :
 						"no weapon (the WEAP_ names without the prefix, Blood2/ModReference/Weapons.txt)");
+			out.clear();
+			return false;
+		}
+		out.push_back(nWeapon);
+	}
+	return true;
+}
+
+bool BloodModCharacter_InitWeapons(int nId, std::vector<int>& out, std::string* pWhy)
+{
+	out.clear();
+	if (nId < CHARACTER_CALEB || nId >= BloodModCharacter_Count()) return false;
+	const std::vector<std::string> words = Words(gCharacterStart[nId].szInitWeapons);
+	for (size_t i = 0; i < words.size(); ++i)
+	{
+		const int nWeapon = BloodModWeapon_Find(words[i].c_str());
+		const int nRetail = nWeapon > WEAP_NONE ? BloodModWeapon_Retail(nWeapon) : WEAP_NONE;
+		if (nWeapon <= WEAP_NONE || nRetail >= WEAP_BASEINVENTORY || nRetail == WEAP_MELEE || i >= 9)
+		{
+			if (pWhy)
+				*pWhy = i >= 9 ? std::string("more than nine weapons; there are slots 1-9") :
+						"\"" + words[i] + "\" is " + (nWeapon <= WEAP_NONE ? "no weapon (the WEAP_ names without the prefix, "
+						"Blood2/ModReference/Weapons.txt)" : nRetail == WEAP_MELEE ? "the melee weapon, which slot 0 always holds" :
+						"a bomb, which a slot cannot hold");
 			out.clear();
 			return false;
 		}

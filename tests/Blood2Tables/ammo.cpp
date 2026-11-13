@@ -55,6 +55,21 @@ std::vector<std::string> DifferAll()
 		}
 		if (a.fPickup != r.fPickup) out.push_back(std::string(pName) + ".fPickup");
 		if (a.bEjectShell != r.bEjectShell) out.push_back(std::string(pName) + ".bEjectShell");
+		// The client's; strings by content
+		const std::string sn = pName;
+		if (strcmp(a.szCasingModel, r.szCasingModel)) out.push_back(sn + ".szCasingModel");
+		if (strcmp(a.szCasingSkin, r.szCasingSkin)) out.push_back(sn + ".szCasingSkin");
+		const AmmoVec* va[3] = { &a.vCasingScale, &a.vCasingVelMin, &a.vCasingVelMax };
+		const AmmoVec* vr[3] = { &r.vCasingScale, &r.vCasingVelMin, &r.vCasingVelMax };
+		const char* vn[3] = { ".vCasingScale", ".vCasingVelMin", ".vCasingVelMax" };
+		for (int k = 0; k < 3; ++k)
+			if (va[k]->x != vr[k]->x || va[k]->y != vr[k]->y || va[k]->z != vr[k]->z) out.push_back(sn + vn[k]);
+		if (a.nCasings != r.nCasings) out.push_back(sn + ".nCasings");
+		if (a.fSmokeTime != r.fSmokeTime) out.push_back(sn + ".fSmokeTime");
+		if (a.fSmokeAlpha != r.fSmokeAlpha) out.push_back(sn + ".fSmokeAlpha");
+		if (a.fSmokeScaleMin != r.fSmokeScaleMin) out.push_back(sn + ".fSmokeScaleMin");
+		if (a.fSmokeScaleMax != r.fSmokeScaleMax) out.push_back(sn + ".fSmokeScaleMax");
+		if (a.bSmokeSideways != r.bSmokeSideways) out.push_back(sn + ".bSmokeSideways");
 	}
 	return out;
 }
@@ -100,6 +115,28 @@ void TestRetail()
 	Check(AmmoHasPickup(AMMO_BULLET) && AmmoHasPickup(AMMO_BATTERY) && !AmmoHasPickup(AMMO_FOCUS) &&
 		  !AmmoHasPickup(AMMO_PROXIMITYBOMB) && AmmoRegenerates(AMMO_FOCUS) && !AmmoRegenerates(AMMO_BULLET),
 		  "BULLET .. BATTERY have a pickup, and FOCUS alone regenerates");
+	// The client's, as retail's ShellCasingFX.cpp and WeaponFX.cpp had them: bshell for BULLET and
+	// sshell for SHELL and no casing for any other, scale 2.25 for SHELL and 1.5 else, every casing
+	// at up 60-90, right 50-70, forward 10-25, two casings a SHELL shot, and CreateMuzzleSmoke's two
+	// branches.
+	int nClient = 0;
+	for (int n = 0; n <= AMMO_MAXAMMOTYPES; ++n)
+	{
+		const AmmoValues& v = gAmmoValues[n];
+		const bool bShell = n == AMMO_SHELL;
+		const char* pModel = n == AMMO_BULLET ? "models/ammo/bshell.abc" : bShell ? "models/ammo/sshell.abc" : "";
+		const char* pSkin = n == AMMO_BULLET ? "skins/ammo/bshell.dtx" : bShell ? "skins/ammo/sshell.dtx" : "";
+		const float fScale = bShell ? 2.25f : 1.5f;
+		const bool b = !strcmp(v.szCasingModel, pModel) && !strcmp(v.szCasingSkin, pSkin) &&
+					   v.vCasingScale.x == fScale && v.vCasingScale.y == fScale && v.vCasingScale.z == fScale &&
+					   v.nCasings == (bShell ? 2u : 1u) && v.vCasingVelMin.x == 60.0f && v.vCasingVelMin.y == 50.0f &&
+					   v.vCasingVelMin.z == 10.0f && v.vCasingVelMax.x == 90.0f && v.vCasingVelMax.y == 70.0f &&
+					   v.vCasingVelMax.z == 25.0f && v.fSmokeTime == (bShell ? 1.0f : 1.5f) &&
+					   v.fSmokeAlpha == (bShell ? 0.25f : 0.5f) && v.fSmokeScaleMin == (bShell ? 0.04f : 0.05f) &&
+					   v.fSmokeScaleMax == 0.25f && !!v.bSmokeSideways == bShell;
+		nClient += b;
+	}
+	Check(nClient == AMMO_MAXAMMOTYPES + 1, "every type's casing and muzzle smoke are ShellCasingFX's and WeaponFX's");
 	bool bNames = true;
 	for (int n = AMMO_BULLET; n <= AMMO_MAXAMMOTYPES; ++n)
 		bNames = bNames && BloodModAmmo_Name(n) && BloodModAmmo_Find(BloodModAmmo_Name(n)) == n;
@@ -208,8 +245,11 @@ std::string AmmoDump()
 		"// only BULLET .. BATTERY have one; Regen1 .. Regen6 are what FOCUS\n"
 		"// regains a second at magic 1 .. 6, and no other type regenerates.\n"
 		"// EjectShell TRUE makes a weapon firing the type eject a casing, and\n"
-		"// only then show its muzzle smoke and light.  A mod names only what it\n"
-		"// changes:\n"
+		"// only then show its muzzle smoke and light.  The client draws the\n"
+		"// casing (CasingModel, \"\" for none, CasingSkin, CasingScale, Casings a\n"
+		"// shot, CasingVelocityMin and Max as <up, right, forward>) and the\n"
+		"// muzzle smoke (MuzzleSmoke keys; Sideways is retail's SHELL drift).  A\n"
+		"// mod names only what it changes:\n"
 		"//\n"
 		"//     [BULLET]\n"
 		"//     Max1 = 200.0\n"

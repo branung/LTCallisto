@@ -8,6 +8,8 @@
 #include "lt1mod_script.h"
 #include "BloodModWeapons.h"
 #include "BloodModCharacters.h"
+#include "BloodModAmmo.h"
+#include "BloodModRules.h"
 #include "MenuCharacter.h"
 #include "BloodModStrings.h"
 #include "BloodModTable.h"
@@ -59,6 +61,12 @@ void B2Mod_Init(CClientDE* pClientDE)
 	// client wants the ids and the menu's pictures
 	BloodModCharacters_LoadAndReport(src, PrintClientLine, "");
 	BuildCharacterMenuInfo();
+
+	// The ammo table and the loose rules, which the server loads too: the client reads the casings
+	// and muzzle smoke, and the camera, movement and effect constants. Before the effect manager's
+	// Init, which sizes its lists from [Effects]'s caps.
+	BloodModAmmo_LoadAndReport(src, PrintClientLine, "");
+	BloodModRules_LoadAndReport(src, PrintClientLine, "");
 
 	// The mod's strings, which the engine's FormatString asks this shell for through
 	// ModStringsExport.cpp

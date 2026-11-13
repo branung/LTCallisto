@@ -13,6 +13,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <string.h>
 #include <deque>
 #include <string>
 #include <vector>
@@ -25,15 +26,41 @@ BloodModRulesValues gRules =
 	60.0f,			// PlayerObj.cpp's MAX_IDLE_TIME
 	"",				// CPlayerObj::InitialUpdate gives no item
 	"BULLET 50",	// CPlayerObj::InitialUpdate's AddAmmo(AMMO_BULLET, 50)
+	24.0f, 16.0f, 32.0f, 80.0f,	// BloodClientShell.cpp's BOBV_, BOBH_, SWAYV_, SWAYH_WALKING
+	3.0f,			// CBloodClientShell::UpdateScreenShake's * 3.0f
+	1,				// StartWonkyVision starts it
+	20.0f, 60.0f,	// CViewWeapon's m_fMinIdleDelay, m_fMaxIdleDelay
+	1,				// UpdateWeapon: "If we have duel weapons, make the altfire the same as the primary"
+	0.2f,			// MoveMgr.cpp's LADDER_STOP_TIME
+	0,				// m_bCanSwimJump: FALSE at start and after a jump
+	1,				// MoveMgr's m_bSwimmingOnSurface = DTRUE on breaking the surface
 	120.0f,			// GameInvItems.h's FLASHLIGHTCHARGETIME
 	30.0f,			// GameInvItems.h's GOGGLESCHARGETIME
+	0.40f,			// FlashlightFX.cpp's fDistance * 0.40f
 	25.0f,			// CWeapon::UpdateWeaponFX's fDamage > 25.0f
+	// WeaponFX.cpp's:
+	0.05f, 0.15f,	// CreateBloodSplat's 0.1f + GetRandom(-0.05f,0.05f)
+	1, 1,			// CreateBloodSpurt's nNumEmitters = 1
+	2.0f, 0.5f,		// CreateSparks' metal fDuration, big and small
+	5.0f, 200.0f,	// its flesh fEmissionRadius and fRadius
+	1, 3,			// CreateFragments' GetRandom(1,3), wood and stone
+	1,				// CreateSmoke's bubbles in place of smoke under liquid
+	0.0f, 0.35f,	// its fDelay and vMaxScale
+	50.0f,			// CreateBubbles' fGravity
+	"",				// GetMarkSprite: liquid falls to the stone's marks
 	"FLAMING_2",	// CCorpse::Setup's burning corpse
 	"SMOKING_2",	// CCorpse::Update's smoking corpse
 	0,				// CCorpse::HandleDamage gibs on its own damage
 	100,			// CCorpse::CreateGibs: "100 % create a head"
 	80,				// its IsRandomChance(80) for each arm
 	60,				// and IsRandomChance(60) for each leg
+	// SFXMgr.cpp's:
+	20, 2, 1,		// CreateGibs: IsRandomChance(20) *= 2, else *= (DBYTE)1.5
+	{ 300, 300, 80, 80, 80, 80, 100, 80 },	// s_nDynArrayMaxNums
+	0,				// CNewStatusBar::Reset's m_nWeapLevel = 0, WEAPTAB_INVISIBLE
+	"",				// BloodClientShell.h's version_string
+	1,				// CMenuCustomLevel adds Worlds\Multi and Worlds_ao\Multi_ao
+	0,				// the add-on goes from the GTI logo to MOVIE_FINISHED
 };
 
 namespace
@@ -43,25 +70,78 @@ const char* const kPath = "Mod\\Rules.txt";
 
 bool EqualNoCase(const char* a, const char* b) { return LT1Mod::Registry::EqualNoCase(a, b); }
 
-enum Kind { RK_FLOAT, RK_PERCENT, RK_BOOL, RK_ITEMS, RK_AMMO, RK_OBJFX };
-struct Rule { const char* pSection; const char* pKey; Kind eKind; size_t nOffset; };
-#define R(sec, key, kind, member) { sec, key, RK_##kind, offsetof(BloodModRulesValues, member) }
+// RK_INT is an int up to fMax; RK_PATH any string, "" too. fMax caps a float as well (0: none).
+enum Kind { RK_FLOAT, RK_PERCENT, RK_BOOL, RK_ITEMS, RK_AMMO, RK_OBJFX, RK_INT, RK_PATH };
+struct Rule { const char* pSection; const char* pKey; Kind eKind; size_t nOffset; float fMax; };
+#define R(sec, key, kind, member) { sec, key, RK_##kind, offsetof(BloodModRulesValues, member), 0.0f }
+#define RM(sec, key, kind, member, mx) { sec, key, RK_##kind, offsetof(BloodModRulesValues, member), mx }
 const Rule kRules[] =
 {
-	R("Player", "InvisibleAlpha",		FLOAT,		fInvisibleAlpha),
+	RM("Player", "InvisibleAlpha",		FLOAT,		fInvisibleAlpha, 1.0f),
 	R("Player", "UseDistance",			FLOAT,		fUseDistance),
 	R("Player", "IdleVoiceTime",		FLOAT,		fIdleVoiceTime),
 	R("Player", "SpawnItems",			ITEMS,		szSpawnItems),
 	R("Player", "SpawnAmmo",			AMMO,		szSpawnAmmo),
+	R("Camera", "BobVertical",			FLOAT,		fBobVertical),
+	R("Camera", "BobHorizontal",		FLOAT,		fBobHorizontal),
+	R("Camera", "SwayVertical",			FLOAT,		fSwayVertical),
+	R("Camera", "SwayHorizontal",		FLOAT,		fSwayHorizontal),
+	R("Camera", "ShakeScale",			FLOAT,		fShakeScale),
+	R("Camera", "WonkyVision",			BOOL,		bWonkyVision),
+	R("ViewWeapon", "IdleDelayMin",		FLOAT,		fIdleDelayMin),
+	R("ViewWeapon", "IdleDelayMax",		FLOAT,		fIdleDelayMax),
+	R("ViewWeapon", "DualAltAsPrimary",	BOOL,		bDualAltAsPrimary),
+	R("Movement", "LadderStopTime",		FLOAT,		fLadderStopTime),		// above 0: it divides
+	R("Movement", "SwimJumpRepeat",		BOOL,		bSwimJumpRepeat),
+	R("Movement", "SurfaceFloat",		BOOL,		bSurfaceFloat),
 	R("Items", "FlashlightChargeTime",	FLOAT,		fFlashlightChargeTime),
 	R("Items", "GogglesChargeTime",		FLOAT,		fGogglesChargeTime),
+	R("Items", "FlashlightRadius",		FLOAT,		fFlashlightRadius),
 	R("Impacts", "BloodSpurtDamage",	FLOAT,		fBloodSpurtDamage),
+	R("Impacts", "SplatScaleMin",		FLOAT,		fSplatScaleMin),
+	R("Impacts", "SplatScaleMax",		FLOAT,		fSplatScaleMax),
+	RM("Impacts", "SpurtEmittersMin",	INT,		nSpurtEmittersMin, 16),
+	RM("Impacts", "SpurtEmittersMax",	INT,		nSpurtEmittersMax, 16),
+	R("Impacts", "BigMetalSparkTime",	FLOAT,		fBigMetalSparkTime),
+	R("Impacts", "MetalSparkTime",		FLOAT,		fMetalSparkTime),
+	R("Impacts", "BloodSparkEmissionRadius", FLOAT,	fBloodSparkEmissionRadius),
+	R("Impacts", "BloodSparkRadius",	FLOAT,		fBloodSparkRadius),
+	RM("Impacts", "FragmentsMin",		INT,		nFragmentsMin, 100),		// a char loop count
+	RM("Impacts", "FragmentsMax",		INT,		nFragmentsMax, 100),
+	R("Impacts", "BubblesInLiquid",		BOOL,		bBubblesInLiquid),
+	R("Impacts", "SmokeDelay",			FLOAT,		fSmokeDelay),
+	R("Impacts", "SmokeScale",			FLOAT,		fSmokeScale),
+	R("Impacts", "BubbleGravity",		FLOAT,		fBubbleGravity),
+	R("Impacts", "LiquidMark",			PATH,		szLiquidMark),
 	R("Corpse", "BurnFX",				OBJFX,		szBurnFX),
 	R("Corpse", "SmokeFX",				OBJFX,		szSmokeFX),
 	R("Corpse", "GibOnExplosionOnly",	BOOL,		bGibOnExplosionOnly),
 	R("Corpse", "GibHeadChance",		PERCENT,	nGibHeadChance),
 	R("Corpse", "GibArmChance",			PERCENT,	nGibArmChance),
 	R("Corpse", "GibLegChance",			PERCENT,	nGibLegChance),
+	R("Effects", "FleshGibChance",		PERCENT,	nFleshGibChance),
+	RM("Effects", "FleshGibMore",		INT,		nFleshGibMore, 16),		// a DBYTE count's multiplier
+	RM("Effects", "FleshGibScale",		INT,		nFleshGibScale, 16),
+	RM("Effects", "GeneralCap",			INT,		nCaps[0], 4096),
+	RM("Effects", "MarkCap",			INT,		nCaps[1], 4096),
+	RM("Effects", "WeaponCap",			INT,		nCaps[2], 4096),
+	RM("Effects", "SmokeCap",			INT,		nCaps[3], 4096),
+	RM("Effects", "ExplosionCap",		INT,		nCaps[4], 4096),
+	RM("Effects", "GibCap",				INT,		nCaps[5], 4096),
+	RM("Effects", "CasingCap",			INT,		nCaps[6], 4096),
+	RM("Effects", "ObjectCap",			INT,		nCaps[7], 4096),
+	R("HUD", "WeaponTabsOnReset",		BOOL,		bWeaponTabsOnReset),
+	R("Menus", "VersionText",			PATH,		szVersionText),
+	R("Menus", "CustomLevelsMultiplayer", BOOL,		bCustomLevelsMultiplayer),
+	R("Menus", "AddonIntroMovie",		BOOL,		bAddonIntroMovie),
+};
+#undef RM
+
+// Each minimum and its maximum, a random value between which must not run backwards (GetRandom)
+const char* const kPairs[][2] =
+{
+	{ "IdleDelayMin", "IdleDelayMax" }, { "SplatScaleMin", "SplatScaleMax" },
+	{ "SpurtEmittersMin", "SpurtEmittersMax" }, { "FragmentsMin", "FragmentsMax" },
 };
 #undef R
 const int kNumRules = (int)(sizeof(kRules) / sizeof(kRules[0]));
@@ -103,7 +183,8 @@ std::string ValueOf(BloodModRulesValues& v, int i)
 	switch (kRules[i].eKind)
 	{
 		case RK_FLOAT:		return BloodMod::DF(F(v, i));
-		case RK_PERCENT:	{ char b[16]; snprintf(b, sizeof(b), "%d", N(v, i)); return b; }
+		case RK_PERCENT:
+		case RK_INT:		{ char b[16]; snprintf(b, sizeof(b), "%d", N(v, i)); return b; }
 		case RK_BOOL:		return N(v, i) ? "TRUE" : "FALSE";
 		default:			return std::string("\"") + (S(v, i) ? S(v, i) : "") + "\"";
 	}
@@ -211,7 +292,7 @@ bool BloodModRules_Load(LT1Mod::FileSource &src, std::string &sError)
 		for (int i = 0; i < kNumRules && !bSection; ++i) bSection = EqualNoCase(kRules[i].pSection, tag);
 		if (!bSection)
 		{
-			snprintf(buf, sizeof(buf), "%s: [%s] is not a section (Player, Items, Impacts, Corpse; "
+			snprintf(buf, sizeof(buf), "%s: [%s] is not a section (Player, Camera, ViewWeapon, Movement, Items, Impacts, Corpse, Effects, HUD, Menus; "
 					 "Blood2/ModReference/Rules.txt lists them)", kPath, tag);
 			sError = buf;
 			return false;
@@ -243,13 +324,13 @@ bool BloodModRules_Load(LT1Mod::FileSource &src, std::string &sError)
 			if (kind == RK_FLOAT)
 			{
 				F(v, r) = a.GetFloat(tag, key, 0.0f);
-				bRange = F(v, r) >= 0.0f && F(v, r) <= (kRules[r].nOffset == offsetof(BloodModRulesValues, fInvisibleAlpha)
-															? 1.0f : 1e30f);		// an alpha is 0-1
+				bRange = F(v, r) >= 0.0f && F(v, r) <= (kRules[r].fMax > 0.0f ? kRules[r].fMax : 1e30f) &&
+						 (F(v, r) > 0.0f || strcmp(kRules[r].pKey, "LadderStopTime"));	// it divides
 			}
-			else if (kind == RK_PERCENT)
+			else if (kind == RK_PERCENT || kind == RK_INT)
 			{
 				N(v, r) = a.GetInt(tag, key, 0);
-				bRange = N(v, r) >= 0 && N(v, r) <= 100;
+				bRange = N(v, r) >= 0 && N(v, r) <= (kind == RK_PERCENT ? 100 : (int)kRules[r].fMax);
 			}
 			else if (kind == RK_BOOL)
 				N(v, r) = a.GetBool(tag, key, false) ? 1 : 0;
@@ -258,7 +339,7 @@ bool BloodModRules_Load(LT1Mod::FileSource &src, std::string &sError)
 				const std::string s = a.GetString(tag, key, "");
 				if (a.Error() == before && s.size() > BloodMod::Table::kMaxString)
 					bRange = false;
-				else if (a.Error() == before && !CheckList(kind, s.c_str(), why))
+				else if (a.Error() == before && kind != RK_PATH && !CheckList(kind, s.c_str(), why))
 				{
 					snprintf(buf, sizeof(buf), "%s: [%s]:%s: %s", kPath, tag, key, why.c_str());
 					sError = buf;
@@ -278,6 +359,23 @@ bool BloodModRules_Load(LT1Mod::FileSource &src, std::string &sError)
 				sError = buf;
 				return false;
 			}
+		}
+	}
+	// A minimum above its maximum would run GetRandom backwards.
+	for (size_t p = 0; p < sizeof(kPairs) / sizeof(kPairs[0]); ++p)
+	{
+		int lo = -1, hi = -1;
+		for (int i = 0; i < kNumRules; ++i)
+		{
+			if (!strcmp(kRules[i].pKey, kPairs[p][0])) lo = i;
+			if (!strcmp(kRules[i].pKey, kPairs[p][1])) hi = i;
+		}
+		const bool bInt = kRules[lo].eKind == RK_INT;
+		if (bInt ? N(v, lo) > N(v, hi) : F(v, lo) > F(v, hi))
+		{
+			snprintf(buf, sizeof(buf), "%s: [%s]:%s is above %s", kPath, kRules[lo].pSection, kPairs[p][0], kPairs[p][1]);
+			sError = buf;
+			return false;
 		}
 	}
 	for (size_t i = 0; i < strings.size(); ++i)

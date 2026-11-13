@@ -51,6 +51,9 @@
 #include "FlashlightFX.h"
 #include "IKChainFX.h"
 #include "BloodclientShell.h"
+#include "BloodModRules.h"		// Mod\Rules.txt's [Effects]
+#include <stdio.h>
+#include <string.h>
 
 
 // ----------------------------------------------------------------------- //
@@ -60,6 +63,8 @@
 //	PURPOSE:	Init the CSFXMgr
 //
 // ----------------------------------------------------------------------- //
+
+static bool SFXCapsAreRetail();		// below s_nDynArrayMaxNums
 
 DBOOL CSFXMgr::Init(CClientDE *pClientDE)
 {
@@ -73,6 +78,17 @@ DBOOL CSFXMgr::Init(CClientDE *pClientDE)
 		bRet = m_dynSFXLists[i].Create(GetDynArrayMaxNum(i));
 		if (!bRet) return DFALSE;
 	}
+
+	// What the lists were sized to, when a mod's [Effects] caps differ from retail's. An unmodded
+	// game prints nothing.
+	const bool bModCaps = !SFXCapsAreRetail();
+	char szCaps[128] = "";
+	for (int c = 0; c < 8; ++c)
+	{
+		snprintf(szCaps + strlen(szCaps), sizeof(szCaps) - strlen(szCaps), "%s%u", c ? " " : "", GetDynArrayMaxNum((DBYTE)c));
+	}
+	if (bModCaps)
+		pClientDE->CPrint("Mod\\Rules.txt: effect lists sized %s", szCaps);
 
 	bRet = m_staticSFXList.Create(STATIC_LIST_SIZE);
 	bRet = m_cameraSFXList.Create(CAMERA_LIST_SIZE);
@@ -199,10 +215,11 @@ void CSFXMgr::HandleSFXMsg(HLOCALOBJ hObj, HMESSAGEREAD hMessage, DBYTE nId)
 			}
 			else if (nVal == DETAIL_HIGH && nType == SURFTYPE_FLESH)
 			{
-				if (IsRandomChance(20))			// Occasionally make more.
-					nCount *= 2;
+				// Retail 20%, * 2, else * (DBYTE)1.5, which is * 1: Mod\Rules.txt's [Effects] FleshGib keys
+				if (IsRandomChance(gRules.nFleshGibChance))			// Occasionally make more.
+					nCount *= (DBYTE)gRules.nFleshGibMore;
 				else
-					nCount *= (DBYTE)1.5;		// a little extra..
+					nCount *= (DBYTE)gRules.nFleshGibScale;		// a little extra..
 			}
 
 			for (int i=0; i < nCount; i++)
@@ -1661,8 +1678,19 @@ static unsigned int s_nDynArrayMaxNums[DYN_ARRAY_SIZE] =
 	80		// Object
 };
 
+static bool SFXCapsAreRetail()
+{
+	for (int c = 0; c < 8; ++c)
+		if ((unsigned int)gRules.nCaps[c] != s_nDynArrayMaxNums[c]) return false;
+	return true;
+}
+
 unsigned int CSFXMgr::GetDynArrayMaxNum(DBYTE nIndex)
 {
+	// The eight listed are Mod\Rules.txt's [Effects] caps, read once when Init sizes the lists,
+	// after the mod is loaded.
+	if (nIndex < 8)
+		return (unsigned int)gRules.nCaps[nIndex];
 	if (0 <= nIndex && nIndex < DYN_ARRAY_SIZE)
 	{
 		return s_nDynArrayMaxNums[nIndex];

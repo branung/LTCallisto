@@ -239,6 +239,7 @@ std::string Other(const std::string& key, const std::string& v)
 	if (key == "StartWeapons")	return v == "\"MELEE\"" ? "\"MELEE SHOTGUN\"" : "\"MELEE\"";
 	if (key == "StartItems")		return v == "\"FLASHLIGHT\"" ? "\"MEDKIT\"" : "\"FLASHLIGHT\"";
 	if (key == "StartAmmo")		return v == "\"SHELL 20\"" ? "\"BULLET 50\"" : "\"SHELL 20\"";
+	if (key == "InitWeapons")	return v == "\"BERETTA SHOTGUN\"" ? "\"BERETTA\"" : "\"BERETTA SHOTGUN\"";
 	if (v == "TRUE")		return "FALSE";
 	if (v == "FALSE")		return "TRUE";
 	if (v[0] == '"')		return v == "\"\"" ? "\"Mod\\Test\\value.abc\"" : "\"" + v.substr(1, v.size() - 2) + "_mod\"";

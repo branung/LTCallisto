@@ -109,6 +109,9 @@ add_library(${PROJECT_NAME} SHARED
 	../Shared/BloodModWeapons.cpp
 	../Shared/CharacterValues.cpp
 	../Shared/BloodModCharacters.cpp
+	../Shared/AmmoValues.cpp
+	../Shared/BloodModAmmo.cpp
+	../Shared/BloodModRules.cpp
 	../Shared/BloodModStrings.cpp
 	ModStringsExport.cpp
 	../Misc/BareList.cpp

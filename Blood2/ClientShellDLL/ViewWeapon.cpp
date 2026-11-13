@@ -19,6 +19,7 @@
 #include "SoundTypes.h"
 #include "BloodModWeapons.h"	// a new weapon tests as its Base
 #include "BloodModCharacters.h"
+#include "BloodModRules.h"		// Mod\Rules.txt
 
 
 DBYTE g_byRandomWeaponSeed;
@@ -188,8 +189,8 @@ DBOOL CViewWeapon::Create(CClientDE* pClientDE, DBYTE byWeaponID, DBOOL bLeftHan
 
 	m_fIdleStartTime		= 0.0f;
 	m_fIdleDelay			= 0.0f;
-	m_fMinIdleDelay			= 20.0f;
-	m_fMaxIdleDelay			= 60.0f;
+	m_fMinIdleDelay			= gRules.fIdleDelayMin;	// retail 20 and 60 (Mod\Rules.txt)
+	m_fMaxIdleDelay			= gRules.fIdleDelayMax;
 
 	// Create a muzzle flash
 	m_bFlashShowing			= DFALSE;

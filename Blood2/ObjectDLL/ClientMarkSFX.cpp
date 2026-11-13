@@ -11,6 +11,7 @@
 #include "ClientMarkSFX.h"
 #include "cpp_server_de.h"
 #include "SFXMsgIds.h"
+#include "BloodModRules.h"		// LiquidMark
 
 
 BEGIN_CLASS(CClientMarkSFX)
@@ -132,6 +133,16 @@ char* CClientMarkSFX::GetMarkSprite(DBYTE nWeaponType, DBYTE nAmmoType, SurfaceT
 		case SURFTYPE_WOOD:
 			pMark = "sprites/blthole5.spr";
 			break;
+
+		// Retail has no liquid case: a shot on water leaves the stone's mark. Mod\Rules.txt's
+		// LiquidMark names one.
+		case SURFTYPE_LIQUID:
+			if (gRules.szLiquidMark && gRules.szLiquidMark[0])
+			{
+				pMark = (char*)gRules.szLiquidMark;
+				break;
+			}
+			// fall through
 
 		case SURFTYPE_STONE:
 		default:

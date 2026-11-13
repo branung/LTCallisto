@@ -26,6 +26,19 @@
 #include "SplashFX.h"
 #include "RippleFX.h"
 #include "SoundTypes.h"
+#include "BloodModRules.h"		// Mod\Rules.txt's [Impacts]
+#include "AmmoValues.h"			// Mod\Ammo.txt's casings and muzzle smoke
+
+// An ammo type's row; any other type is AMMO_NONE's, which has retail's
+// "every other type" values.
+static const AmmoValues& AmmoRow(DBYTE nType)
+{
+	return gAmmoValues[nType <= AMMO_MAXAMMOTYPES ? nType : AMMO_NONE];
+}
+
+// GetRandom between two of the mod's numbers, drawing nothing when they are
+// equal, as retail's constants drew nothing.
+static int RandomBetween(int lo, int hi)			{ return lo == hi ? lo : GetRandom(lo, hi); }
 
 extern CBloodClientShell* g_pBloodClientShell;
 
@@ -146,8 +159,8 @@ DBOOL CWeaponFX::CreateObject(CClientDE* pClientDE)
 	// Create the FX from the muzzle to the destination
 	if(m_nFXFlags & WFX_MUZZLESMOKE)		CreateMuzzleSmoke();
 	if(m_nFXFlags & WFX_MUZZLELIGHT)		CreateMuzzleLight();
-	if(m_nFXFlags & WFX_EJECTSHELL)
-		{ CreateShellCasing(); if(m_nAmmoType == AMMO_SHELL) CreateShellCasing(); }
+	if(m_nFXFlags & WFX_EJECTSHELL)		// retail one casing, two for SHELL: Ammo.txt's Casings
+		for (DDWORD c = 0; c < AmmoRow(m_nAmmoType).nCasings; ++c) CreateShellCasing();
 	if(m_nFXFlags & WFX_TRACER)				CreateTracer();
 	if(m_nFXFlags & WFX_PARTICLETRAIL)		CreateParticleTrail();
 
@@ -244,7 +257,7 @@ void CWeaponFX::CreateBloodSplat()
 	splat.hServerObj = DNULL;
 	VEC_COPY(splat.m_Pos, m_vDestPos);
 	ROT_COPY(splat.m_Rotation, m_rRotation);
-	splat.m_fScale = 0.1f + GetRandom(-0.05f,0.05f);
+	splat.m_fScale = GetRandom(gRules.fSplatScaleMin, gRules.fSplatScaleMax);	// retail 0.1f + GetRandom(-0.05f,0.05f)
 	splat.m_hstrSprite = m_pClientDE->CreateString(pSplatSprite);
 	splat.m_fGrowScale = 0;
 
@@ -301,7 +314,7 @@ void CWeaponFX::CreateBloodSpurt()
 	pe.fRadius			= 200.0f;
 	pe.fGravity			= -100.0f;
 	pe.nNumPerPuff		= 2;
-	pe.nNumEmitters		= 1; //GetRandom(1,4);
+	pe.nNumEmitters		= RandomBetween(gRules.nSpurtEmittersMin, gRules.nSpurtEmittersMax); // retail 1; //GetRandom(1,4);
 	pe.nEmitterFlags	= MO_HALFGRAVITY;
 	pe.bIgnoreWind		= DTRUE;
 	
@@ -381,12 +394,12 @@ void CWeaponFX::CreateSparks()
 			if(big)
 			{
 				sp.nSparks			= (m_fDamage < 50.0f) ? (DBYTE)(m_fDamage * 5.0f): 250;
-				sp.fDuration		= 2.0f;
+				sp.fDuration		= gRules.fBigMetalSparkTime;	// retail 2.0f
 			}
 			else
 			{
 				sp.nSparks			= (m_fDamage < 50.0f) ? (DBYTE)(m_fDamage * 2.0f): 100;
-				sp.fDuration		= 0.5f;
+				sp.fDuration		= gRules.fMetalSparkTime;		// retail 0.5f
 			}
 			break;
 
@@ -400,8 +413,8 @@ void CWeaponFX::CreateSparks()
 			sp.hstrTexture = m_pClientDE->CreateString(str);
 			sp.nSparks			= (m_fDamage < 50.0f) ? (DBYTE)(m_fDamage * 4.0f) : 200;
 			sp.fDuration		= 2.0f;
-			sp.fEmissionRadius	= 5.0f;
-			sp.fRadius			= 200.0f;
+			sp.fEmissionRadius	= gRules.fBloodSparkEmissionRadius;	// retail 5.0f
+			sp.fRadius			= gRules.fBloodSparkRadius;			// retail 200.0f
 			sp.fGravity			= -150.0f;
 			break;
 	}
@@ -455,7 +468,7 @@ void CWeaponFX::CreateFragments()
 			else
 				{	VEC_SET(sfcs.vGravity, 0.0f, -0.2f, 0.0f);	}
 
-			for(char i = GetRandom(1,3); i > 0; i--)
+			for(char i = (char)RandomBetween(gRules.nFragmentsMin, gRules.nFragmentsMax); i > 0; i--)	// retail GetRandom(1,3)
 			{
 				randVal = GetRandom(-2.0f, 2.0f);
 				if(randVal != 0.0f)
@@ -485,7 +498,7 @@ void CWeaponFX::CreateFragments()
 			else
 				{	VEC_SET(sfcs.vGravity, 0.0f, -0.3f, 0.0f);	}
 
-			for(char i = GetRandom(1,3); i > 0; i--)
+			for(char i = (char)RandomBetween(gRules.nFragmentsMin, gRules.nFragmentsMax); i > 0; i--)	// retail GetRandom(1,3)
 			{
 				randVal = GetRandom(-2.0f, 2.0f);
 				if(randVal != 0.0f)
@@ -786,7 +799,7 @@ void CWeaponFX::CreateSmoke()
 	CSFXMgr* psfxMgr = g_pBloodClientShell->GetSFXMgr();
 	if(!psfxMgr) return;
 
-	if(IsLiquid(m_eDestCode) && m_eSurfaceType != SURFTYPE_LIQUID)
+	if(gRules.bBubblesInLiquid && IsLiquid(m_eDestCode) && m_eSurfaceType != SURFTYPE_LIQUID)
 	{
 		CreateBubbles(&m_vDestPos, 4);
 		return;
@@ -801,10 +814,10 @@ void CWeaponFX::CreateSmoke()
 	VEC_SET(sms.vDecel, 0.0f, 0.0f, 0.0f);
 	VEC_SET(sms.vGravity, 0.0f, GetRandom(0.05f,0.1f), 0.0f);
 	sms.fDuration = 1.0f;
-	sms.fDelay = 0.0f;
+	sms.fDelay = gRules.fSmokeDelay;		// retail 0.0f
 	sms.bUpdateScale = 1;
 	VEC_SET(sms.vMinScale, 0.1f, 0.1f, 0.0f);
-	VEC_SET(sms.vMaxScale, 0.35f, 0.35f, 0.0f);
+	VEC_SET(sms.vMaxScale, gRules.fSmokeScale, gRules.fSmokeScale, 0.0f);	// retail 0.35f
 	sms.fInitAlpha = 0.65f;
 	sms.bFade = 1;
 	sms.bRotate = 0;
@@ -860,7 +873,7 @@ void CWeaponFX::CreateBubbles(DVector* pvStartPos, DBYTE numBubbles)
 	sp.fDuration		= 1.25f;
 	sp.fEmissionRadius	= 0.05f;
 	sp.fRadius			= 600.0f;
-	sp.fGravity			= 50.0f;
+	sp.fGravity			= gRules.fBubbleGravity;	// retail 50.0f
 
 	if (m_nAmmoType == AMMO_SHELL)
 		sp.nSparks = 1;
@@ -910,6 +923,16 @@ char* CWeaponFX::GetMarkSprite(SurfaceType eSurfType)
 		case SURFTYPE_WOOD:
 			pMark = "sprites/blthole5.spr";
 			break;
+
+		// Retail has no liquid case: a shot on water leaves the stone's mark. Mod\Rules.txt's
+		// LiquidMark names one.
+		case SURFTYPE_LIQUID:
+			if (gRules.szLiquidMark && gRules.szLiquidMark[0])
+			{
+				pMark = (char*)gRules.szLiquidMark;
+				break;
+			}
+			// fall through
 
 		case SURFTYPE_STONE:
 		default:
@@ -1039,12 +1062,15 @@ void CWeaponFX::CreateMuzzleSmoke()
 		case	6:		sms.pSpriteFile = "Sprites\\smokepuff6.spr";	break;
 	}
 
-	if(m_nAmmoType == AMMO_SHELL)
+	// Retail's two branches, SHELL's and every other type's, are Ammo.txt's muzzle smoke keys.
+	// MuzzleSmokeSideways picks the branch.
+	const AmmoValues& ammo = AmmoRow(m_nAmmoType);
+	sms.fDuration = ammo.fSmokeTime;
+	sms.fInitAlpha = ammo.fSmokeAlpha;
+	VEC_SET(sms.vMinScale, ammo.fSmokeScaleMin, ammo.fSmokeScaleMin, 0.0f);
+	VEC_SET(sms.vMaxScale, ammo.fSmokeScaleMax, ammo.fSmokeScaleMax, 0.0f);
+	if(ammo.bSmokeSideways)
 	{
-		sms.fDuration = 1.0f;
-		sms.fInitAlpha = 0.25f;
-		VEC_SET(sms.vMinScale, 0.04f, 0.04f, 0.0f);
-		VEC_SET(sms.vMaxScale, 0.25f, 0.25f, 0.0f);
 		VEC_MULSCALAR(sms.vVel, m_vDir, 2.0f);
 		VEC_SUB(sms.vVel, sms.vVel, m_vForward);
 		VEC_NORM(sms.vVel);
@@ -1053,10 +1079,6 @@ void CWeaponFX::CreateMuzzleSmoke()
 	}
 	else
 	{
-		sms.fDuration = 1.5f;
-		sms.fInitAlpha = 0.5f;
-		VEC_SET(sms.vMinScale, 0.05f, 0.05f, 0.0f);
-		VEC_SET(sms.vMaxScale, 0.25f, 0.25f, 0.0f);
 		VEC_MULSCALAR(sms.vVel, m_vForward, 2.0f);
 		VEC_MULSCALAR(sms.vDecel, m_vDir, -0.035f);
 	}

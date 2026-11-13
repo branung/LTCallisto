@@ -56,10 +56,20 @@ std::string OtherRule(const std::string& key, const std::string& v)
 	if (key == "SpawnItems")	return v == "\"FLASHLIGHT\"" ? "\"MEDKIT\"" : "\"FLASHLIGHT\"";
 	if (key == "SpawnAmmo")		return v == "\"SHELL 20\"" ? "\"BULLET 50\"" : "\"SHELL 20\"";
 	if (key == "BurnFX" || key == "SmokeFX")	return "\"FLAMING_2 FLAMING_3\"";
+	if (key == "LiquidMark")	return v == "\"\"" ? "\"sprites/ripple.spr\"" : "\"\"";
+	if (key == "VersionText")	return v == "\"\"" ? "\"MOD v1.0\"" : "\"\"";
 	if (v == "TRUE")	return "FALSE";
 	if (v == "FALSE")	return "TRUE";
 	if (key.find("Chance") != std::string::npos) return v == "50" ? "40" : "50";
 	if (key == "InvisibleAlpha")	return "0.5";
+	// A minimum moves down and a maximum up, so a pair never runs backwards;
+	// an integer is written without a point.
+	const bool bInt = v.find('.') == std::string::npos;
+	const bool bMin = key.size() > 3 && key.compare(key.size() - 3, 3, "Min") == 0;
+	const bool bMax = key.size() > 3 && key.compare(key.size() - 3, 3, "Max") == 0;
+	if (bMin)	return bInt ? "0" : "0.0";
+	if (bMax)	return bInt ? "5" : "99.0";
+	if (bInt)	return v == "5" ? "6" : "5";
 	return "2.5";
 }
 
@@ -78,6 +88,30 @@ void TestRetail()
 		  !strcmp(gRules.szSmokeFX, "SMOKING_2") && !gRules.bGibOnExplosionOnly && gRules.nGibHeadChance == 100 &&
 		  gRules.nGibArmChance == 80 && gRules.nGibLegChance == 60,
 		  "with no mod gRules is the retail code's constants: " + All());
+	// The client's, from retail's ClientShellDLL: BloodClientShell.cpp's BOB/SWAY_WALKING and
+	// shake's * 3.0f, ViewWeapon's idle delays, MoveMgr's LADDER_STOP_TIME and swim flags,
+	// FlashlightFX's 0.40f, WeaponFX's impact literals, SFXMgr's gib multipliers and list sizes.
+	const int kCaps[8] = { 300, 300, 80, 80, 80, 80, 100, 80 };
+	bool bCaps = true;
+	for (int i = 0; i < 8; ++i) bCaps = bCaps && gRules.nCaps[i] == kCaps[i];
+	Check(gRules.fBobVertical == 24.0f && gRules.fBobHorizontal == 16.0f && gRules.fSwayVertical == 32.0f &&
+		  gRules.fSwayHorizontal == 80.0f && gRules.fShakeScale == 3.0f && gRules.fIdleDelayMin == 20.0f &&
+		  gRules.fIdleDelayMax == 60.0f && gRules.fLadderStopTime == 0.2f && !gRules.bSwimJumpRepeat &&
+		  gRules.bSurfaceFloat && gRules.fFlashlightRadius == 0.40f && gRules.fSplatScaleMin == 0.05f &&
+		  gRules.fSplatScaleMax == 0.15f && gRules.nSpurtEmittersMin == 1 && gRules.nSpurtEmittersMax == 1 &&
+		  gRules.fBigMetalSparkTime == 2.0f && gRules.fMetalSparkTime == 0.5f &&
+		  gRules.fBloodSparkEmissionRadius == 5.0f && gRules.fBloodSparkRadius == 200.0f &&
+		  gRules.nFragmentsMin == 1 && gRules.nFragmentsMax == 3 && gRules.bBubblesInLiquid &&
+		  gRules.fSmokeDelay == 0.0f && gRules.fSmokeScale == 0.35f && gRules.fBubbleGravity == 50.0f &&
+		  !strcmp(gRules.szLiquidMark, "") && gRules.nFleshGibChance == 20 && gRules.nFleshGibMore == 2 &&
+		  gRules.nFleshGibScale == 1 && bCaps,
+		  "with no mod the client's constants are the retail code's");
+	// And its features: wonky vision on, a dual alt fired as primary, the tabs hidden on a reset,
+	// the build's version line, the multiplayer worlds listed, and the add-on's logos straight to the
+	// menu.
+	Check(gRules.bWonkyVision && gRules.bDualAltAsPrimary && !gRules.bWeaponTabsOnReset &&
+		  !strcmp(gRules.szVersionText, "") && gRules.bCustomLevelsMultiplayer && !gRules.bAddonIntroMovie,
+		  "with no mod the client's features are retail's");
 	std::vector<int> fx;
 	Check(BloodModRules_ObjFXList("FLAMING_2, smoking_3", fx) && fx.size() == 2 && fx[0] == OBJFX_FLAMING_2 &&
 		  fx[1] == OBJFX_SMOKING_3 && BloodMod_ObjFX("ELECTRIC_1") == OBJFX_ELECTRIC_1 &&
@@ -158,6 +192,9 @@ void TestErrors()
 		{ "an effect there is not",		"[Corpse]\nBurnFX = \"FLAMING_9\"\n",		"[Corpse]:BurnFX: \"FLAMING_9\" is not an OBJFX_ name" },
 		{ "no effect",					"[Corpse]\nSmokeFX = \"\"\n",				"[Corpse]:SmokeFX: it names no effect" },
 		{ "a number for a flag",		"[Corpse]\nGibOnExplosionOnly = 1\n",		"GibOnExplosionOnly" },
+		{ "a ladder that never stops",	"[Movement]\nLadderStopTime = 0.0\n",		"[Movement]:LadderStopTime is out of range" },
+		{ "a pair run backwards",		"[Impacts]\nFragmentsMin = 4\n",				"[Impacts]:FragmentsMin is above FragmentsMax" },
+		{ "a cap past its limit",		"[Effects]\nGibCap = 5000\n",				"[Effects]:GibCap is out of range" },
 	};
 	for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); ++i)
 	{
@@ -198,7 +235,13 @@ std::string RulesDump()
 		"// flesh hit always spurts blood; [Corpse] the effects a burning and a\n"
 		"// smoking corpse show, one of each list at random, whether only an\n"
 		"// explosion gibs a corpse, and the percent chance of each limb a gib\n"
-		"// throws.  A mod names only what it changes:\n"
+		"// throws.  The client reads [Camera] (bob, sway, shake), [ViewWeapon]\n"
+		"// (the idle delay), [Movement] (ladders and swimming), [Items]'\n"
+		"// FlashlightRadius, the rest of [Impacts] (WeaponFX.cpp's numbers) and\n"
+		"// [Effects] (gib bursts and how many effects live at once), [HUD] and\n"
+		"// [Menus] (the version line, the custom-level list, the intro); both\n"
+		"// modules read SwimJumpRepeat and LiquidMark.  A Min above its Max is\n"
+		"// refused.  A mod names only what it changes:\n"
 		"//\n"
 		"//     [Player]\n"
 		"//     UseDistance = 122.0\n"

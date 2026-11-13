@@ -12,6 +12,7 @@
 #include "cpp_client_de.h"
 #include "ClientUtilities.h"
 #include "ClientServerShared.h"
+#include "BloodModRules.h"		// Mod\Rules.txt
 
 
 
@@ -111,7 +112,7 @@ DBOOL CFlashlightFX::Update()
 			if (fDistance < 10.0f) fDistance = 10.0f;
 
 			// The farther away, the brighter and bigger the light
-			DFLOAT fRadius = fDistance * 0.40f;
+			DFLOAT fRadius = fDistance * gRules.fFlashlightRadius;	// retail 0.40f (Mod\Rules.txt)
 			m_pClientDE->SetLightRadius(m_hObject, fRadius);
 
 			// Determine the minimum intensity based on the current light level

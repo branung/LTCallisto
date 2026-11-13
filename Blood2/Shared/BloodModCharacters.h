@@ -86,6 +86,10 @@ struct BloodModAmmo { int nType; float fCount; };
 bool BloodModCharacter_StartWeapons(int nId, std::vector<int>& out, std::string* pWhy = 0);
 bool BloodModCharacter_StartItems(int nId, std::vector<int>& out, std::string* pWhy = 0);
 bool BloodModCharacter_StartAmmo(int nId, std::vector<BloodModAmmo>& out, std::string* pWhy = 0);
+// The weapons a new single-player game's client asks for in slots 1-9
+// (CBloodClientShell::SendPlayerInitMessage): retail "BERETTA" for every character. No MELEE
+// (slot 0 holds it), no bomb.
+bool BloodModCharacter_InitWeapons(int nId, std::vector<int>& out, std::string* pWhy = 0);
 // The same lists' grammar for any string (Mod\Rules.txt's SpawnItems and SpawnAmmo): INV_
 // names, and AMMO_ name and count pairs.
 bool BloodMod_ParseItems(const char* pList, std::vector<int>& out, std::string* pWhy = 0);

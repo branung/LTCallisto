@@ -43,6 +43,8 @@
 #include "iltcursor.h"
 #include "BloodModWeapons.h"	// a new weapon is its Base's class
 #include "BloodModCharacters.h"
+#include "BloodModRules.h"		// Mod\Rules.txt
+#include <vector>
 
 // A client that finds the server running other mod files answers with its own signature, then
 // waits this long before disconnecting so the answer is delivered and the server can tell its host
@@ -56,10 +58,11 @@ PhysicsState	  g_waterPhysicsState;
 
 // defines...
 
-#define BOBV_WALKING	24.0f
-#define BOBH_WALKING	16.0f
-#define SWAYV_WALKING	32.0f
-#define SWAYH_WALKING	80.0f
+// Retail 24, 16, 32 and 80: Mod\Rules.txt's [Camera]
+#define BOBV_WALKING	(gRules.fBobVertical)
+#define BOBH_WALKING	(gRules.fBobHorizontal)
+#define SWAYV_WALKING	(gRules.fSwayVertical)
+#define SWAYH_WALKING	(gRules.fSwayHorizontal)
 
 #define BOBV_CRAWLING	24.0f
 #define BOBH_CRAWLING	16.0f
@@ -2107,16 +2110,12 @@ void CBloodClientShell::SendPlayerInitMessage(DBYTE messageID)
 				}
 				else
 				{
-					// first gun is the beretta
-					m_Config.nWeaponSlots[1] = WEAP_BERETTA;
-					m_Config.nWeaponSlots[2] = WEAP_NONE;
-					m_Config.nWeaponSlots[3] = WEAP_NONE;
-					m_Config.nWeaponSlots[4] = WEAP_NONE;
-					m_Config.nWeaponSlots[5] = WEAP_NONE;
-					m_Config.nWeaponSlots[6] = WEAP_NONE;
-					m_Config.nWeaponSlots[7] = WEAP_NONE;
-					m_Config.nWeaponSlots[8] = WEAP_NONE;
-					m_Config.nWeaponSlots[9] = WEAP_NONE;
+					// Retail: the beretta in slot 1 and nothing else, for every character. Mod\Characters.txt's
+					// InitWeapons fills slots 1-9 in order.
+					std::vector<int> init;
+					BloodModCharacter_InitWeapons(m_Config.nCharacter, init);
+					for (int s = 1; s <= 9; ++s)
+						m_Config.nWeaponSlots[s] = (DBYTE)(s - 1 < (int)init.size() ? init[s - 1] : WEAP_NONE);
 					hstrName = pClientDE->CreateString(m_Config.szName);
 				}
 				if (!hstrName) return;
@@ -2691,7 +2690,8 @@ void CBloodClientShell::Update()
 			// Update container effects...
 			UpdateContainerFX();
 
-			if(m_pCreature && m_pCreature->GetType() == SMSG_THIEF_ATTACH || IsWonky())
+			// A thief on the player warbles the screen, unless WonkyVision is FALSE
+			if((gRules.bWonkyVision && m_pCreature && m_pCreature->GetType() == SMSG_THIEF_ATTACH) || IsWonky())
 			{
 				// Update the wonkyvision timer.
 				if (IsWonky())
@@ -5537,7 +5537,9 @@ void CBloodClientShell::OnMessage(DBYTE messageID, HMESSAGEREAD hMessage)
 
 			if (m_bDead) fWonkyTime = 0;	// [blg] no wonky if we're dead!
 
-			if (fWonkyTime > m_fWonkyTime)
+			if (!gRules.bWonkyVision)			// no warble, and no "edge of death" line
+				EndWonkyVision();
+			else if (fWonkyTime > m_fWonkyTime)
 			{
 				if (bWonkyNoMove) CSPrint(IDS_EDGEOFDEATH);
 				StartWonkyVision(fWonkyTime, bWonkyNoMove);
@@ -5984,9 +5986,10 @@ void CBloodClientShell::UpdateScreenShake()
 
 	// Apply...
 
-	DFLOAT faddX = GetRandom(-1.0f, 1.0f) * m_vShakeMagnitude.x * 3.0f;
-	DFLOAT faddY = GetRandom(-1.0f, 1.0f) * m_vShakeMagnitude.y * 3.0f;
-	DFLOAT faddZ = GetRandom(-1.0f, 1.0f) * m_vShakeMagnitude.z * 3.0f;
+	// Retail * 3.0f: Mod\Rules.txt's ShakeScale
+	DFLOAT faddX = GetRandom(-1.0f, 1.0f) * m_vShakeMagnitude.x * gRules.fShakeScale;
+	DFLOAT faddY = GetRandom(-1.0f, 1.0f) * m_vShakeMagnitude.y * gRules.fShakeScale;
+	DFLOAT faddZ = GetRandom(-1.0f, 1.0f) * m_vShakeMagnitude.z * gRules.fShakeScale;
 	m_fShakeCant = DEG2RAD(GetRandom(-0.5f, 0.5f) * m_vShakeMagnitude.x);
 
 	DVector vPos, vAdd;
@@ -8261,7 +8264,9 @@ void CBloodClientShell::UpdateMoviesState()
 				m_nMovieState = MOVIE_STARTINTRO;
 
 #ifdef _ADDON
-				m_nMovieState = MOVIE_FINISHED;
+				// Mod\Rules.txt's AddonIntroMovie plays it after the logos
+				if (!gRules.bAddonIntroMovie)
+					m_nMovieState = MOVIE_FINISHED;
 #endif
 
 			}
@@ -9295,7 +9300,8 @@ DBOOL CBloodClientShell::HandleFiring()
 		}
 
 		// If we have duel weapons, make the altfire the same as the primary
-		if (m_pWeapon && m_pLWeapon && bAltFiring)
+		// Mod\Rules.txt's DualAltAsPrimary
+		if (gRules.bDualAltAsPrimary && m_pWeapon && m_pLWeapon && bAltFiring)
 			{ bFiring = DTRUE; bAltFiring = DFALSE; }
 
 		if (m_pWeapon)
@@ -9596,6 +9602,8 @@ void CBloodClientShell::AssignFrags(DDWORD dwLocalID, DDWORD dwVictim, DDWORD dw
 void CBloodClientShell::StartWonkyVision(DFLOAT fWonkyTime, DBOOL bWonkyNoMove)
 {
 	if (fWonkyTime == 0) return;
+	// Mod\Rules.txt's WonkyVision FALSE: the screen never warbles
+	if (!gRules.bWonkyVision) { EndWonkyVision(); return; }
 
 	m_fWonkyTime   = fWonkyTime;
 	m_bWonkyVision = DTRUE;

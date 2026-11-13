@@ -32,6 +32,18 @@ const Field kFields[] =
 	{ "Pickup", 0, offsetof(AmmoValues, fPickup), K_FLOAT, 0 },
 	R("Regen1", 0), R("Regen2", 1), R("Regen3", 2), R("Regen4", 3), R("Regen5", 4), R("Regen6", 5),
 	{ "EjectShell", 0, offsetof(AmmoValues, bEjectShell), K_BOOL, 0 },
+	// The client's
+	{ "CasingModel", 0, offsetof(AmmoValues, szCasingModel), K_STRING, 0 },
+	{ "CasingSkin", 0, offsetof(AmmoValues, szCasingSkin), K_STRING, 0 },
+	{ "CasingScale", 0, offsetof(AmmoValues, vCasingScale), K_VECTOR, 0 },
+	{ "Casings", 0, offsetof(AmmoValues, nCasings), K_DWORD, 0 },
+	{ "CasingVelocityMin", 0, offsetof(AmmoValues, vCasingVelMin), K_VECTOR, 0 },
+	{ "CasingVelocityMax", 0, offsetof(AmmoValues, vCasingVelMax), K_VECTOR, 0 },
+	{ "MuzzleSmokeTime", 0, offsetof(AmmoValues, fSmokeTime), K_FLOAT, 0 },
+	{ "MuzzleSmokeAlpha", 0, offsetof(AmmoValues, fSmokeAlpha), K_FLOAT, 0 },
+	{ "MuzzleSmokeScaleMin", 0, offsetof(AmmoValues, fSmokeScaleMin), K_FLOAT, 0 },
+	{ "MuzzleSmokeScaleMax", 0, offsetof(AmmoValues, fSmokeScaleMax), K_FLOAT, 0 },
+	{ "MuzzleSmokeSideways", 0, offsetof(AmmoValues, bSmokeSideways), K_BOOL, 0 },
 };
 #undef M
 #undef R

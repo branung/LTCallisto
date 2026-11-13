@@ -19,7 +19,9 @@
 // switch's, 0 for the character's own; StartWeapons, StartItems and
 // StartAmmo are what that switch leaves the player holding, by WEAP_,
 // INV_ and AMMO_ name without the prefix, and StartAmmo a single-player
-// respawn's too.  Every other number is 0 or more; a string is at most
+// respawn's too.  InitWeapons are the weapons a new single-player
+// game's client asks for, in slots 1-9.  Every other number is 0 or
+// more; a string is at most
 // 99 characters.
 //
 // A section naming no character adds one, on a Base (a character here
@@ -61,6 +63,7 @@ SwitchMagic = 0
 StartWeapons = "MELEE BERETTA"
 StartItems = ""
 StartAmmo = "BULLET 50"
+InitWeapons = "BERETTA"
 
 [OPHELIA]
 Name = "Ophelia"
@@ -92,6 +95,7 @@ SwitchMagic = 0
 StartWeapons = "MELEE BERETTA"
 StartItems = ""
 StartAmmo = "BULLET 50"
+InitWeapons = "BERETTA"
 
 [ISHMAEL]
 Name = "Ishmael"
@@ -123,6 +127,7 @@ SwitchMagic = 0
 StartWeapons = "MELEE BERETTA"
 StartItems = ""
 StartAmmo = "BULLET 50"
+InitWeapons = "BERETTA"
 
 [GABREILLA]
 Name = "Gabriella"
@@ -154,3 +159,4 @@ SwitchMagic = 0
 StartWeapons = "MELEE BERETTA"
 StartItems = ""
 StartAmmo = "BULLET 50"
+InitWeapons = "BERETTA"

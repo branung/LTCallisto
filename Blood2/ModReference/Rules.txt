@@ -11,7 +11,13 @@
 // flesh hit always spurts blood; [Corpse] the effects a burning and a
 // smoking corpse show, one of each list at random, whether only an
 // explosion gibs a corpse, and the percent chance of each limb a gib
-// throws.  A mod names only what it changes:
+// throws.  The client reads [Camera] (bob, sway, shake), [ViewWeapon]
+// (the idle delay), [Movement] (ladders and swimming), [Items]'
+// FlashlightRadius, the rest of [Impacts] (WeaponFX.cpp's numbers) and
+// [Effects] (gib bursts and how many effects live at once), [HUD] and
+// [Menus] (the version line, the custom-level list, the intro); both
+// modules read SwimJumpRepeat and LiquidMark.  A Min above its Max is
+// refused.  A mod names only what it changes:
 //
 //     [Player]
 //     UseDistance = 122.0
@@ -25,12 +31,46 @@ IdleVoiceTime = 60.0
 SpawnItems = ""
 SpawnAmmo = "BULLET 50"
 
+[Camera]
+BobVertical = 24.0
+BobHorizontal = 16.0
+SwayVertical = 32.0
+SwayHorizontal = 80.0
+ShakeScale = 3.0
+WonkyVision = TRUE
+
+[ViewWeapon]
+IdleDelayMin = 20.0
+IdleDelayMax = 60.0
+DualAltAsPrimary = TRUE
+
+[Movement]
+LadderStopTime = 0.2
+SwimJumpRepeat = FALSE
+SurfaceFloat = TRUE
+
 [Items]
 FlashlightChargeTime = 120.0
 GogglesChargeTime = 30.0
+FlashlightRadius = 0.4
 
 [Impacts]
 BloodSpurtDamage = 25.0
+SplatScaleMin = 0.05
+SplatScaleMax = 0.15
+SpurtEmittersMin = 1
+SpurtEmittersMax = 1
+BigMetalSparkTime = 2.0
+MetalSparkTime = 0.5
+BloodSparkEmissionRadius = 5.0
+BloodSparkRadius = 200.0
+FragmentsMin = 1
+FragmentsMax = 3
+BubblesInLiquid = TRUE
+SmokeDelay = 0.0
+SmokeScale = 0.35
+BubbleGravity = 50.0
+LiquidMark = ""
 
 [Corpse]
 BurnFX = "FLAMING_2"
@@ -39,3 +79,24 @@ GibOnExplosionOnly = FALSE
 GibHeadChance = 100
 GibArmChance = 80
 GibLegChance = 60
+
+[Effects]
+FleshGibChance = 20
+FleshGibMore = 2
+FleshGibScale = 1
+GeneralCap = 300
+MarkCap = 300
+WeaponCap = 80
+SmokeCap = 80
+ExplosionCap = 80
+GibCap = 80
+CasingCap = 100
+ObjectCap = 80
+
+[HUD]
+WeaponTabsOnReset = FALSE
+
+[Menus]
+VersionText = ""
+CustomLevelsMultiplayer = TRUE
+AddonIntroMovie = FALSE

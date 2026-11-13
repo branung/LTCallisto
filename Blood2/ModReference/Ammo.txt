@@ -9,8 +9,11 @@
 // only BULLET .. BATTERY have one; Regen1 .. Regen6 are what FOCUS
 // regains a second at magic 1 .. 6, and no other type regenerates.
 // EjectShell TRUE makes a weapon firing the type eject a casing, and
-// only then show its muzzle smoke and light.  A mod names only what it
-// changes:
+// only then show its muzzle smoke and light.  The client draws the
+// casing (CasingModel, "" for none, CasingSkin, CasingScale, Casings a
+// shot, CasingVelocityMin and Max as <up, right, forward>) and the
+// muzzle smoke (MuzzleSmoke keys; Sideways is retail's SHELL drift).  A
+// mod names only what it changes:
 //
 //     [BULLET]
 //     Max1 = 200.0
@@ -32,6 +35,17 @@ Regen4 = 0.0
 Regen5 = 0.0
 Regen6 = 0.0
 EjectShell = TRUE
+CasingModel = "models/ammo/bshell.abc"
+CasingSkin = "skins/ammo/bshell.dtx"
+CasingScale = <1.5, 1.5, 1.5>
+Casings = 1
+CasingVelocityMin = <60.0, 50.0, 10.0>
+CasingVelocityMax = <90.0, 70.0, 25.0>
+MuzzleSmokeTime = 1.5
+MuzzleSmokeAlpha = 0.5
+MuzzleSmokeScaleMin = 0.05
+MuzzleSmokeScaleMax = 0.25
+MuzzleSmokeSideways = FALSE
 
 [SHELL]
 Max1 = 50.0
@@ -48,6 +62,17 @@ Regen4 = 0.0
 Regen5 = 0.0
 Regen6 = 0.0
 EjectShell = TRUE
+CasingModel = "models/ammo/sshell.abc"
+CasingSkin = "skins/ammo/sshell.dtx"
+CasingScale = <2.25, 2.25, 2.25>
+Casings = 2
+CasingVelocityMin = <60.0, 50.0, 10.0>
+CasingVelocityMax = <90.0, 70.0, 25.0>
+MuzzleSmokeTime = 1.0
+MuzzleSmokeAlpha = 0.25
+MuzzleSmokeScaleMin = 0.04
+MuzzleSmokeScaleMax = 0.25
+MuzzleSmokeSideways = TRUE
 
 [BMG]
 Max1 = 20.0
@@ -64,6 +89,17 @@ Regen4 = 0.0
 Regen5 = 0.0
 Regen6 = 0.0
 EjectShell = FALSE
+CasingModel = ""
+CasingSkin = ""
+CasingScale = <1.5, 1.5, 1.5>
+Casings = 1
+CasingVelocityMin = <60.0, 50.0, 10.0>
+CasingVelocityMax = <90.0, 70.0, 25.0>
+MuzzleSmokeTime = 1.5
+MuzzleSmokeAlpha = 0.5
+MuzzleSmokeScaleMin = 0.05
+MuzzleSmokeScaleMax = 0.25
+MuzzleSmokeSideways = FALSE
 
 [FLARE]
 Max1 = 20.0
@@ -80,6 +116,17 @@ Regen4 = 0.0
 Regen5 = 0.0
 Regen6 = 0.0
 EjectShell = FALSE
+CasingModel = ""
+CasingSkin = ""
+CasingScale = <1.5, 1.5, 1.5>
+Casings = 1
+CasingVelocityMin = <60.0, 50.0, 10.0>
+CasingVelocityMax = <90.0, 70.0, 25.0>
+MuzzleSmokeTime = 1.5
+MuzzleSmokeAlpha = 0.5
+MuzzleSmokeScaleMin = 0.05
+MuzzleSmokeScaleMax = 0.25
+MuzzleSmokeSideways = FALSE
 
 [DIEBUGDIE]
 Max1 = 25.0
@@ -96,6 +143,17 @@ Regen4 = 0.0
 Regen5 = 0.0
 Regen6 = 0.0
 EjectShell = FALSE
+CasingModel = ""
+CasingSkin = ""
+CasingScale = <1.5, 1.5, 1.5>
+Casings = 1
+CasingVelocityMin = <60.0, 50.0, 10.0>
+CasingVelocityMax = <90.0, 70.0, 25.0>
+MuzzleSmokeTime = 1.5
+MuzzleSmokeAlpha = 0.5
+MuzzleSmokeScaleMin = 0.05
+MuzzleSmokeScaleMax = 0.25
+MuzzleSmokeSideways = FALSE
 
 [HOWITZER]
 Max1 = 5.0
@@ -112,6 +170,17 @@ Regen4 = 0.0
 Regen5 = 0.0
 Regen6 = 0.0
 EjectShell = FALSE
+CasingModel = ""
+CasingSkin = ""
+CasingScale = <1.5, 1.5, 1.5>
+Casings = 1
+CasingVelocityMin = <60.0, 50.0, 10.0>
+CasingVelocityMax = <90.0, 70.0, 25.0>
+MuzzleSmokeTime = 1.5
+MuzzleSmokeAlpha = 0.5
+MuzzleSmokeScaleMin = 0.05
+MuzzleSmokeScaleMax = 0.25
+MuzzleSmokeSideways = FALSE
 
 [FUEL]
 Max1 = 25.0
@@ -128,6 +197,17 @@ Regen4 = 0.0
 Regen5 = 0.0
 Regen6 = 0.0
 EjectShell = FALSE
+CasingModel = ""
+CasingSkin = ""
+CasingScale = <1.5, 1.5, 1.5>
+Casings = 1
+CasingVelocityMin = <60.0, 50.0, 10.0>
+CasingVelocityMax = <90.0, 70.0, 25.0>
+MuzzleSmokeTime = 1.5
+MuzzleSmokeAlpha = 0.5
+MuzzleSmokeScaleMin = 0.05
+MuzzleSmokeScaleMax = 0.25
+MuzzleSmokeSideways = FALSE
 
 [BATTERY]
 Max1 = 100.0
@@ -144,6 +224,17 @@ Regen4 = 0.0
 Regen5 = 0.0
 Regen6 = 0.0
 EjectShell = FALSE
+CasingModel = ""
+CasingSkin = ""
+CasingScale = <1.5, 1.5, 1.5>
+Casings = 1
+CasingVelocityMin = <60.0, 50.0, 10.0>
+CasingVelocityMax = <90.0, 70.0, 25.0>
+MuzzleSmokeTime = 1.5
+MuzzleSmokeAlpha = 0.5
+MuzzleSmokeScaleMin = 0.05
+MuzzleSmokeScaleMax = 0.25
+MuzzleSmokeSideways = FALSE
 
 [FOCUS]
 Max1 = 100.0
@@ -160,6 +251,17 @@ Regen4 = 8.0
 Regen5 = 10.0
 Regen6 = 12.0
 EjectShell = FALSE
+CasingModel = ""
+CasingSkin = ""
+CasingScale = <1.5, 1.5, 1.5>
+Casings = 1
+CasingVelocityMin = <60.0, 50.0, 10.0>
+CasingVelocityMax = <90.0, 70.0, 25.0>
+MuzzleSmokeTime = 1.5
+MuzzleSmokeAlpha = 0.5
+MuzzleSmokeScaleMin = 0.05
+MuzzleSmokeScaleMax = 0.25
+MuzzleSmokeSideways = FALSE
 
 [PROXIMITYBOMB]
 Max1 = 10.0
@@ -176,6 +278,17 @@ Regen4 = 0.0
 Regen5 = 0.0
 Regen6 = 0.0
 EjectShell = FALSE
+CasingModel = ""
+CasingSkin = ""
+CasingScale = <1.5, 1.5, 1.5>
+Casings = 1
+CasingVelocityMin = <60.0, 50.0, 10.0>
+CasingVelocityMax = <90.0, 70.0, 25.0>
+MuzzleSmokeTime = 1.5
+MuzzleSmokeAlpha = 0.5
+MuzzleSmokeScaleMin = 0.05
+MuzzleSmokeScaleMax = 0.25
+MuzzleSmokeSideways = FALSE
 
 [REMOTEBOMB]
 Max1 = 10.0
@@ -192,6 +305,17 @@ Regen4 = 0.0
 Regen5 = 0.0
 Regen6 = 0.0
 EjectShell = FALSE
+CasingModel = ""
+CasingSkin = ""
+CasingScale = <1.5, 1.5, 1.5>
+Casings = 1
+CasingVelocityMin = <60.0, 50.0, 10.0>
+CasingVelocityMax = <90.0, 70.0, 25.0>
+MuzzleSmokeTime = 1.5
+MuzzleSmokeAlpha = 0.5
+MuzzleSmokeScaleMin = 0.05
+MuzzleSmokeScaleMax = 0.25
+MuzzleSmokeSideways = FALSE
 
 [TIMEBOMB]
 Max1 = 10.0
@@ -208,3 +332,14 @@ Regen4 = 0.0
 Regen5 = 0.0
 Regen6 = 0.0
 EjectShell = FALSE
+CasingModel = ""
+CasingSkin = ""
+CasingScale = <1.5, 1.5, 1.5>
+Casings = 1
+CasingVelocityMin = <60.0, 50.0, 10.0>
+CasingVelocityMax = <90.0, 70.0, 25.0>
+MuzzleSmokeTime = 1.5
+MuzzleSmokeAlpha = 0.5
+MuzzleSmokeScaleMin = 0.05
+MuzzleSmokeScaleMax = 0.25
+MuzzleSmokeSideways = FALSE

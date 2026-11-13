@@ -84,7 +84,7 @@ const Member kMembers[] =
 	I(0), I(1), I(2), I(3), I(4),
 	A(nAttrib, 0), A(nAttrib, 1), A(nAttrib, 2), A(nAttrib, 3),
 	A(nSwitch, 0), A(nSwitch, 1), A(nSwitch, 2), A(nSwitch, 3),
-	L(szWeapons), L(szItems), L(szAmmo),
+	L(szWeapons), L(szItems), L(szAmmo), L(szInitWeapons),
 };
 #undef S
 #undef P
@@ -266,6 +266,8 @@ void TestErrors()
 		{ "ammo without a count",			"[CALEB]\nStartAmmo = \"BULLET 50 SHELL\"\n",	"StartAmmo: \"SHELL\" wants a count" },
 		{ "a negative count",				"[CALEB]\nStartAmmo = \"BULLET -5\"\n",			"StartAmmo: \"BULLET\" wants a count" },
 		{ "ammo nothing names",			"[CALEB]\nStartAmmo = \"ROCKET 5\"\n",			"StartAmmo: \"ROCKET\" is no ammo" },
+		{ "the knife in a slot",			"[CALEB]\nInitWeapons = \"MELEE\"\n",				"InitWeapons: \"MELEE\" is the melee weapon" },
+		{ "ten init weapons",				"[CALEB]\nInitWeapons = \"BERETTA BERETTA BERETTA BERETTA BERETTA BERETTA BERETTA BERETTA BERETTA BERETTA\"\n",	"InitWeapons: more than nine" },
 	};
 	const std::string sLong = "[OPHELIA]\nSkinBlue = \"" + std::string(100, 'x') + "\"\n";
 	for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); ++i)
@@ -483,7 +485,9 @@ void TestStart()
 				w[0] == WEAP_MELEE && w[1] == WEAP_BERETTA &&
 				BloodModCharacter_StartItems(kRetail[i].nChar, it) && it.empty() &&
 				BloodModCharacter_StartAmmo(kRetail[i].nChar, am) && am.size() == 1 &&
-				am[0].nType == AMMO_BULLET && am[0].fCount == 50.0f;
+				am[0].nType == AMMO_BULLET && am[0].fCount == 50.0f &&
+				// SendPlayerInitMessage's single-player slots: the beretta in 1
+				BloodModCharacter_InitWeapons(kRetail[i].nChar, w) && w.size() == 1 && w[0] == WEAP_BERETTA;
 		if (!bSame)
 			printf("        %s: %d %d %d %d / %d %d %d %d\n", BloodModCharacter_Name(kRetail[i].nChar), a[0], a[1], a[2], a[3],
 				   s[0], s[1], s[2], s[3]);
@@ -547,7 +551,9 @@ std::string CharactersDump()
 		"// switch's, 0 for the character's own; StartWeapons, StartItems and\n"
 		"// StartAmmo are what that switch leaves the player holding, by WEAP_,\n"
 		"// INV_ and AMMO_ name without the prefix, and StartAmmo a single-player\n"
-		"// respawn's too.  Every other number is 0 or more; a string is at most\n"
+		"// respawn's too.  InitWeapons are the weapons a new single-player\n"
+		"// game's client asks for, in slots 1-9.  Every other number is 0 or\n"
+		"// more; a string is at most\n"
 		"// 99 characters.\n"
 		"//\n"
 		"// A section naming no character adds one, on a Base (a character here\n"
@@ -567,10 +573,10 @@ void CharactersSelfTest()
 	memcpy(g_RetailSkins, gCharacterSkins, sizeof(g_RetailSkins));
 	memcpy(g_RetailPictures, gCharacterPictures, sizeof(g_RetailPictures));
 	memcpy(g_RetailStart, gCharacterStart, sizeof(g_RetailStart));
-	Check(kNumMembers == 32, "kMembers lists CharacterValues' 9 members, the 7 skin slots, the 5 pictures and "
-							 "CharacterStart's 11");
-	Check(sizeof(CharacterStart) == 8 * sizeof(int) + 3 * sizeof(char*),
-		  "and CharacterStart is those eleven");
+	Check(kNumMembers == 33, "kMembers lists CharacterValues' 9 members, the 7 skin slots, the 5 pictures and "
+							 "CharacterStart's 12");
+	Check(sizeof(CharacterStart) == 8 * sizeof(int) + 4 * sizeof(char*),
+		  "and CharacterStart is those twelve");
 	Check(sizeof(CharacterValues) == 3 * sizeof(char*) + 6 * sizeof(DFLOAT) ||
 		  sizeof(CharacterValues) == 4 * sizeof(char*) + 6 * sizeof(DFLOAT),
 		  "and CharacterValues is those nine (at most padding after them)");

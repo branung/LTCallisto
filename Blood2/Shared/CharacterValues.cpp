@@ -214,15 +214,15 @@ char *gCharacterPictures[BLOOD2_CHARACTER_IDS][BLOOD2_CHARACTER_PICTURES] =
 // TweakSaveValuesForCharacterChange and ResetPlayerInventory, as a table.
 CharacterStart gCharacterStart[BLOOD2_CHARACTER_IDS] =
 {
-	{ { 5, 3, 3, 1 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50" },	// Caleb
-	{ { 2, 5, 1, 4 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50" },	// Ophelia
-	{ { 1, 3, 3, 5 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50" },	// Ishmael
-	{ { 5, 1, 5, 1 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50" },	// Gabriella
+	{ { 5, 3, 3, 1 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA" },	// Caleb
+	{ { 2, 5, 1, 4 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA" },	// Ophelia
+	{ { 1, 3, 3, 5 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA" },	// Ishmael
+	{ { 5, 1, 5, 1 }, { 0, 0, 0, 0 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA" },	// Gabriella
 
 #ifdef _ADD_ON
-	{ { 5, 3, 3, 1 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50" },	// male cultist
-	{ { 2, 5, 1, 4 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50" },	// female cultist
-	{ { 1, 3, 3, 5 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50" },	// soul drudge
-	{ { 5, 1, 5, 1 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50" },	// prophet
+	{ { 5, 3, 3, 1 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA" },	// male cultist
+	{ { 2, 5, 1, 4 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA" },	// female cultist
+	{ { 1, 3, 3, 5 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA" },	// soul drudge
+	{ { 5, 1, 5, 1 }, { 1, 1, 1, 1 }, "MELEE BERETTA", "", "BULLET 50", "BERETTA" },	// prophet
 #endif
 };
