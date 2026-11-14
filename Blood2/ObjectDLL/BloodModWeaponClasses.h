@@ -67,6 +67,16 @@
 //     Tracer            a LASER_ name without the prefix (Mod\Lasers.txt
 //                       draws it), or NONE: retail NONE for every weapon
 //
+// Two literals in one class's firing, each TRUE in retail:
+//
+//     DEATHRAY          AltSweep: the alt fire's two rings and its damage to
+//                       everything in a cone in front (CDeathRay::Fire);
+//                       FALSE leaves the alt only its projectiles
+//     FLAREGUN          SpreadPattern: a volley of several flares in the
+//                       fixed eight-point pattern (CFlareGun::FireSpread);
+//                       FALSE scatters them at random within the weapon's
+//                       spread, as one flare always is
+//
 // [Options] Trace = TRUE in Mod\AI.txt prints, the first time each weapon is made, its
 // constructor's values and the mod's. A key on a weapon that has not got it, an unknown name or a
 // number below 0 loads nothing.
@@ -87,6 +97,8 @@ enum BloodModWeaponClassKey
 	WK_MuzzleSmoke, WK_MuzzleLight, WK_Fragments,						// every weapon
 	WK_HitFragments,													// a melee weapon
 	WK_Tracer,															// every weapon
+	WK_AltSweep,														// DEATHRAY
+	WK_SpreadPattern,													// FLAREGUN
 	WK_COUNT
 };
 
@@ -107,7 +119,7 @@ int BloodModWeaponClass_VoodooFX();
 int BloodModWeaponClass_HandExplosionType(int nWeapon);
 const char* BloodModWeaponClass_HandExplosionSound(int nWeapon);
 float BloodModWeaponClass_HandExplosionSoundRadius(int nWeapon);
-bool BloodModWeaponClass_Flag(int nWeapon, int nKey);		// MuzzleSmoke .. HitFragments
+bool BloodModWeaponClass_Flag(int nWeapon, int nKey);		// MuzzleSmoke .. HitFragments, AltSweep, SpreadPattern
 // The LASER_ id a weapon's every shot draws from its muzzle to what it hits, or -1: retail none
 int BloodModWeaponClass_Tracer(int nWeapon);
 

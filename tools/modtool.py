@@ -124,8 +124,14 @@ def run_tables(tester, mdir, key):
             if os.path.isfile(os.path.join(mdir, n)):
                 shutil.copyfile(os.path.join(mdir, n), os.path.join(run_root, 'Mod', canon.get(n.lower(), n)))
             elif n.lower() == 'scripts':
-                # The scripts' modules (API 7), which require reads as Mod\\Scripts.
-                shutil.copytree(os.path.join(mdir, n), os.path.join(run_root, 'Mod', 'Scripts'))
+                # The scripts' modules (API 7), which require reads as Mod\\Scripts\\<name>.lua. LithRez
+                # extracts a packed module as <name>.LUA, so the extension is spelled again.
+                for dp, _dn, fn in os.walk(os.path.join(mdir, n)):
+                    dst = os.path.join(run_root, 'Mod', 'Scripts', os.path.relpath(dp, os.path.join(mdir, n)))
+                    os.makedirs(dst, exist_ok=True)
+                    for f in fn:
+                        stem, ext = os.path.splitext(f)
+                        shutil.copyfile(os.path.join(dp, f), os.path.join(dst, stem + ('.lua' if ext.lower() == '.lua' else ext)))
         r = RUN(tester, run_root)
     finally:
         shutil.rmtree(run_root, ignore_errors=True)

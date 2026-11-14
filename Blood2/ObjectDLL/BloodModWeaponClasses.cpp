@@ -40,6 +40,7 @@ const Key kKeys[WK_COUNT] =
 	{ "MuzzleSmoke", WF_BOOL }, { "MuzzleLight", WF_BOOL }, { "Fragments", WF_BOOL },
 	{ "HitFragments", WF_BOOL },
 	{ "Tracer", WF_LASER },
+	{ "AltSweep", WF_BOOL }, { "SpreadPattern", WF_BOOL },
 };
 const size_t kMaxName = 63;
 
@@ -183,6 +184,10 @@ bool BloodModWeaponClass_Has(int nWeapon, int nKey)
 			return nWeapon == WEAP_PROXIMITYBOMB || nWeapon == WEAP_TIMEBOMB;	// the remote bomb's is commented out in retail
 		case WK_HitFragments:
 			return nRetail == WEAP_MELEE;		// UpdateWeaponFX tests the retail type
+		case WK_AltSweep:
+			return nRetail == WEAP_DEATHRAY;	// CDeathRay's, and a new weapon made as one
+		case WK_SpreadPattern:
+			return nRetail == WEAP_FLAREGUN;	// CFlareGun's
 		default:
 			return true;
 	}
@@ -235,6 +240,8 @@ bool BloodModWeaponClass_Flag(int nWeapon, int nKey)
 	switch (nKey)
 	{
 		case WK_MuzzleSmoke: case WK_Fragments:	return nRetail != WEAP_MINIGUN;
+		case WK_AltSweep:						return nRetail == WEAP_DEATHRAY;
+		case WK_SpreadPattern:					return nRetail == WEAP_FLAREGUN;
 		default:								return false;
 	}
 }
@@ -325,6 +332,8 @@ bool BloodModWeaponClasses_Load(LT1Mod::FileSource &src, std::string &sError)
 				const char* pWho = nKey == WK_Chrome ? "only an environment-mapped weapon has it (its class sets FLAG_ENVIRONMENTMAP)" :
 								   nKey == WK_PickupAmmo || nKey == WK_PickupName ? "only a retail weapon with a pickup has it" :
 								   nKey == WK_HitFragments ? "only MELEE and a new weapon on it have it" :
+								   nKey == WK_AltSweep ? "only DEATHRAY and a new weapon on it have it" :
+								   nKey == WK_SpreadPattern ? "only FLAREGUN and a new weapon on it have it" :
 								   nKey <= WK_VoodooFX ? "only VOODOO has it" : "only PROXIMITYBOMB and TIMEBOMB have it";
 				snprintf(buf, sizeof(buf), "%s: [%s]:%s: %s", kPath, tag, key, pWho);
 				sError = buf;
@@ -428,6 +437,9 @@ std::string BloodModWeaponClasses_Reference()
 			if (BloodModWeaponClass_Has(w, k))
 				out += std::string(kKeys[k].pName) + " = " + (BloodModWeaponClass_Flag(w, k) ? "TRUE" : "FALSE") + "\n";
 		out += "Tracer = \"NONE\"\n";
+		for (int k = WK_AltSweep; k <= WK_SpreadPattern; ++k)
+			if (BloodModWeaponClass_Has(w, k))
+				out += std::string(kKeys[k].pName) + " = " + (BloodModWeaponClass_Flag(w, k) ? "TRUE" : "FALSE") + "\n";
 		if (w == WEAP_VOODOO)
 		{
 			std::string hits;

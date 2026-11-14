@@ -509,7 +509,8 @@ void CFlareGun::FireSpread(Spread *spread, DDWORD shots, DFLOAT range, DBOOL bAl
 	{
 		VEC_COPY(vFire, vF)
         
-		if(shots - 1)
+		// SpreadPattern FALSE scatters a volley at random, as one flare always is
+		if((shots - 1) && BloodModWeaponClass_Flag(m_nType, WK_SpreadPattern))
 			switch(i)
 			{
 				case	7:	hOffset = 0.03f; vOffset = 0.03f;	break;
@@ -1105,7 +1106,8 @@ DDWORD CDeathRay::Fire()
 	CServerDE* pServerDE = DEBaseClass::GetServerDE();
 	if(!pServerDE)	return 0;
 
-	if(m_eState == WS_ALT_FIRING)
+	// AltSweep FALSE leaves the alt fire only the projectiles CWeapon::Fire makes
+	if(m_eState == WS_ALT_FIRING && BloodModWeaponClass_Flag(m_nType, WK_AltSweep))
 	{
 		DVector		vPos;
 		DRotation	rRot;

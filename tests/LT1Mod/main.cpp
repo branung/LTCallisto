@@ -1440,6 +1440,7 @@ void TestScriptDiagnostics()
     RecHost hb;
     LT1Mod::Script_Load(src2, &hb, err);
     LT1Mod::Script_Command("trace", NULL, 0);
+    // The address as the C library prints a pointer: 0x... on glibc, digits alone on MSVC
     const bool bTraced = hb.Has("trace: mod.find(table: ") && !hb.Has("tostring raised");
     LT1Mod::Script_WorldStart("W");
     LT1Mod::Script_Command("print", NULL, 0);
@@ -1509,6 +1510,9 @@ int Sig(const char* root, const char* game)
 
 int main(int argc, char** argv)
 {
+    // A line at a time, so a crash still leaves the checks before it in the log. The UCRT refuses
+    // _IOLBF with no size.
+    setvbuf(stdout, NULL, _IONBF, 0);
     if (argc >= 2 && strcmp(argv[1], "--selftest") == 0)
         return Selftest();
     if (argc >= 3 && strcmp(argv[1], "--sig") == 0)

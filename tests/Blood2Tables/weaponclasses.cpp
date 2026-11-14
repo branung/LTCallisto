@@ -87,6 +87,20 @@ void TestLiterals()
 	}
 	Check(bFlags, "with no mod every weapon but the minigun smokes and throws fragments, none lights its muzzle, and "
 				  "only MELEE has HitFragments, FALSE");
+	// CDeathRay::Fire's alt sweep and CFlareGun::FireSpread's eight-point pattern before the keys:
+	// each its own class's, and on.
+	bool bClass = true;
+	for (int w = 1; w <= WEAP_MAXWEAPONTYPES; ++w)
+		bClass = bClass && BloodModWeaponClass_Has(w, WK_AltSweep) == (w == WEAP_DEATHRAY) &&
+				 BloodModWeaponClass_Has(w, WK_SpreadPattern) == (w == WEAP_FLAREGUN) &&
+				 BloodModWeaponClass_Flag(w, WK_AltSweep) == (w == WEAP_DEATHRAY) &&
+				 BloodModWeaponClass_Flag(w, WK_SpreadPattern) == (w == WEAP_FLAREGUN);
+	Check(bClass, "with no mod only DEATHRAY has AltSweep and only FLAREGUN SpreadPattern, each TRUE");
+	std::string err;
+	Check(LoadClasses("[DEATHRAY]\nAltSweep = FALSE\n\n[FLAREGUN]\nSpreadPattern = FALSE\n", err) &&
+		  !BloodModWeaponClass_Flag(WEAP_DEATHRAY, WK_AltSweep) && !BloodModWeaponClass_Flag(WEAP_FLAREGUN, WK_SpreadPattern),
+		  "and a mod turns each off");
+	Unload();
 }
 
 void TestKeys()
