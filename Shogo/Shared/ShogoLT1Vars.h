@@ -14,6 +14,9 @@ static const LT1Var g_aShogoLT1Vars[] =
 
     // Server: a ray hitting an object's box reports the x face's normal for every face, and impact effects are aligned to it
     { "LT1BoxHitNormal",       "1",    LT1_SERVER },
+
+    // A world model object binds to the last model of its name, compared with case, as LT1 does (both sides).
+    { "LT1WorldModelLast",     "1",    LT1_BOTH },
 };
 
 // The walkers' last three arguments: the set's name, the table and its length
