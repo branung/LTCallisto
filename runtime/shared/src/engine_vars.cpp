@@ -181,6 +181,7 @@ int32	g_CV_HeadlessWorld = 0; // Load worlds and models a renderer declines, so 
 int32	g_nEngineEra = 0; // The engine line a game was built for, selecting its era set (era/era.h). 0 Jupiter, 1 LT1
 int32	g_bLT1CollideWithWorld = 0; // Under EngineEra 1, retail Shogo's world walk in place of Jupiter's and the walk vars in it. Both sides
 int32	g_bLT1MotionStep = 0; // Under EngineEra 1, LT1's whole physics step in place of Jupiter's and the stand vars in it. Both sides
+int32	g_bLT1WorldModelLast = 0; // A world model object binds to the LAST model of its name, compared with case, as LT1's list and strcmp do. Read at world load. Both sides
 int32	g_bLT1ObjectPass = 0; // Under EngineEra 1, 25.1's MoveObject, resize and rotation in place of Jupiter's. Both sides
 int32	g_bLT1ZeroMoveSkip = 0; // A world walk for a move under 0.0001 on every axis does nothing, as LT1's does. Both sides
 
@@ -510,6 +511,7 @@ static LTEngineVar g_LTEngineVars[] =
 	EV_LONG("EngineEra", &g_nEngineEra),
 	EV_LONG("LT1CollideWithWorld", &g_bLT1CollideWithWorld),
 	EV_LONG("LT1MotionStep", &g_bLT1MotionStep),
+	EV_LONG("LT1WorldModelLast", &g_bLT1WorldModelLast),
 	EV_LONG("LT1ObjectPass", &g_bLT1ObjectPass),
 	EV_LONG("LT1ZeroMoveSkip", &g_bLT1ZeroMoveSkip),
 	EV_LONG("LT2_5ObjectLights", &g_bLT2_5ObjectLights),

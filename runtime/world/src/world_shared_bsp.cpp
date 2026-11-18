@@ -780,6 +780,18 @@ void CWorldSharedBSP::InsertStaticLights(WorldTree &world_tree) {
 }
 
 WorldData *IWorldSharedBSP::FindWorldModel(WorldData **&world_models, uint32 &num_world_models, const char *name) {
+    // LT1WorldModelLast: LT1 fills its world model list at the head and searches it with strcmp,
+    // so a name two models share, or share but for case, finds the LAST of them, with case
+    extern int32 g_bLT1WorldModelLast;
+    if (g_bLT1WorldModelLast) {
+        for (uint32 i = num_world_models; i-- > 0; ) {
+            WorldData *world_model = world_models[i];
+            if (strcmp(world_model->OriginalBSP()->m_WorldName, name) == 0)
+                return world_model;
+        }
+        return NULL;
+    }
+
     //look through all the world models.
     for (uint32 i = 0; i < num_world_models; i++) {
         //get this world model.

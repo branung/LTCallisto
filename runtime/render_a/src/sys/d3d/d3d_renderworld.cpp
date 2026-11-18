@@ -4,6 +4,8 @@
 #include "precompile.h"
 
 #include "d3d_renderworld.h"
+#include <map>
+#include <string>
 #include "d3d_convar.h"
 #include "d3d_renderblock.h"
 #include "d3d_rendershader.h"
@@ -140,6 +142,7 @@ bool CD3D_RenderWorld::Load(ILTStream *pStream)
 	pStream->Read(&nNumWorldModels, sizeof(uint32));
 
 	m_aWorldModels.clear();
+	std::map<uint32, std::string> aWMNames;	// LT1WorldModelLast's same name test
 
 	for (uint32 nCurWorldModel = 0; nCurWorldModel < nNumWorldModels; ++nCurWorldModel)
 	{
@@ -156,6 +159,16 @@ bool CD3D_RenderWorld::Load(ILTStream *pStream)
 
 		uint32 nNameHash = GetWMNameHash(sWMName);
 		TWorldModelMap::iterator iFindWMNameHash = m_aWorldModels.find(nNameHash);
+		// LT1WorldModelLast: a name two models share binds to the LAST of them, so that one is drawn.
+		// Only for the same name, as a hash two names share stays a conflict.
+		extern int32 g_bLT1WorldModelLast;
+		if (iFindWMNameHash != m_aWorldModels.end() && g_bLT1WorldModelLast &&
+			aWMNames[nNameHash] == sWMName)
+		{
+			delete iFindWMNameHash->second;
+			m_aWorldModels.erase(iFindWMNameHash);
+			iFindWMNameHash = m_aWorldModels.end();
+		}
 		if (iFindWMNameHash != m_aWorldModels.end())
 		{
 			ASSERT(!"World model name hash conflict detected!");
@@ -165,6 +178,7 @@ bool CD3D_RenderWorld::Load(ILTStream *pStream)
 		}
 
 		LT_MEM_TRACK_ALLOC(m_aWorldModels[nNameHash] = pNewWorldModel, LT_MEM_TYPE_RENDER_WORLD);
+		aWMNames[nNameHash] = sWMName;
 	}
 
 	return bResult;
