@@ -35,6 +35,8 @@ class CViewCreature
 		void		Detach();
 		void		UseKeyHit();
 		void		Update(DFLOAT fPitch, DFLOAT fYaw, DVector *pos);
+		
+		void		PlaceForCamera(HLOCALOBJ hCamera); // Update's world placement in the camera's frame, once the camera is final
 
 		HLOCALOBJ	m_hObject;			
 		HLOCALOBJ	m_hServerObject;	// Local handle to Server-side object
@@ -48,6 +50,10 @@ class CViewCreature
 		int			m_nNumUseHits;
 		int			m_nTotalNumUseHits;
 		DVector		m_vLightScale;
+
+		DBOOL		m_bHaveWorld;		// Update has run at least once
+		DVector		m_vWorldPos;		// Where LT1 put the creature, in world space
+		DRotation	m_rWorldRot;
 
 		CClientDE*	m_pClientDE;
 };
