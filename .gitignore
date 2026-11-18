@@ -4,3 +4,5 @@ Rez
 .vscode
 codeblocks
 .cache
+
+tools/build_release.bat

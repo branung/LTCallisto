@@ -77,10 +77,6 @@ void CRenderShader_SkyPan::TranslateVertices(SVertex_SkyPan *pOut, const SRBVert
 
 void CRenderShader_SkyPan::DrawNormal(const DrawState &cState, uint32 nRenderBlock)
 {
-	// Nothing to draw without a cloud map
-	if (!HasPanTexture())
-		return;
-
 	// A block with dynamic lights is lit per vertex, as LT1 lit a sky pan polygon
 	if (cState.m_nNumLights == 0)
 	{
@@ -179,6 +175,15 @@ void CRenderShader_SkyPan::PreFlush()
 	PD3DDEVICE->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
 	PD3DDEVICE->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
 	PD3DDEVICE->SetTextureStageState(1, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
+
+	// No cloud map: draw the vertex color alone, so the multiply pass after it leaves lit texture
+	if (!HasPanTexture())
+	{
+		PD3DDEVICE->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
+		d3d_DisableTexture(0);
+		PD3DDEVICE->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
+		return;
+	}
 
 	PD3DDEVICE->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
 	PD3DDEVICE->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_WRAP);
