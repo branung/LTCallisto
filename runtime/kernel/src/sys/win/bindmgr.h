@@ -24,6 +24,8 @@ class CBindModuleType;
 
 // Bind and unbind to modules...
 int bm_BindModule(const char *pModuleName, bool bTempFile, CBindModuleType *&pModule);
+// As bm_BindModule, but opened for its resources only, so a 32-bit string module binds in a 64-bit engine
+int bm_BindResourceModule(const char *pModuleName, bool bTempFile, CBindModuleType *&pModule);
 void bm_UnbindModule(CBindModuleType *hModule);
 
 // Create a binding for the given handle
