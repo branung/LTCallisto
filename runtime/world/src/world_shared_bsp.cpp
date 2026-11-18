@@ -12,6 +12,10 @@
 #include "ltproperty.h"
 #include "strtools.h"
 
+#include <algorithm>
+#include <string>
+#include <vector>
+
 //----------------------------------------------------------------------
 //
 //  Defines.
@@ -444,6 +448,54 @@ void CWorldSharedBSP::AddStaticLights(ILTStream *pStream) {
     //this is the proper behaviour.
     bool do_fast_light_objects = true;
 
+    // LT2_5ObjectLights: a light a LightGroup names is skipped, and BrightScale carries over like the fast flag
+    extern int32 g_bLT2_5ObjectLights;
+    const bool bLT25 = g_bLT2_5ObjectLights != 0;
+    float fLT25BrightScale = 1.0f;
+    std::vector<std::string> lt25_grouped;
+    uint32 nObjectsPos = 0;
+    pStream->GetPos(&nObjectsPos);
+    if (bLT25)
+    {
+        uint32 nScan = 0;
+        STREAM_READ(nScan);
+        for (uint32 i = 0; i < nScan; i++)
+        {
+            uint16 nLen = 0;
+            STREAM_READ(nLen);
+            uint32 nStart;
+            pStream->GetPos(&nStart);
+            char szType[256];
+            pStream->ReadString(szType, sizeof(szType));
+            if (strcmp(szType, "LightGroup") == 0)
+            {
+                uint32 nProps = 0;
+                STREAM_READ(nProps);
+                for (uint32 k = 0; k < nProps; k++)
+                {
+                    char szName[256];
+                    pStream->ReadString(szName, sizeof(szName));
+                    uint8 nCode; uint32 nFlags; uint16 nDataLen;
+                    STREAM_READ(nCode);
+                    STREAM_READ(nFlags);
+                    STREAM_READ(nDataLen);
+                    char aData[258];
+                    if (nDataLen > 256) { pStream->SeekTo(nStart + nLen); break; }
+                    pStream->Read(aData, nDataLen);
+                    if (nCode == PT_STRING && nDataLen >= 2 && strncmp(szName, "Object", 6) == 0)
+                    {
+                        uint16 nStr = *((uint16*)aData);
+                        if (nStr > nDataLen - 2) nStr = (uint16)(nDataLen - 2);
+                        if (nStr)
+                            lt25_grouped.push_back(std::string(aData + 2, nStr));
+                    }
+                }
+            }
+            pStream->SeekTo(nStart + nLen);
+        }
+        pStream->SeekTo(nObjectsPos);
+    }
+
     //read the number of objects.
     uint32 num_objects = 0;
     STREAM_READ(num_objects);
@@ -489,8 +541,11 @@ void CWorldSharedBSP::AddStaticLights(ILTStream *pStream) {
             //light fov.
             float light_fov = -1.0f;
 
-			// brightscale
-			float brightscale = 1.0f;
+			// brightscale, per light in Jupiter and the last one read in LT 2.5
+			float brightscale = bLT25 ? fLT25BrightScale : 1.0f;
+
+			// LT 2.5: a LightGroup names this light
+			bool bLT25Grouped = false;
 
 			//amount to convert to ambient
 			float fConvertToAmbient = 0.0f;
@@ -548,7 +603,22 @@ void CWorldSharedBSP::AddStaticLights(ILTStream *pStream) {
                     pStream->Read(property_data, prop_data_len);
                 }
 
-                if (prop_code == PT_REAL && strcmp(property_name, "LightRadius") == 0) 
+                if (bLT25 && prop_code == PT_STRING && prop_data_len >= 2 &&
+                    prop_data_len <= sizeof(property_data) && strcmp(property_name, "Name") == 0)
+                {
+                    uint16 nStr = *((uint16*)property_data);
+                    if (nStr > prop_data_len - 2) nStr = (uint16)(prop_data_len - 2);
+                    if (std::find(lt25_grouped.begin(), lt25_grouped.end(),
+                                  std::string(property_data + 2, nStr)) != lt25_grouped.end())
+                    {
+                        bLT25Grouped = true;
+                        continue;
+                    }
+                }
+                if (bLT25Grouped)
+                    continue;
+
+                if (prop_code == PT_REAL && strcmp(property_name, "LightRadius") == 0)
 				{
                     light_radius = *((float*)property_data);
                 }
@@ -565,6 +635,7 @@ void CWorldSharedBSP::AddStaticLights(ILTStream *pStream) {
 				else if (prop_code == PT_REAL && strcmp(property_name, "BrightScale") == 0) 
 				{
 					brightscale = *((float*)property_data);
+					fLT25BrightScale = brightscale;
 				}
 				else if (prop_code == PT_REAL && strcmp(property_name, "ObjectBrightScale") == 0) 
 				{
@@ -642,7 +713,7 @@ void CWorldSharedBSP::AddStaticLights(ILTStream *pStream) {
             }
 
             // Light the sample points up.
-            if (do_light_objects) 
+            if (do_light_objects && !bLT25Grouped)
 			{
 				// Factor the brightness into the light color, including the object lighting
 				// since these static lights are only used for object lighting

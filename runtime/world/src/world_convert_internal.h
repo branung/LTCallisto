@@ -59,6 +59,10 @@ static const uint32 kWifPhysicsBsp = 1u << 4;
 static const double kLightGridCell = 350.0;
 static const double kLightGridMargin = 300.0;
 
+// LT2 builds its grid at load: a 250 unit cell by default, over the world's own box with no margin
+static const double kLightGridCellLT2 = 250.0;
+static const double kLightGridMarginLT2 = 0.0;
+
 
 
 class Reader
@@ -229,7 +233,10 @@ struct SourceWorld
 	// True when each model's m_nSrcWorldInfoFlags is used as is (v66), false when the flags are synthesized from the model index (v56)
 	bool m_bSourceWorldInfoFlags;
 
-	SourceWorld() : m_bSourceWorldInfoFlags(false) {}
+	// LT2_5ObjectLights: LT 2.5's BrightScale and LightGroup rules for the object light grid
+	bool m_bLT25Lights;
+
+	SourceWorld() : m_bSourceWorldInfoFlags(false), m_bLT25Lights(false) {}
 };
 
 

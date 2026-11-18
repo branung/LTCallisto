@@ -297,10 +297,24 @@ int main(int argc, char **argv)
 	if (argc >= 3 && strcmp(argv[1], "--check") == 0)
 		return RunCheck(argc - 2, argv + 2);
 
+	// --lt25-lights anywhere: LT2_5ObjectLights, LT 2.5's BrightScale and LightGroup rules for a v66 world's light grid
+	bool bLT25Lights = false;
+	for (int i = 1; i < argc; )
+	{
+		if (strcmp(argv[i], "--lt25-lights") == 0)
+		{
+			bLT25Lights = true;
+			for (int k = i; k + 1 < argc; ++k) argv[k] = argv[k + 1];
+			--argc;
+		}
+		else
+			++i;
+	}
+
 	if (argc < 3)
 	{
 		fprintf(stderr, "usage: %s --check <world.dat> [more worlds...]\n", argv[0]);
-		fprintf(stderr, "       %s <world.dat> <out.dat> [textures.txt] [max-block-verts]\n", argv[0]);
+		fprintf(stderr, "       %s [--lt25-lights] <world.dat> <out.dat> [textures.txt] [max-block-verts]\n", argv[0]);
 		return 2;
 	}
 
@@ -363,7 +377,7 @@ int main(int argc, char **argv)
 	uint32 nImageSize = 0;
 	LTRESULT nResult = bV56
 		? world_v56_BuildV85Image(pSrc, (uint32)nLen, &pImage, &nImageSize, g_TexDims.empty() ? NULL : TexDims, NULL, Warn, NULL, nMaxBlockVerts)
-		: world_v66_BuildV85Image(pSrc, (uint32)nLen, &pImage, &nImageSize, g_TexDims.empty() ? NULL : TexDims, NULL, Warn, NULL, nMaxBlockVerts);
+		: world_v66_BuildV85Image(pSrc, (uint32)nLen, &pImage, &nImageSize, g_TexDims.empty() ? NULL : TexDims, NULL, Warn, NULL, nMaxBlockVerts, bLT25Lights);
 	delete[] pSrc;
 
 	if (nResult != LT_OK || !pImage)

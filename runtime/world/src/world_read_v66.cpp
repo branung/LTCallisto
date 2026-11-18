@@ -188,7 +188,8 @@ static bool ReadWorldModelV66(Reader &r, WorldModel &m)
 		r.Skip(12);
 	}
 
-	// A spatial block table, which nothing in LT2's rendering or collision reads back
+	// The PBlockTable, a spatial grid nothing in LT2's rendering or collision reads back.
+	// It is not the object light grid, which LT2 builds at load from the lights.
 	{
 		uint32 gx = r.U32(), gy = r.U32(), gz = r.U32();
 		r.Skip(24);
@@ -326,7 +327,7 @@ bool ReadV66(const uint8 *pData, uint32 nSize, SourceWorld &out)
 }
 
 
-LTRESULT world_v66_BuildV85Image(const uint8 *pSrc, uint32 nSrcSize, uint8 **ppImage, uint32 *pImageSize, WorldV56TexDimsFn pTexDims, void *pUser, WorldV56WarnFn pWarn, void *pWarnUser, uint32 nMaxBlockVerts)
+LTRESULT world_v66_BuildV85Image(const uint8 *pSrc, uint32 nSrcSize, uint8 **ppImage, uint32 *pImageSize, WorldV56TexDimsFn pTexDims, void *pUser, WorldV56WarnFn pWarn, void *pWarnUser, uint32 nMaxBlockVerts, bool bLT25Lights)
 {
 	if (!pSrc || !ppImage || !pImageSize) return LT_INVALIDPARAMS;
 
@@ -339,6 +340,7 @@ LTRESULT world_v66_BuildV85Image(const uint8 *pSrc, uint32 nSrcSize, uint8 **ppI
 	SourceWorld src;
 	if (!ReadV66(pSrc, nSrcSize, src)) return LT_INVALIDFILE;
 	src.m_bSourceWorldInfoFlags = true;
+	src.m_bLT25Lights = bLT25Lights;
 
 	return BuildV85ImageFromSource(src, ppImage, pImageSize, pTexDims, pUser, pWarn, pWarnUser, nMaxBlockVerts);
 }

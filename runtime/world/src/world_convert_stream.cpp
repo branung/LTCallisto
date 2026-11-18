@@ -12,6 +12,9 @@
 #include <string>
 #include <vector>
 
+// LT2_5ObjectLights (engine_vars.cpp), read when a v66 world is converted
+extern int32 g_bLT2_5ObjectLights;
+
 
 // A read only stream over the converted image, which it also owns.
 // Release() frees the object as well as the buffer.
@@ -202,7 +205,8 @@ ILTStream *world_WrapStream(ILTStream *pSrc, WorldV56OpenFn pOpen)
 	uint32 nImageSize = 0;
 	LTRESULT nResult = bV56
 		? world_v56_BuildV85Image(pRaw, nLen, &pImage, &nImageSize, pOpen ? V56TexDims : LTNULL, (void *)pOpen, V56Warn, LTNULL)
-		: world_v66_BuildV85Image(pRaw, nLen, &pImage, &nImageSize, pOpen ? V56TexDims : LTNULL, (void *)pOpen, V56Warn, LTNULL);
+		: world_v66_BuildV85Image(pRaw, nLen, &pImage, &nImageSize, pOpen ? V56TexDims : LTNULL, (void *)pOpen, V56Warn, LTNULL,
+			kWorldV56MaxBlockVerts, g_bLT2_5ObjectLights != 0);
 	delete[] pRaw;
 
 	if (nResult != LT_OK || !pImage)
@@ -211,7 +215,12 @@ ILTStream *world_WrapStream(ILTStream *pSrc, WorldV56OpenFn pOpen)
 		return LTNULL;
 	}
 
-	dsi_ConsolePrint("world_v56: converted a v%u world (%u -> %u bytes)", (unsigned)nVersion, (unsigned)nLen, (unsigned)nImageSize);
+	// The knob is read only here, so the log says whether it was set before the world loaded
+	if (bV66)
+		dsi_ConsolePrint("world_v56: converted a v%u world (%u -> %u bytes, LT2_5ObjectLights %d)", (unsigned)nVersion, (unsigned)nLen,
+			(unsigned)nImageSize, (int)(g_bLT2_5ObjectLights != 0));
+	else
+		dsi_ConsolePrint("world_v56: converted a v%u world (%u -> %u bytes)", (unsigned)nVersion, (unsigned)nLen, (unsigned)nImageSize);
 
 	return new CWorldV56Stream(pImage, nImageSize);
 }

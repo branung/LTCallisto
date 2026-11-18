@@ -184,6 +184,10 @@ int32	g_bLT1MotionStep = 0; // Under EngineEra 1, LT1's whole physics step in pl
 int32	g_bLT1ObjectPass = 0; // Under EngineEra 1, 25.1's MoveObject, resize and rotation in place of Jupiter's. Both sides
 int32	g_bLT1ZeroMoveSkip = 0; // A world walk for a move under 0.0001 on every axis does nothing, as LT1's does. Both sides
 
+// LT 2.5's object light rules for a converted v66 world: a light's BrightScale multiplies its color, and a light a LightGroup names lights no object.
+// Read when the world is converted so it is set before the world loads. Both sides.
+int32	g_bLT2_5ObjectLights = 0;
+
 int32	g_CV_MasterPaletteMode = 2;
 
 int32	g_CV_ModelTransitionMS = 200;
@@ -508,6 +512,7 @@ static LTEngineVar g_LTEngineVars[] =
 	EV_LONG("LT1MotionStep", &g_bLT1MotionStep),
 	EV_LONG("LT1ObjectPass", &g_bLT1ObjectPass),
 	EV_LONG("LT1ZeroMoveSkip", &g_bLT1ZeroMoveSkip),
+	EV_LONG("LT2_5ObjectLights", &g_bLT2_5ObjectLights),
 	EV_LONG("FullLightScale", &g_CV_FullLightScale),
 	EV_LONG("ForceClear", &g_CV_ForceClear),
 	EV_LONG("ModelTransitionMS", &g_CV_ModelTransitionMS),

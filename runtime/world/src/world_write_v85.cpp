@@ -1550,11 +1550,56 @@ struct LT1Light
 	float m_fRadius;
 };
 
-// Every light LT1's grid builder accepts in file order
-static void ParseLT1Lights(const std::vector<uint8> &block, std::vector<LT1Light> &out)
+// Every light the grid builder accepts in file order: Light, DirLight or ObjectLight with a position, color and radius.
+// LT1 takes each one whose LightObjects is not false.
+// LT2 (bLT2) takes only the fast ones. FastLightObjects is function scoped, so a light that omits it inherits the last light's,
+// and a light that is not fast is already a StaticLight in Jupiter's loader.
+// LT 2.5 (bLT25) also multiplies the color by BrightScale - function scoped as well - and drops a light a LightGroup names,
+// skipping every property after its Name.
+static void ParseLT1Lights(const std::vector<uint8> &block, std::vector<LT1Light> &out, bool bLT2 = false, bool bLT25 = false)
 {
 	out.clear();
 	if (block.size() < 4) return;
+
+	// LT 2.5's first pass: every non-empty Object* string of every LightGroup, compared with case
+	std::set<std::string> grouped;
+	if (bLT25)
+	{
+		Reader g(&block[0], (uint32)block.size());
+		uint32 nCount = g.U32();
+		for (uint32 i = 0; i < nCount && !g.Bad(); ++i)
+		{
+			uint32 nStart = g.Pos();
+			uint16 nDataLen = g.U16();
+			uint32 nBodyEnd = nStart + 2 + nDataLen;
+			std::string sType = g.S16();
+			if (sType == "LightGroup")
+			{
+				uint32 nProps = g.U32();
+				for (uint32 k = 0; k < nProps && !g.Bad(); ++k)
+				{
+					std::string sName = g.S16();
+					uint8 nCode = g.U8();
+					g.U32();
+					uint16 nLen = g.U16();
+					const uint8 *pData = g.Raw(nLen);
+					if (!pData) break;
+					if (nCode == 0 && nLen >= 2 && sName.compare(0, 6, "Object") == 0)
+					{
+						uint16 nStr = (uint16)(pData[0] | (pData[1] << 8));
+						if (nStr > nLen - 2) nStr = (uint16)(nLen - 2);
+						if (nStr)
+							grouped.insert(std::string((const char *)pData + 2, nStr));
+					}
+				}
+			}
+			g.SeekTo(nBodyEnd);
+		}
+	}
+
+	bool bFast = true;
+	float fBright = 1.0f;
+
 	Reader r(&block[0], (uint32)block.size());
 	uint32 nCount = r.U32();
 	for (uint32 i = 0; i < nCount && !r.Bad(); ++i)
@@ -1563,10 +1608,17 @@ static void ParseLT1Lights(const std::vector<uint8> &block, std::vector<LT1Light
 		uint16 nDataLen = r.U16();
 		uint32 nBodyEnd = nStart + 2 + nDataLen;
 		std::string sType = r.S16();
+		const bool bLightClass = (sType == "Light" || sType == "DirLight" || sType == "ObjectLight");
+		if (!bLightClass)
+		{
+			r.SeekTo(nBodyEnd);
+			continue;
+		}
 		uint32 nProps = r.U32();
 
 		bool bHavePos = false, bHaveColor = false, bHaveRadius = false;
 		bool bLightObjects = true;
+		bool bAdd = true;
 		LT1Light l;
 		for (uint32 k = 0; k < nProps && !r.Bad(); ++k)
 		{
@@ -1576,6 +1628,18 @@ static void ParseLT1Lights(const std::vector<uint8> &block, std::vector<LT1Light
 			uint16 nLen = r.U16();
 			const uint8 *pData = r.Raw(nLen);
 			if (!pData) break;
+			if (bLT25 && nCode == 0 && nLen >= 2 && sName == "Name")
+			{
+				uint16 nStr = (uint16)(pData[0] | (pData[1] << 8));
+				if (nStr > nLen - 2) nStr = (uint16)(nLen - 2);
+				if (grouped.count(std::string((const char *)pData + 2, nStr)))
+				{
+					bAdd = false;
+					continue;
+				}
+			}
+			if (!bAdd)
+				continue;
 			if (nCode == 1 && nLen == 12 && sName == "Pos")
 			{
 				memcpy(l.m_Pos, pData, 12); bHavePos = true;
@@ -1592,16 +1656,31 @@ static void ParseLT1Lights(const std::vector<uint8> &block, std::vector<LT1Light
 			{
 				bLightObjects = pData[0] != 0;
 			}
+			else if (bLT2 && nCode == 5 && nLen >= 1 && sName == "FastLightObjects")
+			{
+				bFast = pData[0] != 0;
+			}
+			else if (bLT25 && nCode == 3 && nLen == 4 && sName == "BrightScale")
+			{
+				memcpy(&fBright, pData, 4);
+			}
 		}
 		r.SeekTo(nBodyEnd);
-		if ((sType == "Light" || sType == "DirLight" || sType == "ObjectLight") && bLightObjects && bHavePos && bHaveColor && bHaveRadius)
+		if (bAdd && bLightObjects && bHavePos && bHaveColor && bHaveRadius && (!bLT2 || bFast))
 		{
+			// A float product, as LT 2.5 computes it
+			if (bLT25)
+			{
+				for (int c = 0; c < 3; ++c)
+					l.m_Color[c] = l.m_Color[c] * fBright;
+			}
 			out.push_back(l);
 		}
 	}
 }
 
-static void BuildLT1LightGrid(double kLightGridCell, double kLightGridMargin, const float *pMin, const float *pMax, const uint8 *pAmbient, const std::vector<LT1Light> &lights, float *pOrigin, int32 *pDims, std::vector<uint8> &cells)
+// bQuadratic is LT2's falloff, color * (1 - d / r)^2, applied as (color * f) * f. LT1's is linear.
+static void BuildLT1LightGrid(double kLightGridCell, double kLightGridMargin, bool bQuadratic, const float *pMin, const float *pMax, const uint8 *pAmbient, const std::vector<LT1Light> &lights, float *pOrigin, int32 *pDims, std::vector<uint8> &cells)
 {
 	double origin[3], far[3];
 	for (int k = 0; k < 3; ++k)
@@ -1652,7 +1731,7 @@ static void BuildLT1LightGrid(double kLightGridCell, double kLightGridMargin, co
 					uint8 *pCell = &cells[(row + x) * 3];
 					for (int k = 0; k < 3; ++k)
 					{
-						double v = (double)pCell[k] + col[k] * f;
+						double v = (double)pCell[k] + (bQuadratic ? col[k] * f * f : col[k] * f);
 						if (v < 0.0) v = 0.0;
 						if (v > 255.0) v = 255.0;
 						pCell[k] = (uint8)(int)v;
@@ -1979,14 +2058,17 @@ LTRESULT worldconv::BuildV85ImageFromSource(const SourceWorld &src, uint8 **ppIm
 		uint8 ambient[3];
 		ParseLT1AmbientLight(sInfo, ambient);
 		std::vector<LT1Light> lights;
-		ParseLT1Lights(src.m_ObjectBlock, lights);
+		ParseLT1Lights(src.m_ObjectBlock, lights, src.m_bSourceWorldInfoFlags, src.m_bLT25Lights);
 
-		// The cell size is the world's own LightTableRes
-		const double dCell = ParseLT1LightTableRes(sInfo, kLightGridCell);
+		// The cell size is the world's own LightTableRes, or its era's default.
+		// LT2 also pads the box by nothing where LT1 pads it by 300, and its falloff is quadratic.
+		const bool bLT2 = src.m_bSourceWorldInfoFlags;
+		const double dCell = ParseLT1LightTableRes(sInfo, bLT2 ? kLightGridCellLT2 : kLightGridCell);
+		const double dMargin = bLT2 ? kLightGridMarginLT2 : kLightGridMargin;
 
 		float origin[3]; int32 dims[3];
 		std::vector<uint8> cells, grid;
-		BuildLT1LightGrid(dCell, kLightGridMargin, src.m_Models[nMainIdx].m_MinBox, src.m_Models[nMainIdx].m_MaxBox, ambient, lights, origin, dims, cells);
+		BuildLT1LightGrid(dCell, dMargin, bLT2, src.m_Models[nMainIdx].m_MinBox, src.m_Models[nMainIdx].m_MaxBox, ambient, lights, origin, dims, cells);
 		w.V3(origin); // m_vWorldBasePos
 		w.V3((float)dCell, (float)dCell, (float)dCell);
 		w.I32(dims[0]); w.I32(dims[1]); w.I32(dims[2]);

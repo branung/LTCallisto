@@ -37,8 +37,9 @@ LTRESULT world_v56_BuildV85Image(const uint8 *pSrc, uint32 nSrcSize, uint8 **ppI
 bool world_v66_IsV66(const uint8 *pData, uint32 nSize);
 
 // As world_v56_BuildV85Image, for a v66 source
+// bLT25Lights is the LT2_5ObjectLights var, LT 2.5's BrightScale and LightGroup rules for the object light grid.
 LTRESULT world_v66_BuildV85Image(const uint8 *pSrc, uint32 nSrcSize, uint8 **ppImage, uint32 *pImageSize, WorldV56TexDimsFn pTexDims,
-    void *pUser, WorldV56WarnFn pWarn, void *pWarnUser, uint32 nMaxBlockVerts = kWorldV56MaxBlockVerts);
+    void *pUser, WorldV56WarnFn pWarn, void *pWarnUser, uint32 nMaxBlockVerts = kWorldV56MaxBlockVerts, bool bLT25Lights = false);
 
 void world_v56_FreeImage(uint8 *pImage);
 
