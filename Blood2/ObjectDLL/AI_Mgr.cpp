@@ -236,6 +236,14 @@ AI_Mgr::AI_Mgr() : CBaseCharacter(OT_MODEL)
 	strcpy(m_szModBurstSound[0], "");
 	strcpy(m_szModBurstSound[1], "");
 	strcpy(m_szModBurstSound[2], "");
+	// The reaction: none
+	strcpy(m_szModReactAnim, "");
+	strcpy(m_szModReactAnimPistol, "");
+	m_fModReactTime		= 0.0f;
+	m_fModReactAgain	= 0.0f;
+	m_bModReacted		= DFALSE;
+	m_fModReactStart	= 0.0f;
+	m_fModAttackLeft	= 0.0f;
 
 	memset(&m_Link, 0, sizeof(m_Link));
 
@@ -1225,6 +1233,61 @@ void AI_Mgr::MC_ChaseWalk()
 		MC_Run();
 	else
 		MC_Walk();
+}
+
+// A mod's reaction before an attack's first shot: ReactAnim, ReactAnimPistol or ReactTime set, and
+// not yet played. The attack states with a BestWeapon step ask this at the fire step after it.
+DBOOL AI_Mgr::ModAI_ReactPending() const
+{
+	if (m_bModReacted) return DFALSE;
+	return (m_szModReactAnim[0] || m_szModReactAnimPistol[0] || m_fModReactTime > 0.0f) ? DTRUE : DFALSE;
+}
+
+// The reaction: its animation once, the pistol one while holding a pistol, and at least ReactTime
+// seconds by the game's clock. A model without the animation plays its first idle for the time
+// instead, because retail's Cultist, Fanatic and Prophet models have no spot_left or spot_right.
+// It ends with m_bModReacted set, and the fire step that asked runs on in the same update, so the
+// shot comes when it would have.
+void AI_Mgr::MC_ModReact()
+{
+	const DFLOAT fNow = m_pServerDE->GetTime();
+	CWeapon* pW = m_InventoryMgr.GetCurrentWeapon();
+	const char* pName = (pW && pW->GetFireType() == TYPE_PISTOL && m_szModReactAnimPistol[0])
+						? m_szModReactAnimPistol : m_szModReactAnim;
+	const DDWORD nAnim = pName[0] ? m_pServerDE->GetAnimIndex(m_hObject, (char*)pName) : (DDWORD)-1;
+	if (m_bAnimating == DFALSE || m_nCurMetacmd != MC_MODREACT)
+	{
+		if (nAnim != (DDWORD)-1)
+		{
+			SetAnimation(nAnim);
+			m_pServerDE->SetModelLooping(m_hObject, DFALSE);
+		}
+		else
+		{
+			if (pName[0] && BloodModAI_Trace())
+				m_pServerDE->CPrint("AI: %s has no animation \"%s\"; it waits instead", m_pServerDE->GetObjectName(m_hObject), pName);
+			SetAnimation(m_pAnim_Sound->m_nAnim_IDLE[0]);
+			m_pServerDE->SetModelLooping(m_hObject, DTRUE);
+		}
+		m_fModReactStart = fNow;
+		m_bAnimating = DTRUE;
+		m_nCurMetacmd = MC_MODREACT;
+		return;
+	}
+	// The idle loops, so only the clock ends a wait
+	const DBOOL bPlayed = nAnim == (DDWORD)-1 || (m_pServerDE->GetModelPlaybackState(m_hObject) & MS_PLAYDONE);
+	if (bPlayed && fNow - m_fModReactStart >= m_fModReactTime)
+	{
+		m_bModReacted = DTRUE;
+		m_bAnimating = DFALSE;
+	}
+}
+
+// Whether the mod has a reaction anywhere, so Save writes the reaction's state and Load reads it;
+// with none a save's bytes are retail's
+DBOOL AI_Mgr::ModAI_ReactSaved()
+{
+	return (BloodModAI_Sets("ReactAnim") || BloodModAI_Sets("ReactAnimPistol") || BloodModAI_Sets("ReactTime")) ? DTRUE : DFALSE;
 }
 
 // After ReadProp: what the mod changed in this object, and where the level's own property replaced
@@ -2335,6 +2398,8 @@ void AI_Mgr::SetNewState(int nState)
 	if (m_szModAttackWeapon[0] && (nState == STATE_AttackFar || nState == STATE_AttackClose))
 		m_InventoryMgr.ChangeWeapon(WeaponStrToInt(m_szModAttackWeapon));
 
+	const DBOOL bWasAttack = (m_nState == STATE_AttackFar || m_nState == STATE_AttackClose) ? DTRUE : DFALSE;
+
 	// Don't switch to the idle state too fast
 	if( nState == STATE_Idle && m_bHasTargeted )
 	{
@@ -2348,6 +2413,15 @@ void AI_Mgr::SetNewState(int nState)
 		m_nState = nState;
 		m_fWaitForIdleTime = fTime + WAITFORIDLETIME;
 	}
+
+	// A mod's ReactAgain: an attack begun that long after the last one ended reacts again. A recoil is
+	// out of attack too, so a time shorter than one would re-arm it on every hit.
+	const DBOOL bAttack = (m_nState == STATE_AttackFar || m_nState == STATE_AttackClose) ? DTRUE : DFALSE;
+	if (bWasAttack && !bAttack)
+		m_fModAttackLeft = fTime;
+	else if (!bWasAttack && bAttack && m_fModReactAgain > 0.0f && fTime - m_fModAttackLeft >= m_fModReactAgain)
+		m_bModReacted = DFALSE;
+
 	Metacmd = 1; 
 	m_nCurMetacmd = 999;
 	m_bAnimating = DFALSE;
@@ -7387,6 +7461,14 @@ void AI_Mgr::Save(HMESSAGEWRITE hWrite, DDWORD dwSaveFlags)
 	// Only while the mod has archetypes, so a retail save's bytes are unchanged.
 	if (BloodModAI_ArchetypeName(0))
 		pServerDE->WriteToMessageString(hWrite, (char*)(m_nModArchetype >= 0 ? BloodModAI_ArchetypeName(m_nModArchetype) : ""));
+	// A mod's reaction: whether this AI has reacted, and its clocks, so a load does not arm it again.
+	// Only while the mod has a reaction, as above.
+	if (ModAI_ReactSaved())
+	{
+		pServerDE->WriteToMessageByte(hWrite, (DBYTE)m_bModReacted);
+		pServerDE->WriteToMessageFloat(hWrite, m_fModReactStart - fTime);
+		pServerDE->WriteToMessageFloat(hWrite, m_fModAttackLeft - fTime);
+	}
 }
 
 
@@ -7488,6 +7570,12 @@ void AI_Mgr::Load(HMESSAGEREAD hRead, DDWORD dwLoadFlags)
 	{
 		char* pArch = pServerDE->ReadFromMessageString(hRead);
 		m_nModArchetype = (pArch && pArch[0]) ? BloodModAI_FindArchetype(pArch) : -1;
+	}
+	if (ModAI_ReactSaved())
+	{
+		m_bModReacted = (DBOOL)pServerDE->ReadFromMessageByte(hRead);
+		m_fModReactStart = pServerDE->ReadFromMessageFloat(hRead) + fTime;
+		m_fModAttackLeft = pServerDE->ReadFromMessageFloat(hRead) + fTime;
 	}
 	// What the save does not keep, from the mod again, and the script's reference to this AI found
 	// again: here, not at MID_INITIALUPDATE, which a restore sends to every object before it loads

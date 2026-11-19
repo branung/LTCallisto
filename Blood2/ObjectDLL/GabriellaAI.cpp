@@ -318,7 +318,12 @@ void GabriellaAI::AI_STATE_AttackClose()
 	{
 		case 1:		MC_FaceTarget();	break;
 		case 2:		MC_AttackBestWeapon();	break;
-		case 3:		if(m_fStimuli[SIGHT] <= (m_fSeeingDist * 0.33) || m_nCurMetacmd == MC_FIRE_STAND
+		case 3:		if (ModAI_ReactPending())	// a mod's reaction first
+					{
+						MC_ModReact();
+						if (ModAI_ReactPending()) break;
+					}
+					if(m_fStimuli[SIGHT] <= (m_fSeeingDist * 0.33) || m_nCurMetacmd == MC_FIRE_STAND
 						|| m_nCurMetacmd == MC_FIRE_CROUCH)
 					{
 						if(m_nDodgeFlags & FORWARD || m_nDodgeFlags & BACKWARD || m_fStimuli[HEALTH] < 0.5f 
@@ -397,7 +402,12 @@ void GabriellaAI::AI_STATE_AttackFar()
 	{
 		case 1:		MC_FaceTarget();	break;
 		case 2:		MC_AttackBestWeapon();	break;
-		case 3:		if(m_fStimuli[SIGHT] <= (m_fSeeingDist * 0.75) || m_nCurMetacmd == MC_FIRE_STAND
+		case 3:		if (ModAI_ReactPending())	// a mod's reaction first
+					{
+						MC_ModReact();
+						if (ModAI_ReactPending()) break;
+					}
+					if(m_fStimuli[SIGHT] <= (m_fSeeingDist * 0.75) || m_nCurMetacmd == MC_FIRE_STAND
 						|| m_nCurMetacmd == MC_FIRE_CROUCH || fHeight > m_vDims.y)
 					{
 						if((fHeight > m_vDims.y && !bAbove) || m_nCurMetacmd == MC_FIRE_CROUCH

@@ -359,7 +359,12 @@ void CultistAI::AI_STATE_AttackClose()
 	{
 		case 1:		MC_FaceTarget();	break;
 		case 2:		MC_AttackBestWeapon();	break;
-		case 3:		if(m_fStimuli[SIGHT] <= (m_fSeeingDist * 0.25) || m_nCurMetacmd == MC_FIRE_STAND || fHeight > m_vDims.y)
+		case 3:		if (ModAI_ReactPending())	// a mod's reaction first
+					{
+						MC_ModReact();
+						if (ModAI_ReactPending()) break;
+					}
+					if(m_fStimuli[SIGHT] <= (m_fSeeingDist * 0.25) || m_nCurMetacmd == MC_FIRE_STAND || fHeight > m_vDims.y)
 					{
 						MC_Fire_Stand();
 					}
@@ -423,7 +428,12 @@ void CultistAI::AI_STATE_AttackFar()
 	{
 		case 1:		MC_FaceTarget();	break;
 		case 2:		MC_AttackBestWeapon();	break;
-		case 3:		if(m_fStimuli[SIGHT] <= (m_fSeeingDist * 0.75) || m_nCurMetacmd == MC_FIRE_STAND || fHeight > m_vDims.y)
+		case 3:		if (ModAI_ReactPending())	// a mod's reaction first
+					{
+						MC_ModReact();
+						if (ModAI_ReactPending()) break;
+					}
+					if(m_fStimuli[SIGHT] <= (m_fSeeingDist * 0.75) || m_nCurMetacmd == MC_FIRE_STAND || fHeight > m_vDims.y)
 					{
 						MC_Fire_Stand();
 					}

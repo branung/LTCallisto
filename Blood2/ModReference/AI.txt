@@ -96,6 +96,10 @@
 //     BurstSpawnSound1  PATH
 //     BurstSpawnSound2  PATH
 //     BurstSpawnSound3  PATH
+//     ReactAnim  STR
+//     ReactAnimPistol  STR
+//     ReactTime  FLOAT
+//     ReactAgain  FLOAT
 //     Skin  STR, a skin file of at most 99 characters, which replaces
 //           the one the class picks
 //
@@ -146,6 +150,15 @@
 //                    BurstSpawnChance percent of the time ("", 100), with
 //                    gibs of BurstSpawnGibDamage (50) and one of
 //                    BurstSpawnSound1-3 at random, where it stood
+//     ReactAnim      an animation played once before an attack's first shot
+//                    ("": none), by the classes with BestWeapon's step; the
+//                    model must have it, and retail's have no spot_left or
+//                    spot_right
+//     ReactAnimPistol  the same, while holding a pistol ("": ReactAnim)
+//     ReactTime      the reaction's seconds, at least (0); a model without the
+//                    animation stands idle for them instead
+//     ReactAgain     seconds out of attack after which the next attack reacts
+//                    again (0: once in the AI's life)
 //     Script         TRUE: the mod's ServerScript.lua hears every AI of the class
 //                    (OnCreate, OnDamage, OnDeath, OnTrigger), not only its
 //                    archetypes

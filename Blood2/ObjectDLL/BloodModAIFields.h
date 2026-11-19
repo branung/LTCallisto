@@ -81,6 +81,11 @@ struct BloodModAIValues
 	int		m_nModBurstSpawnChance;
 	float	m_fModBurstSpawnGibDamage;
 	char	m_szModBurstSound[3][BLOODMOD_AI_MAX_SKIN + 1];
+	// The reaction before an attack's first shot
+	char	m_szModReactAnim[32];
+	char	m_szModReactAnimPistol[32];
+	float	m_fModReactTime;
+	float	m_fModReactAgain;
 };
 
 // AI.txt's Flags key names AI_Mgr's m_dwFlags bits, AI_Mgr.h's FLAG_ names without the prefix
@@ -181,7 +186,11 @@ struct BloodModAIValues
 	X(BurstSpawnGibDamage, m_fModBurstSpawnGibDamage, FLOAT) \
 	X(BurstSpawnSound1,	m_szModBurstSound[0], PATH) \
 	X(BurstSpawnSound2,	m_szModBurstSound[1], PATH) \
-	X(BurstSpawnSound3,	m_szModBurstSound[2], PATH)
+	X(BurstSpawnSound3,	m_szModBurstSound[2], PATH) \
+	X(ReactAnim,		m_szModReactAnim,	STR) \
+	X(ReactAnimPistol,	m_szModReactAnimPistol, STR) \
+	X(ReactTime,		m_fModReactTime,	FLOAT) \
+	X(ReactAgain,		m_fModReactAgain,	FLOAT)
 
 // The BLOODMOD_AI_FIELDS members AI_Mgr::Save does not write, which a restore takes from the mod
 // again (ModAI_ApplyRestored, ModAI_ApplyUnsaved). m_bCabal is separate: it is needed before the
@@ -214,6 +223,10 @@ struct BloodModAIValues
 	X(m_szModBurstSpawn) \
 	X(m_nModBurstSpawnChance) \
 	X(m_fModBurstSpawnGibDamage) \
-	X(m_szModBurstSound)
+	X(m_szModBurstSound) \
+	X(m_szModReactAnim) \
+	X(m_szModReactAnimPistol) \
+	X(m_fModReactTime) \
+	X(m_fModReactAgain)
 
 #endif // __BLOODMODAIFIELDS_H__

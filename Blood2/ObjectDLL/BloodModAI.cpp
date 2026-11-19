@@ -632,6 +632,19 @@ bool BloodModAI_ScriptAll()
 	return g_bScriptAll;
 }
 
+bool BloodModAI_Sets(const char* pKey)
+{
+	int nField = -1;
+	for (int i = 0; i < kNumFields && nField < 0; ++i)
+		if (EqualNoCase(kFields[i].pKey, pKey)) nField = i;
+	if (nField < 0) return false;
+	for (size_t c = 0; c < g_Overrides.size(); ++c)
+		if (g_Overrides[c].bSet[nField]) return true;
+	for (size_t a = 0; a < g_Archetypes.size(); ++a)
+		if (g_Archetypes[a].o.bSet[nField]) return true;
+	return false;
+}
+
 const char* BloodModAI_ObjFXName(int nId)	{ return BloodMod_ObjFXName(nId); }
 int BloodModAI_ObjFX(const char* pName)		{ return BloodMod_ObjFX(pName); }
 
@@ -768,6 +781,15 @@ std::string BloodModAI_Reference()
 		   "//                    BurstSpawnChance percent of the time (\"\", 100), with\n"
 		   "//                    gibs of BurstSpawnGibDamage (50) and one of\n"
 		   "//                    BurstSpawnSound1-3 at random, where it stood\n"
+		   "//     ReactAnim      an animation played once before an attack's first shot\n"
+		   "//                    (\"\": none), by the classes with BestWeapon's step; the\n"
+		   "//                    model must have it, and retail's have no spot_left or\n"
+		   "//                    spot_right\n"
+		   "//     ReactAnimPistol  the same, while holding a pistol (\"\": ReactAnim)\n"
+		   "//     ReactTime      the reaction's seconds, at least (0); a model without the\n"
+		   "//                    animation stands idle for them instead\n"
+		   "//     ReactAgain     seconds out of attack after which the next attack reacts\n"
+		   "//                    again (0: once in the AI's life)\n"
 		   "//     Script         TRUE: the mod's ServerScript.lua hears every AI of the class\n"
 		   "//                    (OnCreate, OnDamage, OnDeath, OnTrigger), not only its\n"
 		   "//                    archetypes\n"

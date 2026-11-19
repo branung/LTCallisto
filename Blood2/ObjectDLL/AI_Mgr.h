@@ -111,6 +111,8 @@
 #define MC_EXTRA			23
 #define MC_LAYPROXIMITY		24
 #define MC_SPECIAL			25
+// A mod's reaction (MC_ModReact); the classes number their own from 100
+#define MC_MODREACT			200
 
 //Flags
 #define FLAG_CRAWL			0x00000001
@@ -258,6 +260,14 @@ protected:
 	int		m_nModBurstSpawnChance;	// BurstSpawnChance: the percent chance of that
 	DFLOAT	m_fModBurstSpawnGibDamage;	// BurstSpawnGibDamage: its gibs' CreateGibs damage then
 	char	m_szModBurstSound[3][BLOODMOD_AI_MAX_SKIN + 1];	// BurstSpawnSound1-3: one at random then
+	// The reaction before an attack's first shot, which the 1998 code does not have: none unless a mod sets one
+	char	m_szModReactAnim[32];		// ReactAnim: an animation played once first
+	char	m_szModReactAnimPistol[32];	// ReactAnimPistol: the same, holding a pistol
+	DFLOAT	m_fModReactTime;			// ReactTime: the seconds it lasts, at least
+	DFLOAT	m_fModReactAgain;			// ReactAgain: seconds out of attack that arm it again, 0 never
+	DBOOL	m_bModReacted;				// this AI has reacted, saved while the mod has a reaction
+	DFLOAT	m_fModReactStart;			// when its reaction began
+	DFLOAT	m_fModAttackLeft;			// when it last left an attack state
 	DFLOAT	m_fAIBullets;
 	DFLOAT	m_fAIBMG;
 	DFLOAT	m_fAIShells;
@@ -408,6 +418,9 @@ protected :
 	void			ModAI_ApplyUnsaved();	// a restored AI's BLOODMOD_AI_UNSAVED, class and archetype
 	void			MC_AttackBestWeapon();	// MC_BestWeapon, unless the mod's BestWeapon is FALSE
 	void			MC_ChaseWalk();			// MC_Walk, or MC_Run with the mod's ChaseRun
+	DBOOL			ModAI_ReactPending() const;	// the mod gives a reaction this AI has yet to play
+	void			MC_ModReact();			// plays it
+	static DBOOL	ModAI_ReactSaved();		// the mod has a reaction, so Save keeps its state
 	static int		ModAI_DeathKind(int nType);		// a DAMAGE_TYPE_'s death table kind
 	void			ModAI_DeathFX(const char* pName);
 	void			ModAI_Drop(const char* pClass, const char* pNode);

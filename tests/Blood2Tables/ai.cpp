@@ -63,6 +63,7 @@ const Member kMembers[] =
 	GL(0), GL(1), GL(2), GL(3), GL(4),
 	M(m_szModBurstSmokeNode), M(m_fModBurstRange), M(m_szModBurstProjectile), M(m_szModBurstSpawn), M(m_nModBurstSpawnChance),
 	M(m_fModBurstSpawnGibDamage), BS(0), BS(1), BS(2),
+	M(m_szModReactAnim), M(m_szModReactAnimPistol), M(m_fModReactTime), M(m_fModReactAgain),
 };
 #undef M
 #undef W
@@ -89,6 +90,8 @@ BloodModAIValues Sentinel()
 	strcpy(v.m_szModBurstProjectile, "sentinel");
 	strcpy(v.m_szModBurstSpawn, "sentinel");
 	for (int k = 0; k < 3; ++k) strcpy(v.m_szModBurstSound[k], "sentinel");
+	strcpy(v.m_szModReactAnim, "sentinel");
+	strcpy(v.m_szModReactAnimPistol, "sentinel");
 	return v;
 }
 
@@ -234,7 +237,7 @@ void TestMembers()
 	}
 	char b[160];
 	snprintf(b, sizeof(b), "each of the %d keys moves its own member, and no two the same one", nKeys);
-	Check(nBad == 0 && nKeys == 77, b);
+	Check(nBad == 0 && nKeys == 81, b);
 	Check((int)reached.size() == kNumMembers, "every member of BloodModAIValues is some key's");
 	size_t nCovered = 0;
 	for (int m = 0; m < kNumMembers; ++m) nCovered += kMembers[m].nSize;
@@ -531,6 +534,30 @@ void TestArchetypes()
 	Check(BloodModAI_FindArchetype("Pale") == -1 && !BloodModAI_Skin("ShikariAI", -1), "unloading removes them");
 }
 
+// The reaction keys, and BloodModAI_Sets, which decides whether AI_Mgr::Save writes the reaction's state
+void TestReact()
+{
+	printf("AI: the reaction\n");
+	std::string err;
+	Check(!BloodModAI_Sets("ReactTime") && !BloodModAI_Sets("ReactAnim"), "with no mod no section sets a reaction");
+	const bool bLoaded = LoadAI("[Fanatic]\nReactAnim = \"spot_right\"\nReactAnimPistol = \"spot_left\"\nReactTime = 0.5\n"
+								"ReactAgain = 8.0\n", err);
+	BloodModAIValues v = Sentinel();
+	Check(bLoaded && BloodModAI_Apply("Fanatic", v) == 4 && !strcmp(v.m_szModReactAnim, "spot_right") &&
+		  !strcmp(v.m_szModReactAnimPistol, "spot_left") && v.m_fModReactTime == 0.5f && v.m_fModReactAgain == 8.0f,
+		  "a class's four reaction keys load and apply" + (bLoaded ? std::string() : ": " + err));
+	Check(BloodModAI_Sets("ReactTime") && BloodModAI_Sets("reactanim") && !BloodModAI_Sets("ChaseRun") &&
+		  !BloodModAI_Sets("NoSuchKey"),
+		  "BloodModAI_Sets answers for the keys the mod sets, in any case, and not for the others");
+	Check(LoadAI("[Quick]\nBase = \"CultistAI\"\nReactTime = 0.25\n", err) && BloodModAI_Sets("ReactTime") &&
+		  !BloodModAI_Sets("ReactAnim"),
+		  "an archetype's key counts too");
+	const bool bNegative = LoadAI("[CultistAI]\nReactTime = -1.0\n", err);
+	Check(!bNegative && err.find("ReactTime") != std::string::npos, "a negative ReactTime is refused: " + err);
+	Unload();
+	Check(!BloodModAI_Sets("ReactTime"), "and unloading takes the reaction away");
+}
+
 // The example mod, tests/Blood2Tables/ai_mod.
 void TestAIMod()
 {
@@ -580,7 +607,7 @@ std::string AIDump()
 
 void AISelfTest()
 {
-	Check(kNumMembers == 77, "kMembers lists BloodModAIValues' 77 members");
+	Check(kNumMembers == 81, "kMembers lists BloodModAIValues' 81 members");
 	TestClasses();
 	TestMembers();
 	TestMutation();
@@ -590,6 +617,7 @@ void AISelfTest()
 	TestDifficulty();
 	TestTrace();
 	TestArchetypes();
+	TestReact();
 	TestAIMod();
 	TestReference();
 }

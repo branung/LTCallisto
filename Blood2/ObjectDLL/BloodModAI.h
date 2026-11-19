@@ -90,6 +90,8 @@ bool BloodModAI_Trace();
 // [Options] Script = TRUE: every AI class's AIs are heard by the mod's script, as a class
 // section's Script = TRUE makes one class's
 bool BloodModAI_ScriptAll();
+// Whether any class or archetype section sets key pKey; Save keeps the reaction's state only then
+bool BloodModAI_Sets(const char* pKey);
 
 // The death table's [Options] half, for every class; a class's own keys are BloodModAIValues
 // members. nKind is a BLOODMOD_DEATH_KINDS index. DeathSkin answers the game's own where the mod
