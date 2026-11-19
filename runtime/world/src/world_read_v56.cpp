@@ -422,6 +422,7 @@ LTRESULT world_v56_BuildV85Image(const uint8 *pSrc, uint32 nSrcSize, uint8 **ppI
 
 	// LT1's position box, which the converted image doesn't carry
 	SetLT1PositionBox(pSrc, nSrcSize);
+	ClearV66LightAnims(); // A v56 world has no light animations
 
 	SourceWorld src;
 	if (!ReadV56(pSrc, nSrcSize, src)) return LT_INVALIDFILE;

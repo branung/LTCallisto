@@ -1,5 +1,7 @@
 #include "world_convert_internal.h"
 
+#include <stdio.h>
+
 using namespace worldconv;
 
 namespace worldconv {
@@ -350,7 +352,7 @@ static void AttachLightmapsV66(const uint8 *pData, uint32 nSize, uint32 nPos, fl
 	if (r.Bad() || nAnims < 1)
 		return;
 	uint16 nNameLen = r.U16();
-	r.Skip(nNameLen);
+	const uint8 *pName0 = r.Raw(nNameLen);
 	uint32 nShadow = r.U32();
 	uint32 nFrames = r.U32();
 	uint32 nRefs = r.U32();
@@ -389,6 +391,80 @@ static void AttachLightmapsV66(const uint8 *pData, uint32 nSize, uint32 nPos, fl
 	}
 	for (std::map<std::pair<uint32, uint32>, WorldModel::LMPage>::const_iterator it = Staged.begin(); it != Staged.end(); ++it)
 		out.m_Models[it->first.first].m_Lightmaps[it->first.second] = it->second;
+
+	// The switchable lights: every animation after the base, listed in file order.
+	// The base's frames past the first are skipped, and every retail world has none.
+	// A non-shadow animation's frames ride on the base page of each polygon they name, and become light groups at the atlas step.
+	// A shadow mapped animation's blobs are a different encoding, so it is only listed.
+	// An animation is kept only if it reads cleanly to its end, and one that doesn't ends the walk, since nothing after it can be found.
+	{
+		WorldV66LightAnim base;
+		base.m_sName.assign((const char *)pName0, pName0 ? nNameLen : 0);
+		base.m_nFrames = nFrames;
+		base.m_bShadowMap = false;
+		out.m_LightAnims.push_back(base);
+	}
+	for (uint32 f = 1; f < nFrames; ++f)
+	{
+		for (uint32 k = 0; k < nRefs; ++k)
+		{
+			uint32 nBlob = r.U32();
+			if (r.Bad() || (uint64)r.Pos() + nBlob > (uint64)nSize)
+				return;
+			r.Skip(nBlob);
+		}
+	}
+	for (uint32 a = 1; a < nAnims; ++a)
+	{
+		uint16 nLen = r.U16();
+		const uint8 *pName = r.Raw(nLen);
+		uint32 nAShadow = r.U32();
+		uint32 nAFrames = r.U32();
+		uint32 nARefs = r.U32();
+		if (r.Bad() || !pName || (uint64)r.Pos() + (uint64)nARefs * 4 > (uint64)nSize)
+			return;
+		std::vector<uint16> ARefs((size_t)nARefs * 2);
+		for (size_t k = 0; k < ARefs.size(); ++k)
+			ARefs[k] = r.U16();
+
+		std::vector<std::pair<std::pair<uint32, uint32>, WorldModel::LMAnimFrame> > AStaged;
+		for (uint32 f = 0; f < nAFrames; ++f)
+		{
+			for (uint32 k = 0; k < nARefs; ++k)
+			{
+				uint32 nBlob = r.U32();
+				if (r.Bad() || (uint64)r.Pos() + nBlob > (uint64)nSize)
+					return;
+				const uint8 *pBlob = pData + r.Pos();
+				r.Skip(nBlob);
+				if (nAShadow != 0)
+					continue;
+				uint32 mi = ARefs[(size_t)k * 2], pi = ARefs[(size_t)k * 2 + 1];
+				if (mi >= out.m_Models.size())
+					continue;
+				std::map<uint32, WorldModel::LMPage>::const_iterator itPage = out.m_Models[mi].m_Lightmaps.find(pi);
+				if (itPage == out.m_Models[mi].m_Lightmaps.end())
+					continue;
+				const uint32 w = itPage->second.m_nW, h = itPage->second.m_nH;
+				if (DecodeLM555(pBlob, nBlob, w * h, rgb))
+				{
+					WorldModel::LMAnimFrame fr;
+					fr.m_nAnim = a;
+					fr.m_nFrame = f;
+					fr.m_RGB = rgb;
+					AStaged.push_back(std::make_pair(std::make_pair(mi, pi), fr));
+				}
+			}
+		}
+
+		WorldV66LightAnim anim;
+		anim.m_sName.assign((const char *)pName, nLen);
+		anim.m_nFrames = nAFrames;
+		anim.m_bShadowMap = nAShadow != 0;
+		out.m_LightAnims.push_back(anim);
+		for (size_t k = 0; k < AStaged.size(); ++k)
+			out.m_Models[AStaged[k].first.first].m_Lightmaps[AStaged[k].first.second].m_Anims.push_back(AStaged[k].second);
+	}
 }
 
 
@@ -466,6 +542,14 @@ bool ReadV66(const uint8 *pData, uint32 nSize, SourceWorld &out)
 	return true;
 }
 
+// The last v66 conversion's light animations, for world_v66_TakeLightAnims
+static std::vector<WorldV66LightAnim> s_LightAnims;
+
+void ClearV66LightAnims()
+{
+	s_LightAnims.clear();
+}
+
 }
 
 
@@ -478,6 +562,7 @@ LTRESULT world_v66_BuildV85Image(const uint8 *pSrc, uint32 nSrcSize, uint8 **ppI
 
 	// A v66 world carries no LT1 position box, so drop any an earlier v56 world left
 	ClearLT1PositionBox();
+	ClearV66LightAnims();
 
 	SourceWorld src;
 	if (!ReadV66(pSrc, nSrcSize, src)) return LT_INVALIDFILE;
@@ -487,6 +572,7 @@ LTRESULT world_v66_BuildV85Image(const uint8 *pSrc, uint32 nSrcSize, uint8 **ppI
 	// LT2 sorts a world model as LT1 does, from polygon 0, and never reads SURF_TRANSPARENT on the main world
 	StampWholeModelTranslucency(src);
 
+	s_LightAnims = src.m_LightAnims;
 	return BuildV85ImageFromSource(src, ppImage, pImageSize, pTexDims, pUser, pWarn, pWarnUser, nMaxBlockVerts);
 }
 
@@ -496,4 +582,17 @@ bool world_v66_IsV66(const uint8 *pData, uint32 nSize)
 	uint32 nVersion = 0;
 	memcpy(&nVersion, pData, 4);
 	return nVersion == 66;
+}
+
+void world_v66_TakeLightAnims(std::vector<WorldV66LightAnim> &out)
+{
+	out.swap(s_LightAnims);
+	s_LightAnims.clear();
+}
+
+std::string world_v66_LightGroupName(uint32 nAnim, uint32 nFrame, uint32 nChannel)
+{
+	char sz[64];
+	snprintf(sz, sizeof(sz), "LT2LA_%u_%u_%c", (unsigned)nAnim, (unsigned)nFrame, "RGB"[nChannel < 3 ? nChannel : 0]);
+	return sz;
 }

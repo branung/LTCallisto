@@ -10,6 +10,9 @@
 #include "ltbasetypes.h"
 #include "ltcodes.h"
 
+#include <string>
+#include <vector>
+
 // Most vertices a render block may hold.
 // The renderer stores each index as a uint16, so an index past this wraps and the block draws nonsense.
 const uint32 kWorldV56MaxBlockVerts = 65536;
@@ -40,6 +43,24 @@ bool world_v66_IsV66(const uint8 *pData, uint32 nSize);
 // bLT25Lights is the LT2_5ObjectLights var, LT 2.5's BrightScale and LightGroup rules for the object light grid.
 LTRESULT world_v66_BuildV85Image(const uint8 *pSrc, uint32 nSrcSize, uint8 **ppImage, uint32 *pImageSize, WorldV56TexDimsFn pTexDims,
     void *pUser, WorldV56WarnFn pWarn, void *pWarnUser, uint32 nMaxBlockVerts = kWorldV56MaxBlockVerts, bool bLT25Lights = false);
+
+// One of a v66 world's light animations: its name, frame count and shadow map flag.
+// They are kept in file order, so an index is LT2's HLIGHTANIM.
+// Each frame of a non-shadow animation after the base becomes light groups named by world_v66_LightGroupName.
+struct WorldV66LightAnim
+{
+	std::string m_sName;
+	uint32 m_nFrames;
+	bool m_bShadowMap;
+};
+
+// The last v66 conversion's light animations, moved out.
+// Any other conversion leaves it empty.
+void world_v66_TakeLightAnims(std::vector<WorldV66LightAnim> &out);
+
+// The light group carrying channel nChannel (0 R, 1 G, 2 B) of frame nFrame of animation nAnim: "LT2LA_<anim>_<frame>_<R|G|B>".
+// The engine hashes it as ILTClient::GetLightGroupID does.
+std::string world_v66_LightGroupName(uint32 nAnim, uint32 nFrame, uint32 nChannel);
 
 void world_v56_FreeImage(uint8 *pImage);
 

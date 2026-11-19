@@ -214,10 +214,17 @@ struct WorldModel
 
 	// Per poly lightmap pages keyed by polygon index.
 	// A v56 page is the file's RGB565 texels, and a v66 page is RGB888 decoded from the render data.
+	// One frame of one of LT2's switchable light animations on a polygon: RGB888 on the page's own texel grid.
+	struct LMAnimFrame
+	{
+		uint32 m_nAnim, m_nFrame;
+		std::vector<uint8> m_RGB;
+	};
 	struct LMPage
 	{
 		uint8 m_nW, m_nH;
 		std::vector<uint8> m_Texels;
+		std::vector<LMAnimFrame> m_Anims; // Animation order, then frame order
 	};
 	std::map<uint32, LMPage> m_Lightmaps;
 
@@ -245,6 +252,10 @@ struct SourceWorld
 	// LT2_5ObjectLights: LT 2.5's BrightScale and LightGroup rules for the object light grid
 	bool m_bLT25Lights;
 
+	// A v66 world's light animations in file order, so an index is LT2's HLIGHTANIM.
+	// Empty for anything else.
+	std::vector<WorldV66LightAnim> m_LightAnims;
+
 	SourceWorld() : m_bSourceWorldInfoFlags(false), m_bLT25Lights(false) {}
 };
 
@@ -256,6 +267,9 @@ bool ReadV66(const uint8 *pData, uint32 nSize, SourceWorld &out);
 // LT1's network position box, kept by world_read_v56.cpp
 void SetLT1PositionBox(const uint8 *pSrc, uint32 nSrcSize);
 void ClearLT1PositionBox();
+
+// The last v66 conversion's light animations, kept by world_read_v66.cpp
+void ClearV66LightAnims();
 
 // The shared v85 synthesis
 size_t MainModelIndex(const SourceWorld &src);

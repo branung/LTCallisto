@@ -104,6 +104,7 @@ struct PolyLM
 	uint8 m_nW, m_nH;
 	std::vector<uint8> m_Texels;	// RGB565
 	std::vector<double> m_LU, m_LV;
+	std::vector<WorldModel::LMAnimFrame> m_Anims; // v66 switchable lights, on the same texel grid
 
 	PolyLM() : m_bHas(false), m_nW(0), m_nH(0) {}
 };
@@ -343,6 +344,7 @@ void BuildSections(const std::vector<const WorldModel *> &models, WorldV56TexDim
 					lm.m_nW = itLM->second.m_nW;
 					lm.m_nH = itLM->second.m_nH;
 					lm.m_Texels = itLM->second.m_Texels;
+					lm.m_Anims = itLM->second.m_Anims;
 					lm.m_LU.reserve(verts.size());
 					lm.m_LV.reserve(verts.size());
 					const double dW = (double)lm.m_nW, dH = (double)lm.m_nH;
@@ -509,6 +511,68 @@ struct BlockLMPoly
 	PolyLM m_LM;
 };
 
+// One rectangle of one light group's share of a lightmap section, in the shape SRBLightGroup::SSubLM::Load reads:
+// left, top, width, height, then the run coded intensities
+struct BlockSubLM
+{
+	uint32 m_nLeft, m_nTop, m_nW, m_nH;
+	std::vector<uint8> m_Data;
+};
+
+// A light group's sub-lightmaps in a block, by section index
+struct BlockLightGroup
+{
+	std::map<uint32, std::vector<BlockSubLM> > m_Secs;
+};
+
+// A block's light groups are keyed by animation, frame and channel, so they come out in that order
+uint32 LightGroupKey(uint32 nAnim, uint32 nFrame, uint32 nChannel)
+{
+	return (nAnim << 16) | (nFrame << 2) | nChannel;
+}
+
+// A sub-lightmap's intensities in the run code the renderer reads: a literal byte, or 0xFF, n, v for n + 1 texels of v.
+// A run of two or more is always coded as a run, and so is a 0xFF texel, which can't be a literal.
+void EncodeSubLM(const std::vector<uint8> &px, std::vector<uint8> &out)
+{
+	out.clear();
+	size_t i = 0, n = px.size();
+	while (i < n)
+	{
+		uint8 v = px[i];
+		size_t j = i + 1;
+		while (j < n && px[j] == v && j - i < 256)
+			++j;
+		size_t nRun = j - i;
+		if (nRun >= 2 || v == 0xFF)
+		{
+			out.push_back(0xFF);
+			out.push_back((uint8)(nRun - 1));
+			out.push_back(v);
+			i = j;
+		}
+		else
+		{
+			out.push_back(v);
+			++i;
+		}
+	}
+}
+
+// A light group's per vertex intensities, which are all skips because LT2's animations touch only lightmaps.
+// The renderer reads a 0 as a skip of the next byte's count plus one vertex, so each 0, n pair covers n + 1 vertices.
+void EncodeVertexSkips(size_t nVerts, std::vector<uint8> &out)
+{
+	out.clear();
+	while (nVerts > 0)
+	{
+		size_t c = nVerts < 256 ? nVerts : 256;
+		out.push_back(0);
+		out.push_back((uint8)(c - 1));
+		nVerts -= c;
+	}
+}
+
 struct BlockOccluder
 {
 	std::vector<float> m_Verts; // xyz triples
@@ -530,6 +594,7 @@ struct Block
 	std::vector<uint8> m_SecSkypan;
 
 	std::vector<BlockLMPoly> m_LMPolys; // Atlased after assembly
+	std::map<uint32, BlockLightGroup> m_LightGroups; // LT2's switchable lights, by LightGroupKey
 
 	// Copies of every SkyPan polygon in the block.
 	// Turned into one kShaderSkypan section after assembly
@@ -843,6 +908,36 @@ void BuildBlockBasePassSections(Block &b)
 				tris.push_back(nBase);
 				tris.push_back(nBase + t);
 				tris.push_back(nBase + t + 1);
+			}
+		}
+
+		// The switchable lights on this page.
+		// Each frame of each animation a placed polygon carries becomes three sub-lightmaps, one per channel,
+		// on the rectangle its base texels occupy, for the section this page is about to become.
+		const uint32 nSecIndex = (uint32)b.m_SecNames.size();
+		for (size_t k = 0; k < page.m_Placed.size(); ++k)
+		{
+			const Placement &pl = page.m_Placed[k];
+			const PolyLM &lm = b.m_LMPolys[pl.nPoly].m_LM;
+			for (size_t fi = 0; fi < lm.m_Anims.size(); ++fi)
+			{
+				const WorldModel::LMAnimFrame &fr = lm.m_Anims[fi];
+				const size_t nTexels = (size_t)lm.m_nW * lm.m_nH;
+				if (fr.m_RGB.size() != nTexels * 3)
+					continue;
+				for (uint32 ch = 0; ch < 3; ++ch)
+				{
+					std::vector<uint8> px(nTexels);
+					for (size_t t = 0; t < nTexels; ++t)
+						px[t] = fr.m_RGB[t * 3 + ch];
+					BlockSubLM sub;
+					sub.m_nLeft = pl.nX;
+					sub.m_nTop = pl.nY;
+					sub.m_nW = lm.m_nW;
+					sub.m_nH = lm.m_nH;
+					EncodeSubLM(px, sub.m_Data);
+					b.m_LightGroups[LightGroupKey(fr.m_nAnim, fr.m_nFrame, ch)].m_Secs[nSecIndex].push_back(sub);
+				}
 			}
 		}
 
@@ -1470,7 +1565,41 @@ void EmitRenderWorld(Writer &w, const std::vector<const WorldModel *> &models, c
 			w.U32((uint32)oi);
 		}
 
-		w.U32(0); // Per block light groups
+		// Per block light groups, in the shape operator>>(ILTStream &, SRBLightGroup &) reads:
+		// the name, a black starting color because an LT2 animation after the base starts at blend 0,
+		// the per vertex intensities, and a sub-lightmap list for each section of the block
+		w.U32((uint32)b.m_LightGroups.size());
+		for (std::map<uint32, BlockLightGroup>::const_iterator itLG = b.m_LightGroups.begin(); itLG != b.m_LightGroups.end(); ++itLG)
+		{
+			const uint32 key = itLG->first;
+			w.LTString(world_v66_LightGroupName(key >> 16, (key >> 2) & 0x3FFF, key & 3));
+			w.V3(0.0f, 0.0f, 0.0f);
+			std::vector<uint8> vi;
+			EncodeVertexSkips(b.m_Verts.size(), vi);
+			w.U32((uint32)vi.size());
+			if (!vi.empty())
+				w.Raw(&vi[0], vi.size());
+			w.U32((uint32)b.m_SecNames.size());
+			for (uint32 si = 0; si < (uint32)b.m_SecNames.size(); ++si)
+			{
+				std::map<uint32, std::vector<BlockSubLM> >::const_iterator itS = itLG->second.m_Secs.find(si);
+				if (itS == itLG->second.m_Secs.end())
+				{
+					w.U32(0);
+					continue;
+				}
+				w.U32((uint32)itS->second.size());
+				for (size_t k = 0; k < itS->second.size(); ++k)
+				{
+					const BlockSubLM &sub = itS->second[k];
+					w.U32(sub.m_nLeft); w.U32(sub.m_nTop);
+					w.U32(sub.m_nW); w.U32(sub.m_nH);
+					w.U32((uint32)sub.m_Data.size());
+					if (!sub.m_Data.empty())
+						w.Raw(&sub.m_Data[0], sub.m_Data.size());
+				}
+			}
+		}
 
 		// Children, in heap order. 
 		// The flags say which slots are real
@@ -2111,7 +2240,31 @@ LTRESULT worldconv::BuildV85ImageFromSource(const SourceWorld &src, uint8 **ppIm
 			if (i != nMainIdx) nested.push_back(all[i]);
 		EmitRenderWorld(w, root, nested, pTexDims, pUser, pWarn, pWarnUser, nMaxBlockVerts, "");
 	}
-	w.U32(0); // Light group count
+
+	// The world level light groups the loader pairs with the per block ones: a name and color each, then a light grid fix-up.
+	// LT2's animations change only lightmaps, never the object light grid, so the fix-up is empty.
+	// ILTClient::SetLightGroupColor refuses a group with no entry here.
+	// One entry per animation, frame and channel of every non-shadow animation after the base, whether a block carries it or not.
+	{
+		std::vector<uint32> keys;
+		for (uint32 a = 1; a < (uint32)src.m_LightAnims.size(); ++a)
+		{
+			const WorldV66LightAnim &an = src.m_LightAnims[a];
+			if (an.m_bShadowMap)
+				continue;
+			for (uint32 f = 0; f < an.m_nFrames; ++f)
+				for (uint32 ch = 0; ch < 3; ++ch)
+					keys.push_back(LightGroupKey(a, f, ch));
+		}
+		w.U32((uint32)keys.size());
+		for (size_t k = 0; k < keys.size(); ++k)
+		{
+			w.LTString(world_v66_LightGroupName(keys[k] >> 16, (keys[k] >> 2) & 0x3FFF, keys[k] & 3));
+			w.V3(0.0f, 0.0f, 0.0f);
+			for (int i = 0; i < 6; ++i)
+				w.U32(0); // Min and extents, no samples
+		}
+	}
 
 	const uint32 offsets[6] = { nObjectPos, nBlindPos, nLightGridPos, nCollisionPos, nParticlePos, nRenderPos };
 	for (int i = 0; i < 6; ++i)

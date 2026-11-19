@@ -5,6 +5,7 @@
 #include "world_convert.h"
 #include "genltstream.h"
 #include "iltstream.h"
+#include "iltlt2lightanims.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -167,8 +168,54 @@ static bool V56TexDims(const char *pszName, uint32 *pWidth, uint32 *pHeight, voi
 }
 
 
+// The light animation table of the last world loaded.
+// Published after each conversion and cleared at the start of every load, so a v85 or v56 world leaves it empty.
+class CLT2LightAnimTable : public ILTLT2LightAnims
+{
+public:
+	declare_interface(CLT2LightAnimTable);
+
+	CLT2LightAnimTable() : m_nSerial(0) {}
+
+	virtual uint32 GetSerial() { return m_nSerial; }
+	virtual uint32 GetCount() { return (uint32)m_Anims.size(); }
+	virtual bool GetAnim(uint32 nIndex, const char **ppName, uint32 *pnFrames, bool *pbShadowMap)
+	{
+		if (nIndex >= m_Anims.size())
+			return false;
+		if (ppName) *ppName = m_Anims[nIndex].m_sName.c_str();
+		if (pnFrames) *pnFrames = m_Anims[nIndex].m_nFrames;
+		if (pbShadowMap) *pbShadowMap = m_Anims[nIndex].m_bShadowMap;
+		return true;
+	}
+
+	void Publish(std::vector<WorldV66LightAnim> &anims)
+	{
+		m_Anims.swap(anims);
+		++m_nSerial;
+	}
+
+private:
+	uint32 m_nSerial;
+	std::vector<WorldV66LightAnim> m_Anims;
+};
+
+define_interface(CLT2LightAnimTable, ILTLT2LightAnims);
+
+static void PublishLightAnims(std::vector<WorldV66LightAnim> &anims)
+{
+	global_static_impl_instance_CLT2LightAnimTable_Default_.Publish(anims);
+}
+
+
 ILTStream *world_WrapStream(ILTStream *pSrc, WorldV56OpenFn pOpen)
 {
+	// Whatever this world is, the last one's light animations are not its
+	{
+		std::vector<WorldV66LightAnim> none;
+		PublishLightAnims(none);
+	}
+
 	if (!pSrc) return LTNULL;
 
 	g_V56WarnedTextures.clear();
@@ -221,6 +268,18 @@ ILTStream *world_WrapStream(ILTStream *pSrc, WorldV56OpenFn pOpen)
 			(unsigned)nImageSize, (int)(g_bLT2_5ObjectLights != 0));
 	else
 		dsi_ConsolePrint("world_v56: converted a v%u world (%u -> %u bytes)", (unsigned)nVersion, (unsigned)nLen, (unsigned)nImageSize);
+
+	{
+		std::vector<WorldV66LightAnim> anims;
+		world_v66_TakeLightAnims(anims);
+		unsigned nSwitchable = 0;
+		for (size_t i = 1; i < anims.size(); ++i)
+			if (!anims[i].m_bShadowMap)
+				++nSwitchable;
+		if (anims.size() > 1)
+			dsi_ConsolePrint("world_v56: %u light animations, %u switchable as light groups", (unsigned)anims.size(), nSwitchable);
+		PublishLightAnims(anims);
+	}
 
 	return new CWorldV56Stream(pImage, nImageSize);
 }
