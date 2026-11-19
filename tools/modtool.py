@@ -11,7 +11,7 @@ does: every table is retail until the mod copies a section into it.
 
 CHECK says whether the game will take the mod, without starting it:
   - the manifest, by the game's own rules (Id, Game);
-  - every table under Mod\\, and its Script.lua and ClientScript.lua, through
+  - every table under Mod\\, and its ServerScript.lua and ClientScript.lua, through
     the game's own loaders (testShogoTables or testBlood2Tables --load-mod,
     built from the code the shells run), so a file check accepts is a file the
     game accepts, and an error is the line the game's console would print;
@@ -57,8 +57,8 @@ import lt1mod_sig as SIG                                    # noqa: E402
 # The files each game reads under Mod\, and the two every mod may carry
 TABLES = {
     'shogo': ['Factions.txt', 'Weapons.txt', 'Models.txt', 'Characters.txt', 'PlayerModes.txt',
-              'Surfaces.txt', 'Strings.txt', 'Classes.txt', 'Commands.txt', 'Script.lua', 'ClientScript.lua'],
-    'blood2': ['Weapons.txt', 'Characters.txt', 'Ammo.txt', 'Projectiles.txt', 'WeaponClasses.txt', 'Rules.txt', 'Explosions.txt', 'Lasers.txt', 'ObjectFX.txt', 'Pickups.txt', 'AI.txt', 'Commands.txt', 'Strings.txt', 'Script.lua',
+              'Surfaces.txt', 'Strings.txt', 'Classes.txt', 'Commands.txt', 'ServerScript.lua', 'ClientScript.lua'],
+    'blood2': ['Weapons.txt', 'Characters.txt', 'Ammo.txt', 'Projectiles.txt', 'WeaponClasses.txt', 'Rules.txt', 'Explosions.txt', 'Lasers.txt', 'ObjectFX.txt', 'Pickups.txt', 'AI.txt', 'Commands.txt', 'Strings.txt', 'ServerScript.lua',
                'ClientScript.lua'],
 }
 ALWAYS = ['Mod.txt', 'Placeholders.txt']
@@ -124,7 +124,7 @@ def run_tables(tester, mdir, key):
             if os.path.isfile(os.path.join(mdir, n)):
                 shutil.copyfile(os.path.join(mdir, n), os.path.join(run_root, 'Mod', canon.get(n.lower(), n)))
             elif n.lower() == 'scripts':
-                # The scripts' modules (API 7), which require reads as Mod\\Scripts\\<name>.lua. LithRez
+                # The scripts' modules, which require reads as Mod\\Scripts\\<name>.lua. LithRez
                 # extracts a packed module as <name>.LUA, so the extension is spelled again.
                 for dp, _dn, fn in os.walk(os.path.join(mdir, n)):
                     dst = os.path.join(run_root, 'Mod', 'Scripts', os.path.relpath(dp, os.path.join(mdir, n)))
@@ -221,7 +221,7 @@ def check(path, build=None, out=print, addon=False):
         nwarn = sum('WARNING' in line for line in lines)
 
         known = {n.lower() for n in TABLES[key] + ALWAYS}
-        # The scripts' modules (API 7): Scripts\a\b.lua is read when a script requires a.b, which the
+        # The scripts' modules: Scripts\a\b.lua is read when a script requires a.b, which the
         # checker's summary names ("...; modules a.b, c")
         required = set()
         for line in lines:
@@ -305,6 +305,9 @@ def new(dest, game, mod_id, name=None, out=print):
     ref = 'Shogo' if game.lower() == 'shogo' else 'Blood2'
     out('%s: copy the sections you change from %s/ModReference/ into %s'
         % (path, ref, os.path.join(dest, 'Mod')))
+    if ref == 'Blood2':
+        out('%s: a script starts from Blood2/ModReference/ServerScript.lua and ClientScript.lua'
+            % os.path.join(dest, 'Mod'))
     return 0
 
 

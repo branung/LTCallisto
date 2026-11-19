@@ -3,7 +3,7 @@
 -- archetype_mod/build.sh out.rez).  New Game, quicksave, then load it: the
 -- restored game raises OnRestore with mod.save as it was, its reference to
 -- herm found again, and the named timer back with the time it had left.
-mod.require_api(3)
+mod.require_api(1)
 
 function ring()
     print("ring", mod.save.visits)

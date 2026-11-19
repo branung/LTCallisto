@@ -36,7 +36,7 @@
 #include "cameraobj.h"
 #include "SoundTypes.h"
 #include "BloodModAI.h"
-#include "ModScript.h"		// a mod's Mod\Script.lua
+#include "ModScript.h"		// a mod's Mod\ServerScript.lua
 #include "BloodModWeapons.h"
 #include "BloodModTable.h"
 #include <string>

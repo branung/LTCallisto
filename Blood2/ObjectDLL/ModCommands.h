@@ -78,7 +78,7 @@ class Command : public B2BaseClass
 
 
 // A level object that calls a script function when triggered: its Function
-// property names a global of the mod's Mod\Script.lua.
+// property names a global of the mod's Mod\ServerScript.lua.
 class ScriptTrigger : public B2BaseClass
 {
 	public :

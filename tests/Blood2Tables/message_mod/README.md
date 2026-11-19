@@ -1,6 +1,6 @@
 # message_mod: messages between a mod's two scripts
 
-`Mod/Script.lua` and `Mod/ClientScript.lua` together. A second after the
+`Mod/ServerScript.lua` and `Mod/ClientScript.lua` together. A second after the
 client enters a world it sends `hello`; the server answers that player with
 `welcome <name>` and every player with `all everyone`. `script hud` asks the
 server for a HUD line on this player's screen alone, and `script spam` sends 30

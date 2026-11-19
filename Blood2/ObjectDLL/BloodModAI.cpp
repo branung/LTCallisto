@@ -768,7 +768,7 @@ std::string BloodModAI_Reference()
 		   "//                    BurstSpawnChance percent of the time (\"\", 100), with\n"
 		   "//                    gibs of BurstSpawnGibDamage (50) and one of\n"
 		   "//                    BurstSpawnSound1-3 at random, where it stood\n"
-		   "//     Script         TRUE: the mod's Script.lua hears every AI of the class\n"
+		   "//     Script         TRUE: the mod's ServerScript.lua hears every AI of the class\n"
 		   "//                    (OnCreate, OnDamage, OnDeath, OnTrigger), not only its\n"
 		   "//                    archetypes\n"
 		   "//\n"

@@ -1,6 +1,6 @@
 project(LIB_Lua C)
 
-# Lua 5.4.6, vendored unmodified, for a mod's Mod\Script.lua. The library only: lua.c and luac.c
+# Lua 5.4.6, vendored unmodified, for a mod's Mod\ServerScript.lua. The library only: lua.c and luac.c
 # are left out, and the game never opens the io, os, package or debug libraries
 file(GLOB LUA_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c)
 add_library(${PROJECT_NAME} STATIC ${LUA_SRC})

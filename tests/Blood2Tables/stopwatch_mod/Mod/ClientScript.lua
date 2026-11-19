@@ -1,9 +1,9 @@
--- stopwatch_mod, the client's half (see Script.lua): a panel above the HUD
+-- stopwatch_mod, the client's half (see ServerScript.lua): a panel above the HUD
 -- with the time in this level and the deaths the server counted.  The
 -- console command `script reset`, which a player can bind to a key, starts
 -- both again.
 
-mod.require_api(5)
+mod.require_api(1)
 
 -- The client's own state lasts the whole session; OnWorldStart resets it.
 local started = mod.time()

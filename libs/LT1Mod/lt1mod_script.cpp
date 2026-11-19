@@ -22,7 +22,7 @@ namespace LT1Mod
 namespace
 {
 
-const char* const kServerPath = "Mod\\Script.lua";
+const char* const kServerPath = "Mod\\ServerScript.lua";
 const char* const kClientPath = "Mod\\ClientScript.lua";
 const char* g_pPath = kServerPath;          // the side's file
 ScriptSide g_eSide = kScriptServer;
@@ -47,18 +47,18 @@ std::set<std::string> g_SlowSaid;       // events said slow this world
 // Script_Lint and the summary's warnings read them; testLT1Mod checks them against the live lists.
 struct Versioned { const char* name; int server, client; };
 const Versioned kApiNames[] = {
-    { "print", 1, 4 }, { "command", 1, 0 }, { "time", 1, 4 }, { "world", 1, 4 }, { "api", 1, 4 },
-    { "find", 2, 0 }, { "objects", 2, 0 }, { "players", 2, 0 }, { "after", 2, 4 }, { "every", 2, 4 },
-    { "random", 2, 4 }, { "hud", 2, 4 }, { "sound", 2, 4 }, { "set_update_rate", 2, 4 },
-    { "require_api", 3, 4 }, { "save", 3, 0 }, { "spawn", 4, 0 }, { "client", 5, 0 }, { "server", 0, 5 },
-    { "explode", 6, 0 },
-    { "hud.text", 0, 4 }, { "hud.rect", 0, 4 } };
+    { "print", 1, 1 }, { "command", 1, 0 }, { "time", 1, 1 }, { "world", 1, 1 }, { "api", 1, 1 },
+    { "find", 1, 0 }, { "objects", 1, 0 }, { "players", 1, 0 }, { "after", 1, 1 }, { "every", 1, 1 },
+    { "random", 1, 1 }, { "hud", 1, 1 }, { "sound", 1, 1 }, { "set_update_rate", 1, 1 },
+    { "require_api", 1, 1 }, { "save", 1, 0 }, { "spawn", 1, 0 }, { "client", 1, 0 }, { "server", 0, 1 },
+    { "explode", 1, 0 },
+    { "hud.text", 0, 1 }, { "hud.rect", 0, 1 } };
 const Versioned kEventNames[] = {
-    { "OnWorldStart", 1, 4 }, { "OnCreate", 1, 0 }, { "OnDamage", 1, 0 }, { "OnDeath", 1, 0 }, { "OnCommand", 1, 4 },
-    { "OnWorldEnd", 2, 0 }, { "OnRemove", 2, 0 }, { "OnTrigger", 2, 0 }, { "OnPlayerSpawn", 2, 0 },
-    { "OnPlayerDeath", 2, 0 }, { "OnPlayerJoin", 2, 0 }, { "OnPlayerLeave", 2, 0 }, { "OnUpdate", 2, 4 },
-    { "OnRestore", 3, 0 }, { "OnClientMessage", 5, 0 },
-    { "OnClientStart", 0, 4 }, { "OnDraw", 0, 4 }, { "OnServerMessage", 0, 5 } };
+    { "OnWorldStart", 1, 1 }, { "OnCreate", 1, 0 }, { "OnDamage", 1, 0 }, { "OnDeath", 1, 0 }, { "OnCommand", 1, 1 },
+    { "OnWorldEnd", 1, 0 }, { "OnRemove", 1, 0 }, { "OnTrigger", 1, 0 }, { "OnPlayerSpawn", 1, 0 },
+    { "OnPlayerDeath", 1, 0 }, { "OnPlayerJoin", 1, 0 }, { "OnPlayerLeave", 1, 0 }, { "OnUpdate", 1, 1 },
+    { "OnRestore", 1, 0 }, { "OnClientMessage", 1, 0 },
+    { "OnClientStart", 0, 1 }, { "OnDraw", 0, 1 }, { "OnServerMessage", 0, 1 } };
 
 const Versioned* FindVersioned(const Versioned* p, size_t n, const std::string& name)
 {
@@ -108,7 +108,7 @@ int                     g_nTimerId = 0;
 
 bool                    g_bWorld = false;       // between a WorldStart and its WorldEnd
 std::string             g_sText;                // the chunk, for the rebuild at each world's end
-// Modules (API 7): their text by name, read while the script loads and kept for each world's
+// Modules: their text by name, read while the script loads and kept for each world's
 // rebuild; the order they loaded in; and the mod's files, which only a load can read
 std::map<std::string, std::string> g_ModuleText;
 std::vector<std::string> g_ModuleOrder;
@@ -688,8 +688,7 @@ int ModSpawn(lua_State* L)
     }
     if (!h) return luaL_error(L, "spawn %s: %s", arch, why);
     // Made, and OnCreate has normally registered it already; else now, if it is an object the
-    // script may hold (version 6: a retail class the mod has not opted in is made, and answered
-    // true).
+    // script may hold (a retail class the mod has not opted in is made, and answered true).
     Entry* e = Find(h);
     if (!e && !bObject)
     {
@@ -700,7 +699,7 @@ int ModSpawn(lua_State* L)
     return 1;
 }
 
-// Version 6: mod.explode(x, y, z, radius, min, max [, effect [, source]]).
+// mod.explode(x, y, z, radius, min, max [, effect [, source]]).
 int ModExplode(lua_State* L)
 {
     const float x = (float)luaL_checknumber(L, 1), y = (float)luaL_checknumber(L, 2), z = (float)luaL_checknumber(L, 3);
@@ -875,7 +874,7 @@ void OpenSandbox(lua_State* L)
         lua_pushnil(L);
         lua_setglobal(L, removed[i]);
     }
-    // ...but the mod's own modules, by name (API 7, MODULES)
+    // ...but the mod's own modules, by name (MODULES)
     lua_pushcfunction(L, ModRequire);
     lua_setglobal(L, "require");
 
@@ -1470,7 +1469,7 @@ void Script_Update()
     }
 }
 
-// Version 6's arguments: an object the script already knows, else nil (an attacker it has never
+// The extra arguments: an object the script already knows, else nil (an attacker it has never
 // seen is no object to it), and a string or nil.
 namespace
 {
@@ -1709,11 +1708,11 @@ std::string Script_LintModule(const std::string& text, ScriptSide side, const ch
                 lines.push_back(std::string(pPath) + ":" + std::to_string(k[j].line) + ": WARNING: " + warning);
             continue;
         }
-        // require(...) or require "..." (API 7, MODULES), not a field's
+        // require(...) or require "..." (MODULES), not a field's
         if (at.Name(j) && k[j].s == "require" && !(j > 0 && (at.Is(j - 1, ".") || at.Is(j - 1, ":"))) &&
             (at.Is(j + 1, "(") || (j + 1 < nk && k[j + 1].kind == 's')))
         {
-            Use u = { "require", k[j].line, 7 };
+            Use u = { "require", k[j].line, 1 };
             uses.push_back(u);
             continue;
         }
@@ -1744,7 +1743,8 @@ std::string Script_LintModule(const std::string& text, ScriptSide side, const ch
     if (need && !pModulePath)
         out += std::string(pPath) + ": needs mod.api " + std::to_string(need) + " (" + uses[needAt].what + ", line " +
                std::to_string(uses[needAt].line) + ")" +
-               (target ? "" : "; mod.require_api(" + std::to_string(need) + ") would have an older game say so") + "\n";
+               (target || need <= 1 ? "" : "; mod.require_api(" + std::to_string(need) + ") would have an older game say so") +
+               "\n";
     return out;
 }
 

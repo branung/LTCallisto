@@ -577,7 +577,7 @@ void TestClassDefs()
 
 void Check(bool cond, const std::string& what) { Check(cond, what.c_str()); }
 
-// A mod's Mod\Script.lua, against a host that records what the script asked of the game
+// A mod's Mod\ServerScript.lua, against a host that records what the script asked of the game
 struct RecHost : public LT1Mod::ScriptHost
 {
     std::vector<std::string> lines, commands;
@@ -590,7 +590,7 @@ struct RecHost : public LT1Mod::ScriptHost
     virtual bool GetHealth(void*, float& f) { f = fHealth; return true; }
     virtual bool SetHealth(void*, float f) { fHealth = f; return true; }
     virtual bool GetPos(void*, float& x, float& y, float& z) { x = 1; y = 2; z = 3; return true; }
-    // Version 2, recorded.
+    // The rest, recorded.
     virtual bool GetMaxHealth(void*, float& f) { f = 100.0f; return true; }
     virtual bool Damage(void*, float n) { commands.push_back("damage " + std::to_string((int)n)); return true; }
     virtual bool SendTrigger(void*, const char* m) { commands.push_back(std::string("send ") + m); return true; }
@@ -598,13 +598,13 @@ struct RecHost : public LT1Mod::ScriptHost
     virtual bool Remove(void*) { commands.push_back("remove"); return true; }
     virtual int  RandomInt(int lo, int) { return lo; }
     virtual bool Hud(void* h, const char* t) { commands.push_back(std::string(h ? "hud one " : "hud all ") + t); return true; }
-    // Version 5: what it would send to a client.
+    // What it would send to a client.
     virtual bool SendToClient(void* h, const char* n, const char* pl)
     {
         commands.push_back(std::string(h ? "client one " : "client all ") + n + " " + pl);
         return true;
     }
-    // Version 4: as the engine does, the object is created (raising OnCreate) before Spawn
+    // As the engine does, the object is created (raising OnCreate) before Spawn
     // returns it
     int spawned[4];
     int nSpawned = 0;
@@ -618,7 +618,7 @@ struct RecHost : public LT1Mod::ScriptHost
         LT1Mod::Script_Create(o);
         return h;
     }
-    // Version 6: "Prop" is a class the script does not hold (true); the yaw is recorded. Anything
+    // "Prop" is a class the script does not hold (true); the yaw is recorded. Anything
     // else is Spawn's.
     int prop = 0;
     virtual void* SpawnEx(const char* a, float x, float y, float z, const char* props, float yaw, bool& bObject,
@@ -647,7 +647,7 @@ bool LoadScript(const std::string& text, RecHost& host, std::string& err)
 {
     MemSource src;
     src.Put("Mod\\Mod.txt", "[Mod]\nId = \"S\"\nGame = \"Shogo\"\n");
-    if (!text.empty()) src.Put("Mod\\Script.lua", text);
+    if (!text.empty()) src.Put("Mod\\ServerScript.lua", text);
     LT1Mod::State st;
     LT1Mod::Load(src, "Shogo", st);
     LT1Mod::SetActive(st);
@@ -659,7 +659,7 @@ void TestScript()
     printf("script\n");
     std::string err;
     RecHost h0;
-    Check(LoadScript("", h0, err) && err.empty() && !LT1Mod::Script_Loaded(), "a mod without Script.lua has no script, and no error");
+    Check(LoadScript("", h0, err) && err.empty() && !LT1Mod::Script_Loaded(), "a mod without ServerScript.lua has no script, and no error");
 
     const char* kScript =
         "kept = nil\n"
@@ -704,7 +704,7 @@ void TestScript()
     struct Bad { const char* label; const char* text; const char* expect; };
     const Bad bad[] =
     {
-        { "a syntax error",                     "function (", "Script.lua:1:" },
+        { "a syntax error",                     "function (", "ServerScript.lua:1:" },
         { "an error at the top level",          "error('boom')", "boom" },
         { "a loop past the budget",             "while true do end", "ran past its budget" },
         { "memory past the cap",                "local t = {} for i = 1, 1e9 do t[i] = string.rep('x', 1000) .. i end", "not enough memory" },
@@ -731,17 +731,17 @@ void TestScript()
     RecHost hs;
     Check(LoadScript("print(io, os, type(require), dofile, loadfile, load, debug, package, string.rep('a', 3))", hs, err) &&
           hs.Has("Script: nil\tnil\tfunction\tnil\tnil\tnil\tnil\tnil\taaa"),
-          "the sandbox has no io, os, dofile, loadfile, load, debug or package, its own require (API 7), and the "
+          "the sandbox has no io, os, dofile, loadfile, load, debug or package, its own require, and the "
           "string library");
     LT1Mod::Script_Clear();
     LT1Mod::SetActive(LT1Mod::State());
 }
 
-// Version 2: queries, references, removal, timers, OnUpdate, the game's random draws, messages,
-// players, world end
-void TestScriptV2()
+// Queries, references, removal, timers, OnUpdate, the game's random draws, messages, players,
+// world end
+void TestScriptQueries()
 {
-    printf("script, version 2\n");
+    printf("script, queries, timers and players\n");
     const char* kScript =
         "kept = {} seen = {}\n"
         "function OnCreate(o) kept[#kept + 1] = o; seen[o] = true end\n"
@@ -768,7 +768,7 @@ void TestScriptV2()
     RecHost h;
     std::string err;
     h.fTime = 0.0;
-    Check(LoadScript(kScript, h, err), "a version 2 script loads" + (err.empty() ? std::string() : ": " + err));
+    Check(LoadScript(kScript, h, err), "the script loads" + (err.empty() ? std::string() : ": " + err));
     LT1Mod::Script_WorldStart("W1");
     int a = 0, b = 0, p = 0;
     LT1Mod::ScriptObject oa = { &a, "t1", "A", "ModAI" }, ob = { &b, "t2", "B", "ModAI" }, op = { &p, "Player1", "", "CPlayerObj" };
@@ -829,13 +829,13 @@ void TestScriptV2()
     LT1Mod::SetActive(LT1Mod::State());
 }
 
-// Version 3, what lasts: mod.save across worlds and through a save, the timers by name, a fresh
+// What lasts: mod.save across worlds and through a save, the timers by name, a fresh
 // state per world, OnRestore
 void TestScriptSaves()
 {
     printf("script, saves\n");
     const char* kScript =
-        "mod.require_api(3)\n"
+        "mod.require_api(1)\n"
         "function ring() print('ring', mod.save.n) end\n"
         "function OnCreate(o) if o:name() == 't1' then mod.save.boss = o end end\n"
         "function OnWorldStart(w) print('start', w, leaked, mod.save.n, mod.save.deep and mod.save.deep.list[2]) end\n"
@@ -850,7 +850,7 @@ void TestScriptSaves()
     RecHost h;
     std::string err;
     h.fTime = 0.0;
-    Check(LoadScript(kScript, h, err) && LT1Mod::Script_Present(), "a version 3 script loads" + (err.empty() ? std::string() : ": " + err));
+    Check(LoadScript(kScript, h, err) && LT1Mod::Script_Present(), "the script loads" + (err.empty() ? std::string() : ": " + err));
     LT1Mod::Script_WorldStart("W1");
     LT1Mod::Script_Command("set", NULL, 0);
     LT1Mod::Script_WorldEnd();
@@ -903,7 +903,7 @@ void TestScriptSaves()
     LT1Mod::SetActive(LT1Mod::State());
 }
 
-// Version 4: mod.spawn, and ScriptTrigger's call
+// mod.spawn, and ScriptTrigger's call
 void TestScriptSpawn()
 {
     printf("script, spawning and ScriptTrigger\n");
@@ -919,7 +919,7 @@ void TestScriptSpawn()
         "end\n";
     RecHost h;
     std::string err;
-    Check(LoadScript(kScript, h, err), "a version 4 script loads" + (err.empty() ? std::string() : ": " + err));
+    Check(LoadScript(kScript, h, err), "the script loads" + (err.empty() ? std::string() : ": " + err));
     LT1Mod::Script_WorldStart("W");
     LT1Mod::Script_Command("spawn", NULL, 0);
     Check(h.Has("Script: spawn\tspawned1\ttrue\ttrue\t1") && h.commands.size() == 1 && h.commands[0] == "spawn A 64 Name spawned1",
@@ -942,13 +942,12 @@ void TestScriptSpawn()
     LT1Mod::SetActive(LT1Mod::State());
 }
 
-// Version 6: the events' new arguments, mod.spawn of a class the script does not hold, and
-// mod.explode
-void TestScriptV6()
+// The events' extra arguments, mod.spawn of a class the script does not hold, and mod.explode
+void TestScriptEventArgs()
 {
-    printf("script, version 6\n");
+    printf("script, event arguments, spawning any class, explosions\n");
     const char* kScript =
-        "mod.require_api(6)\n"
+        "mod.require_api(1)\n"
         "boss = nil\n"
         "function OnCreate(o, placed) print('create', o:name(), placed) if o:name() == 'boss1' then boss = o end end\n"
         "function OnDamage(o, n, from, kind) print('damage', n, from and from:name(), kind) end\n"
@@ -961,7 +960,7 @@ void TestScriptV6()
         "end\n";
     RecHost h;
     std::string err;
-    Check(LoadScript(kScript, h, err), "a version 6 script loads" + (err.empty() ? std::string() : ": " + err));
+    Check(LoadScript(kScript, h, err), "the script loads" + (err.empty() ? std::string() : ": " + err));
     LT1Mod::Script_WorldStart("W");
     int a = 0, b = 0, stranger = 0;
     LT1Mod::ScriptObject oa = { &a, "boss1", "", "Prophet" }, ob = { &b, "grunt1", "", "CultistAI" };
@@ -991,7 +990,7 @@ void TestScriptV6()
     LT1Mod::Script_Clear();
     LT1Mod::SetActive(LT1Mod::State());
 
-    // A version 5 game's host: SpawnEx falls back to Spawn, mod.explode cannot.
+    // A host that keeps the defaults: SpawnEx falls back to Spawn, mod.explode cannot.
     struct OldHost : public RecHost
     {
         virtual void* SpawnEx(const char* a, float x, float y, float z, const char* p, float yaw, bool& o, std::string& w)
@@ -1001,7 +1000,7 @@ void TestScriptV6()
     } old;
     Check(LoadScript("function OnCommand(n) print('old', pcall(mod.explode, 0, 0, 0, 10, 1, 2))\n"
                      "  print('oldspawn', mod.spawn('A', 1, 0, 0) ~= true) end", old, err),
-          "a script loads on a host written before version 6");
+          "a script loads on a host that keeps the defaults");
     LT1Mod::Script_Command("x", NULL, 0);
     Check(old.Has("Script: old\tfalse\t") && old.Has("this game has no explosions for a script") &&
           old.Has("Script: oldspawn\ttrue"),
@@ -1047,20 +1046,20 @@ bool LoadClientScript(const std::string& text, RecClientHost& host, std::string&
     MemSource src;
     src.Put("Mod\\Mod.txt", "[Mod]\nId = \"S\"\nGame = \"Shogo\"\n");
     if (!text.empty()) src.Put("Mod\\ClientScript.lua", text);
-    if (bServerToo) src.Put("Mod\\Script.lua", "function OnWorldStart() end");
+    if (bServerToo) src.Put("Mod\\ServerScript.lua", "function OnWorldStart() end");
     LT1Mod::State st;
     LT1Mod::Load(src, "Shogo", st);
     LT1Mod::SetActive(st);
     return LT1Mod::Script_Load(src, &host, err, LT1Mod::kScriptClient);
 }
 
-// Modules (API 7; lt1mod_script.h, MODULES)
+// Modules (lt1mod_script.h, MODULES)
 bool LoadWithModules(const std::string& main, const std::vector<std::pair<std::string, std::string> >& mods,
                      RecHost& host, std::string& err, bool bClient = false, RecClientHost* pClient = NULL)
 {
     MemSource src;
     src.Put("Mod\\Mod.txt", "[Mod]\nId = \"S\"\nGame = \"Shogo\"\n");
-    src.Put(bClient ? "Mod\\ClientScript.lua" : "Mod\\Script.lua", main);
+    src.Put(bClient ? "Mod\\ClientScript.lua" : "Mod\\ServerScript.lua", main);
     for (size_t i = 0; i < mods.size(); ++i) src.Put(mods[i].first, mods[i].second);
     LT1Mod::State st;
     LT1Mod::Load(src, "Shogo", st);
@@ -1071,7 +1070,7 @@ bool LoadWithModules(const std::string& main, const std::vector<std::pair<std::s
 
 void TestScriptModules()
 {
-    printf("script, modules (version 7)\n");
+    printf("script, modules\n");
     typedef std::vector<std::pair<std::string, std::string> > Mods;
     std::string err;
     const Mods kMods =
@@ -1085,15 +1084,15 @@ void TestScriptModules()
     };
     RecHost h;
     const char* kMain =
-        "mod.require_api(7)\n"
+        "mod.require_api(1)\n"
         "local rev = require('ec.revenants')\n"
         "local util = require 'util'\n"
         "print('same', rev == require('ec.revenants'), util.rev == rev, runs, util.twice(21), mod.api)\n"
         "function OnCommand(n) if n == 'later' then print('later', pcall(require, 'never')) end\n"
         "  if n == 'again' then print('again', require('util') == util) end rev.on_death(n) end\n";
-    Check(LoadWithModules(kMain, kMods, h, err) && h.Has("Script: same\ttrue\ttrue\t1\t42\t7"),
+    Check(LoadWithModules(kMain, kMods, h, err) && h.Has("Script: same\ttrue\ttrue\t1\t42\t" + std::to_string(LT1Mod::kScriptApi)),
           "require runs Mod\\Scripts\\<dots as folders>.lua once, a second require (from the script or another "
-          "module) answers the same value, and mod.api is 7" + (err.empty() ? std::string() : ": " + err));
+          "module) answers the same value, and mod.api is the game's" + (err.empty() ? std::string() : ": " + err));
     Check(LT1Mod::Script_Summary() == "handles OnCommand; modules ec.revenants, util",
           "the summary names the modules in the order they loaded: " + LT1Mod::Script_Summary());
     const char* none[] = { NULL };
@@ -1105,7 +1104,7 @@ void TestScriptModules()
     // A world's rebuild runs the modules again, from the text read at load.
     LT1Mod::Script_WorldEnd();
     LT1Mod::Script_Command("again", none, 0);
-    Check(LT1Mod::Script_Loaded() && h.Has("Script: same\ttrue\ttrue\t1\t42\t7") &&
+    Check(LT1Mod::Script_Loaded() && h.Has("Script: same\ttrue\ttrue\t1\t42\t" + std::to_string(LT1Mod::kScriptApi)) &&
           h.lines.back() == "Script: blast\tagain",
           "after a world's rebuild the script and its modules run again, with nothing re-read");
     LT1Mod::Script_Clear();
@@ -1148,7 +1147,7 @@ void TestScriptModules()
     {
         MemSource src;
         src.Put("Mod\\Mod.txt", "[Mod]\nId = \"S\"\nGame = \"Shogo\"\n");
-        src.Put("Mod\\Script.lua", "mod.require_api(7)\nrequire('m')\n");
+        src.Put("Mod\\ServerScript.lua", "mod.require_api(1)\nrequire('m')\n");
         src.Put("Mod\\Scripts\\m.lua", "local function f() mod.spwan('x') end\nreturn {}\n");
         LT1Mod::State st;
         LT1Mod::Load(src, "Shogo", st);
@@ -1159,8 +1158,8 @@ void TestScriptModules()
         std::string all;
         for (size_t i = 0; i < printed.size(); ++i) all += printed[i] + "\n";
         Check(all.find("Mod\\Scripts\\m.lua:1: WARNING: mod.spwan is not in the API") != std::string::npos &&
-              all.find("Mod\\Script.lua: needs mod.api 7 (require, line 2)") != std::string::npos,
-              "the checker lints a module under its own name, and counts require as version 7: " + all);
+              all.find("Mod\\ServerScript.lua: needs mod.api 1 (mod.require_api, line 1)") != std::string::npos,
+              "the checker lints a module under its own name: " + all);
         LT1Mod::Script_Clear();
     }
     LT1Mod::SetActive(LT1Mod::State());
@@ -1173,7 +1172,7 @@ void TestClientScript()
     std::string err;
     RecClientHost h0;
     Check(LoadClientScript("", h0, err, true) && err.empty() && !LT1Mod::Script_Loaded(),
-          "a mod with only a server Script.lua has no client script: the client reads ClientScript.lua alone");
+          "a mod with only a ServerScript.lua has no client script: the client reads ClientScript.lua alone");
 
     const char* kScript =
         "count = 0\n"
@@ -1187,7 +1186,7 @@ void TestClientScript()
     RecClientHost h;
     Check(LoadClientScript(kScript, h, err) && LT1Mod::Script_Loaded(), "a client script loads" + (err.empty() ? std::string() : ": " + err));
     Check(LT1Mod::Script_Summary() == "handles OnClientStart, OnWorldStart, OnDraw, OnCommand\n"
-                                      "WARNING: OnCreate is an event of Mod\\Script.lua, not of this file, so nothing here calls it",
+                                      "WARNING: OnCreate is an event of Mod\\ServerScript.lua, not of this file, so nothing here calls it",
           "its summary names the client's events, and says a server event is the server file's: " + LT1Mod::Script_Summary());
     LT1Mod::Script_ClientStart();
     Check(h.Has("ClientScript: start\t" + std::to_string(LT1Mod::kScriptApi) + "\tnil\tnil\tnil\tnil\ttrue"),
@@ -1242,7 +1241,7 @@ void TestClientScript()
     LT1Mod::SetActive(LT1Mod::State());
 }
 
-// Version 5's messages: each side's sends and events, the size cap and the rate
+// Messages: each side's sends and events, the size cap and the rate
 void TestScriptMessages()
 {
     printf("script messages\n");
@@ -1345,9 +1344,9 @@ void TestScriptDiagnostics()
 {
     printf("script diagnostics\n");
     const char* kServer =
-        "mod.require_api(3)\n"                                   // 1
-        "function OnCreate(o) mod.spawn('A', 0, 0, 0) end\n"     // 2: spawn is 4
-        "function OnClientMessage(p, n) end\n"                   // 3: an event of 5
+        "mod.require_api(1)\n"                                   // 1
+        "function OnCreate(o) mod.spawn('A', 0, 0, 0) end\n"     // 2
+        "function OnClientMessage(p, n) end\n"                   // 3
         "function OnCommand() mod.hud.text(0, 0, 'x') end\n"     // 4: the client's
         "local x = mod.fnid\n"                                   // 5: no such call
         "-- mod.bogus in a comment\n"                            // 6
@@ -1356,23 +1355,20 @@ void TestScriptDiagnostics()
         "  across lines ]] local y = [==[ mod.bogus5\n"          // 9
         "]==] local z = mod.fnid2\n";                            // 10
     const std::string lint = LT1Mod::Script_Lint(kServer, LT1Mod::kScriptServer);
-    Check(lint.find("Mod\\Script.lua:2: WARNING: mod.spawn came in mod.api 4, above the mod.api 3 this script asks for") != std::string::npos &&
-          lint.find("Mod\\Script.lua:3: WARNING: OnClientMessage came in mod.api 5, above the mod.api 3") != std::string::npos,
-          "the static pass flags an API call and an event above the version the script asks for, by line: " + lint);
-    Check(lint.find("Mod\\Script.lua:4: WARNING: mod.hud.text is Mod\\ClientScript.lua's; this file has no mod.hud.text") != std::string::npos &&
-          lint.find("Mod\\Script.lua:5: WARNING: mod.fnid is not in the API (a misspelling?)") != std::string::npos &&
-          lint.find("Mod\\Script.lua:10: WARNING: mod.fnid2 is not in the API") != std::string::npos,
+    Check(lint.find("Mod\\ServerScript.lua:4: WARNING: mod.hud.text is Mod\\ClientScript.lua's; this file has no mod.hud.text") != std::string::npos &&
+          lint.find("Mod\\ServerScript.lua:5: WARNING: mod.fnid is not in the API (a misspelling?)") != std::string::npos &&
+          lint.find("Mod\\ServerScript.lua:10: WARNING: mod.fnid2 is not in the API") != std::string::npos,
           "it names the other side's call and a misspelt one, and counts lines across a long comment and a long string");
     Check(lint.find("bogus") == std::string::npos, "a mod.x in a comment or a string, short or long, is no call");
-    Check(lint.find("Mod\\Script.lua: needs mod.api 5 (OnClientMessage, line 3)\n") != std::string::npos,
+    Check(lint.find("Mod\\ServerScript.lua: needs mod.api 1 (mod.require_api, line 1)\n") != std::string::npos,
           "and it says the version the script needs, with what needs it");
     const std::string lintC = LT1Mod::Script_Lint("function OnDraw() mod.hud.rect(0, 0, 1, 1, 0, 0, 0) end\n"
                                                   "function OnCommand() mod.find('x') mod.server('n') end\n",
                                                   LT1Mod::kScriptClient);
-    Check(lintC.find("Mod\\ClientScript.lua:2: WARNING: mod.find is Mod\\Script.lua's") != std::string::npos &&
-          lintC.find("needs mod.api 5 (mod.server, line 2); mod.require_api(5) would have an older game say so") != std::string::npos &&
-          lintC.find("hud.rect") == std::string::npos,
-          "on the client: a server call named as the server's, and a script that asks for no version told which to ask for: " + lintC);
+    Check(lintC.find("Mod\\ClientScript.lua:2: WARNING: mod.find is Mod\\ServerScript.lua's") != std::string::npos &&
+          lintC.find("needs mod.api 1 (OnDraw, line 1)\n") != std::string::npos &&
+          lintC.find("would have an older game say so") == std::string::npos && lintC.find("hud.rect") == std::string::npos,
+          "on the client: a server call named as the server's, and no advice to ask for version 1, which every game has: " + lintC);
 
     // The tables the pass reads, against the live API and events: every name
     // a script can reach is one the pass knows, on each side.
@@ -1386,7 +1382,7 @@ void TestScriptDiagnostics()
         const bool bOk = bClient ? LoadClientScript(kList, hc, err) : LoadScript(kList, hs, err);
         const std::vector<std::string>& got = bClient ? hc.lines : hs.lines;
         const std::string names = bOk && !got.empty() ? got.back().substr(got.back().find(' ') + 1) : "";
-        // require is a global, not mod's: named here so the pass sees it (API 7)
+        // require is a global, not mod's: named here so the pass sees it
         const std::string text = names + "\nrequire('m')\n";
         std::string defs;
         for (const char* e : bClient ? std::vector<const char*>{ "OnClientStart", "OnWorldStart", "OnDraw", "OnCommand", "OnUpdate", "OnServerMessage" }
@@ -1396,7 +1392,7 @@ void TestScriptDiagnostics()
             defs += std::string("function ") + e + "() end\n";
         const std::string l = LT1Mod::Script_Lint(text + defs, bClient ? LT1Mod::kScriptClient : LT1Mod::kScriptServer);
         Check(!names.empty() && l.find("WARNING") == std::string::npos &&
-              // Version 7's require is both sides', so both newest are the game's.
+              // Every call and event is the game's version on both sides
               l.find("needs mod.api " + std::to_string(LT1Mod::kScriptApi)) != std::string::npos,
               std::string(bClient ? "client" : "server") + ": every live mod call and every event is in the pass's tables, "
               "the newest at the game's mod.api: " + l + names);
@@ -1406,7 +1402,7 @@ void TestScriptDiagnostics()
     // The trace, from the manifest.
     MemSource src;
     src.Put("Mod\\Mod.txt", "[Mod]\nId = \"S\"\nGame = \"Shogo\"\n[Options]\nScriptTrace = TRUE\n");
-    src.Put("Mod\\Script.lua",
+    src.Put("Mod\\ServerScript.lua",
             "function OnCreate(o) mod.find('x') o:health() end\n"
             "function OnCommand(n)\n"
             "  mod.hud(5, 'x')\n"
@@ -1420,18 +1416,18 @@ void TestScriptDiagnostics()
     int obj = 0;
     LT1Mod::ScriptObject o = { &obj, "trooper1", "A", "A" };
     LT1Mod::Script_Create(o);
-    Check(h.Has("Mod\\Script.lua: trace: OnCreate(A 'trooper1', false)") && h.Has("Mod\\Script.lua: trace: mod.find(\"x\")") &&
-          h.Has("Mod\\Script.lua: trace: obj:health(A 'trooper1')"),
+    Check(h.Has("Mod\\ServerScript.lua: trace: OnCreate(A 'trooper1', false)") && h.Has("Mod\\ServerScript.lua: trace: mod.find(\"x\")") &&
+          h.Has("Mod\\ServerScript.lua: trace: obj:health(A 'trooper1')"),
           "with it, each event and each API call is said with its arguments, object methods too: " + Joined(h.lines));
     LT1Mod::Script_Command("go", NULL, 0);
-    Check(h.Has("Mod\\Script.lua:3: bad argument #1 to 'mod.hud'"),
+    Check(h.Has("Mod\\ServerScript.lua:3: bad argument #1 to 'mod.hud'"),
           "an API error under the trace still names the script's line and the call: " + Joined(h.lines));
     // A value whose __tostring raises: the trace shows it without calling it, and print's raise
     // is an ordinary script error (TraceArgs and ModPrint hold no C++ string across a raise)
     LT1Mod::Script_Clear();
     MemSource src2;
     src2.Put("Mod\\Mod.txt", "[Mod]\nId = \"S\"\nGame = \"Shogo\"\n[Options]\nScriptTrace = TRUE\n");
-    src2.Put("Mod\\Script.lua",
+    src2.Put("Mod\\ServerScript.lua",
              "bad = setmetatable({}, { __tostring = function() error('tostring raised') end })\n"
              "function OnCommand(n) if n == 'trace' then mod.find(bad) else print('x', bad) end end\n");
     LT1Mod::State st2;
@@ -1444,7 +1440,7 @@ void TestScriptDiagnostics()
     const bool bTraced = hb.Has("trace: mod.find(table: ") && !hb.Has("tostring raised");
     LT1Mod::Script_WorldStart("W");
     LT1Mod::Script_Command("print", NULL, 0);
-    Check(bTraced && hb.Has("Mod\\Script.lua:1: tostring raised") && !hb.Has("Script: x"),
+    Check(bTraced && hb.Has("Mod\\ServerScript.lua:1: tostring raised") && !hb.Has("Script: x"),
           "a value whose __tostring raises is traced without calling it, and print's raise is a script error like any: " +
           Joined(hb.lines));
     LT1Mod::Script_Clear();
@@ -1453,7 +1449,7 @@ void TestScriptDiagnostics()
     LoadScript("function OnCreate(o) mod.find('x') end\nfunction OnCommand() mod.hud(5, 'x') end", hn, err);
     LT1Mod::Script_Create(o);
     LT1Mod::Script_Command("go", NULL, 0);
-    Check(!hn.Has("trace:") && hn.Has("Mod\\Script.lua:2: bad argument #1 to 'hud'"), "without it, no trace line, and the same error: " + Joined(hn.lines));
+    Check(!hn.Has("trace:") && hn.Has("Mod\\ServerScript.lua:2: bad argument #1 to 'hud'"), "without it, no trace line, and the same error: " + Joined(hn.lines));
     LT1Mod::Script_Clear();
 
     // A slow event, by the wall clock, said once a world.
@@ -1462,7 +1458,7 @@ void TestScriptDiagnostics()
     LT1Mod::Script_Command("quick", NULL, 0);
     const bool bQuietFast = !hw.Has("took");
     LT1Mod::Script_Command("slow", NULL, 0);
-    const bool bSaid = hw.Has("Mod\\Script.lua: OnCommand took") && hw.Has("ms, more than 5");
+    const bool bSaid = hw.Has("Mod\\ServerScript.lua: OnCommand took") && hw.Has("ms, more than 5");
     hw.lines.clear();
     LT1Mod::Script_Command("slow", NULL, 0);
     const bool bOnce = !hw.Has("took");
@@ -1484,10 +1480,10 @@ int Selftest()
     TestTextLines();
     TestClassDefs();
     TestScript();
-    TestScriptV2();
+    TestScriptQueries();
     TestScriptSaves();
     TestScriptSpawn();
-    TestScriptV6();
+    TestScriptEventArgs();
     TestScriptModules();
     TestClientScript();
     TestScriptMessages();

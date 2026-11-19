@@ -2,7 +2,7 @@
 
 The library sources of Lua 5.4.6 (`src/`: everything in the release's `src/`
 except `lua.c`, `luac.c` and the `Makefile`), **unmodified**. The mod layer
-embeds it to run a mod's `Mod\Script.lua`.
+embeds it to run a mod's `Mod\ServerScript.lua`.
 
 - Source: <https://www.lua.org/ftp/lua-5.4.6.tar.gz>
 - SHA-256 of that archive:

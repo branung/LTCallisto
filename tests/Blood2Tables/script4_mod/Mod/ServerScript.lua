@@ -1,4 +1,4 @@
--- Scripting step 4: version 4 in Blood II, on retail 01_SubwayA with
+-- Scripting step 4 in Blood II, on retail 01_SubwayA with
 -- ../archetype_mod/Mod, patched by archetype_mod/scripttrigger_map.json (its
 -- map.json and a ScriptTrigger named st1 whose Function is poke):
 --     MAP=scripttrigger_map.json MOD_EXTRA=script4_mod archetype_mod/build.sh out.rez

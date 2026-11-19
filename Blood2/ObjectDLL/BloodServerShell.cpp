@@ -156,7 +156,7 @@ LTRESULT CBloodServerShell::OnServerInitialized()
 	ModPickups_LoadFile();
 	ModAI_LoadFile();
 	ModCommands_LoadFile();
-	// ...and its script, Mod\Script.lua
+	// ...and its script, Mod\ServerScript.lua
 	ModScript_Load();
 
 	// Blood 2's own engine vars, both shells' in one table (Shared/Blood2LT1Vars.h)

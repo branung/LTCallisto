@@ -1,8 +1,8 @@
-// A mod's script, Mod\Script.lua, on Lua 5.4 (libs/lua).
+// A mod's server script, Mod\ServerScript.lua, on Lua 5.4 (libs/lua).
 //
 // Optional, and the last layer: the tables and archetypes are data, and a script is for logic
 // they cannot express. The game calls named events, the script answers the ones it defines, the
-// API it sees is versioned, and it runs sandboxed. In Mod\Script.lua:
+// API it sees is versioned, and it runs sandboxed. In Mod\ServerScript.lua:
 //
 //     boss = nil
 //     function OnCreate(obj)
@@ -12,43 +12,36 @@
 //         if obj == boss then mod.command("MSG door1 TRIGGER") end
 //     end
 //
-// EVENTS, each a no-op unless the script defines it, with the API version that added it. Object
-// events are raised for the mod's own objects (a game's archetype hosts) and the players. Since
-// version 6 a game may also raise them for a retail class the mod's own data opts in (Blood II's
-// AI.txt Script key), never by default, so a script reaches no retail object its mod did not name.
+// EVENTS, each a no-op unless the script defines it. Object events are raised for the mod's own
+// objects (a game's archetype hosts) and the players. A game may also raise them for a retail
+// class the mod's own data opts in (Blood II's AI.txt Script key), never by default, so a script
+// reaches no retail object its mod did not name.
 //
-//     OnWorldStart(world)        a world starts: new game or level change     1
-//     OnCreate(obj)              one of the mod's objects is created          1
-//     OnDamage(obj, amount)      ...loses `amount` hit points                 1
-//     OnDeath(obj)               ...dies                                      1
-//     OnCommand(name, args...)   a command string ran SCRIPT name args        1
-//                                (lt1mod_command.h); the args are strings
-//     OnWorldEnd(world)          the world is about to end                    2
-//     OnRemove(obj)              a mod object is being removed; only its      2
-//                                name, archetype and class are left to read
-//     OnTrigger(obj, msg, from)  a trigger message reached a mod object;      2
-//                                `from` is the sender's name, or ""
-//     OnPlayerSpawn(player)  OnPlayerDeath(player)                            2
-//     OnPlayerJoin(player)   OnPlayerLeave(player)                            2
-//     OnUpdate(dt)               only after mod.set_update_rate(hz), at most  2
-//                                10 a second
-//     OnRestore(world)           a saved game is restored, instead of         3
-//                                OnWorldStart
-//     OnClientMessage(player, name, payload)                                  5
-//     OnCreate(obj, placed)      `placed` is true when the level made it      6
-//     OnDamage(obj, amount, from, kind)                                       6
-//     OnDeath(obj, killer, kind, damage)                                      6
-//                                `from` and `killer` are the attacker if the
-//                                script knows it, else nil; `kind` is the
-//                                damage type's name or nil; `damage` is the
-//                                killing blow's own amount
+//     OnWorldStart(world)        a world starts: new game or level change
+//     OnRestore(world)           a saved game is restored, instead of OnWorldStart
+//     OnWorldEnd(world)          the world is about to end
+//     OnUpdate(dt)               only after mod.set_update_rate(hz), at most 10 a second
+//     OnCreate(obj, placed)      one of the mod's objects is created; `placed` is true
+//                                when the level made it
+//     OnDamage(obj, amount, from, kind)   ...loses `amount` hit points
+//     OnDeath(obj, killer, kind, damage)  ...dies
+//                                `from` and `killer` are the attacker if the script knows
+//                                it, else nil; `kind` is the damage type's name or nil;
+//                                `damage` is the killing blow's own amount
+//     OnTrigger(obj, msg, from)  a trigger message reached a mod object; `from` is the
+//                                sender's name, or ""
+//     OnRemove(obj)              a mod object is being removed; only its name, archetype
+//                                and class are left to read
+//     OnPlayerSpawn(player)  OnPlayerDeath(player)  OnPlayerJoin(player)  OnPlayerLeave(player)
+//     OnCommand(name, args...)   a command string ran SCRIPT name args (lt1mod_command.h);
+//                                the args are strings
+//     OnClientMessage(player, name, payload)   a message from a client script (below)
 //
-// API. mod.api is the version the game provides; a later one only adds.
+// API, version 1. mod.api is the version the game provides; a later one only adds, and
+// mod.require_api(n) refuses to run on a game older than n.
 //
-//   1   mod.print(...)  mod.command(cmd)  mod.time()  mod.world
-//       obj:valid()  obj:name()  obj:archetype()  obj:class()
-//       obj:health()  obj:set_health(n)  obj:pos() -> x, y, z
-//   2   mod.find(name)        a live mod object by its level name, or nil
+//       mod.print(...)  mod.command(cmd)  mod.time()  mod.world  mod.api  mod.require_api(n)
+//       mod.find(name)        a live mod object by its level name, or nil
 //       mod.objects([arch])   the live mod objects (of an archetype), a list
 //       mod.players()         the live players, a list
 //       mod.after(s, fn)  mod.every(s, fn) -> timer; timer:cancel()
@@ -57,21 +50,19 @@
 //       mod.hud(player|nil, text)   a line on one player's screen, or all
 //       mod.sound(path, x, y, z)    a one shot sound at a point
 //       mod.set_update_rate(hz)     0 (off) to 10
-//       obj:send(msg)  obj:teleport(x, y, z)  obj:remove()
-//       obj:max_health()  obj:damage(n)  obj:is_player()
-//   3   mod.save  mod.require_api(n)
-//   4   mod.spawn(archetype, x, y, z [, props])   one of the mod's archetypes at a point; props
-//                              is the engine's property string ("Name boss1;HitPoints 400").
-//                              Raises OnCreate and returns the object. Only archetypes, so a
-//                              script makes nothing retail could not place.
-//   5   mod.client(player | nil, name [, payload])   a message to the client script (below)
-//   6   mod.spawn(name, x, y, z [, props [, yaw]])   any class the game has, not only an
-//                              archetype; yaw in degrees. Returns an object the script can
-//                              see, anything else true.
+//       mod.save              what lasts across worlds (WHAT LASTS, below)
+//       mod.spawn(name, x, y, z [, props [, yaw]])   one of the mod's archetypes, or any class
+//                              the game has, at a point; props is the engine's property string
+//                              ("Name boss1;HitPoints 400"), yaw in degrees. Raises OnCreate and
+//                              returns an object the script can see, anything else true.
 //       mod.explode(x, y, z, radius, min, max [, effect [, source]])   each object within
 //                              radius takes a random min..max of explosion damage from source
 //                              (left out); effect names the game's explosion ("DIVINE_SHOCKBALL")
-//   7   require(name)             a module under Mod\Scripts, either side (MODULES, below)
+//       mod.client(player | nil, name [, payload])   a message to the client script (below)
+//       require(name)         a module under Mod\Scripts, either side (MODULES, below)
+//       obj:valid()  obj:name()  obj:archetype()  obj:class()  obj:is_player()
+//       obj:health()  obj:max_health()  obj:set_health(n)  obj:damage(n)  obj:pos() -> x, y, z
+//       obj:send(msg)  obj:teleport(x, y, z)  obj:remove()
 //
 // A ScriptTrigger level object calls the global function its Function property names, with the
 // trigger message and the sender's name, when it is triggered.
@@ -111,8 +102,8 @@
 //     mod.hud.rect(x, y, w, h, r, g, b)        inside OnDraw only
 //     mod.sound(path)                          a sound on this client
 //
-// MESSAGES (version 5) are the only way between the two scripts: a name (1 to
-// kScriptMessageName bytes) and a text payload (at most kScriptMessageMax bytes), carried on the
+// MESSAGES are the only way between the two scripts: a name (1 to kScriptMessageName
+// bytes) and a text payload (at most kScriptMessageMax bytes), carried on the
 // game's own message id.
 //
 //     client   mod.server(name [, payload])  -> OnClientMessage on the server
@@ -135,9 +126,9 @@
 //     a world: "OnUpdate took 12.3 ms".
 //   - Script_Lint, run by a mod checker: names each mod.<call> neither side has, or the other
 //     side's, and each call or event above the version mod.require_api asks for, then the
-//     version the script needs.
+//     version the script needs. With one version so far, only the first can be found.
 //
-// MODULES (API 7). require("ec.revenants") runs Mod\Scripts\ec\revenants.lua (dots are folders)
+// MODULES. require("ec.revenants") runs Mod\Scripts\ec\revenants.lua (dots are folders)
 // once, and answers what it returns (true if nothing), as Lua's own require does. Both sides'
 // scripts may require the same file; each runs its own copy.
 //   - A name is letters, digits and _, joined by dots, at most kScriptModuleName characters: no
@@ -178,8 +169,8 @@ public:
     virtual bool   GetHealth(void* hObj, float& fHealth) = 0;
     virtual bool   SetHealth(void* hObj, float fHealth) = 0;
     virtual bool   GetPos(void* hObj, float& x, float& y, float& z) = 0;
-    // Version 2. The defaults answer "the game cannot", so a version 1 host still builds; the
-    // call is then a script error.
+    // The defaults answer "the game cannot", so a host need not implement them; the call is then
+    // a script error.
     virtual bool   GetMaxHealth(void* hObj, float& f) { (void)hObj; (void)f; return false; }
     virtual bool   Damage(void* hObj, float fAmount) { (void)hObj; (void)fAmount; return false; }
     virtual bool   SendTrigger(void* hObj, const char* pMsg) { (void)hObj; (void)pMsg; return false; }
@@ -188,7 +179,7 @@ public:
     virtual int    RandomInt(int lo, int hi) { return lo + (hi > lo ? rand() % (hi - lo + 1) : 0); }
     // A line on one player's screen; NULL is every player
     virtual bool   Hud(void* hPlayer, const char* pText) { (void)hPlayer; (void)pText; return false; }
-    // Version 5: a message to that player's client script; NULL is every client. False when it
+    // A message to that player's client script; NULL is every client. False when it
     // cannot go (a player with no client).
     virtual bool   SendToClient(void* hPlayer, const char* pName, const char* pPayload)
     {
@@ -196,7 +187,7 @@ public:
         return false;
     }
     virtual bool   Sound(const char* pPath, float x, float y, float z) { (void)pPath; (void)x; (void)y; (void)z; return false; }
-    // Version 4: creates an object of the mod's archetype at a point, with the engine's property
+    // Creates an object of the mod's archetype at a point, with the engine's property
     // string; its handle, or NULL with sWhy when there is no such archetype or nothing was made
     virtual void*  Spawn(const char* pArchetype, float x, float y, float z, const char* pProps, std::string& sWhy)
     {
@@ -204,9 +195,9 @@ public:
         sWhy = "this game spawns nothing";
         return NULL;
     }
-    // Version 6: any class the game has, turned fYaw degrees; bObject says whether the result is
-    // an object the script can hold (else mod.spawn answers true). A game written for version 4
-    // spawns only archetypes.
+    // Any class the game has, turned fYaw degrees; bObject says whether the result is an object
+    // the script can hold (else mod.spawn answers true). A host that keeps the default spawns
+    // only archetypes.
     virtual void*  SpawnEx(const char* pName, float x, float y, float z, const char* pProps, float fYaw, bool& bObject,
                            std::string& sWhy)
     {
@@ -214,7 +205,7 @@ public:
         bObject = true;
         return Spawn(pName, x, y, z, pProps, sWhy);
     }
-    // Version 6: damage around a point, from hSource (an object the script holds, or NULL), which it
+    // Damage around a point, from hSource (an object the script holds, or NULL), which it
     // leaves out.
     virtual bool   Explode(float x, float y, float z, float fRadius, float fMin, float fMax, const char* pEffect,
                            void* hSource, std::string& sWhy)
@@ -252,7 +243,7 @@ struct ScriptObject
     const char* pClass;         // its class: the host's, or the archetype's own
 };
 
-const int    kScriptApi    = 7;
+const int    kScriptApi    = 1;
 const size_t kScriptSaveMax = 64u << 10;    // mod.save, saved: bytes
 const long   kScriptBudget = 10000000L;     // instructions per call
 const size_t kScriptMemory = 16u << 20;     // bytes
@@ -294,8 +285,8 @@ bool Script_ServerMessage(const char* pName, const char* pPayload);
 // Messages dropped since the script loaded, on either side
 int  Script_MessagesDropped();
 
-// The static pass over a script's text: one line per finding, "Mod\Script.lua:12: WARNING: ...",
-// then one "Mod\Script.lua: needs mod.api N (...)" for the highest version it uses
+// The static pass over a script's text: one line per finding, "Mod\ServerScript.lua:12: WARNING: ...",
+// then one "Mod\ServerScript.lua: needs mod.api N (...)" for the highest version it uses
 std::string Script_Lint(const std::string& text, ScriptSide side);
 // The same over a module the script required (pPath its file). A module says no "needs mod.api"
 // line of its own, because the script's file declares the version.
@@ -323,8 +314,8 @@ void Script_Adopt(const ScriptObject& o);
 void Script_Update();
 
 // The object events. The first event for an object registers it, so a host need not call
-// Create for an object it made before the script loaded. Version 6's extra arguments default to
-// what a version 5 game passed: not placed, no attacker or killer, no damage type.
+// Create for an object it made before the script loaded. The extra arguments default to not
+// placed, no attacker or killer, and no damage type.
 void Script_Create(const ScriptObject& o, bool bPlaced = false);
 void Script_Damage(const ScriptObject& o, float fAmount, void* hFrom = NULL, const char* pKind = NULL);
 void Script_Death(const ScriptObject& o, void* hKiller = NULL, const char* pKind = NULL, float fDamage = -1.0f);

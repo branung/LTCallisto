@@ -146,7 +146,7 @@
 //                    BurstSpawnChance percent of the time ("", 100), with
 //                    gibs of BurstSpawnGibDamage (50) and one of
 //                    BurstSpawnSound1-3 at random, where it stood
-//     Script         TRUE: the mod's Script.lua hears every AI of the class
+//     Script         TRUE: the mod's ServerScript.lua hears every AI of the class
 //                    (OnCreate, OnDamage, OnDeath, OnTrigger), not only its
 //                    archetypes
 //

@@ -86,7 +86,7 @@ public:
 		x = v.x; y = v.y; z = v.z;
 		return true;
 	}
-	// Version 2 (lt1mod_script.h).
+	// The calls a host may leave out (lt1mod_script.h)
 	virtual bool GetMaxHealth(void* hObj, float& f)
 	{
 		CBaseCharacter* p = (CBaseCharacter*)hObj;
@@ -152,7 +152,7 @@ public:
 		g_pServerDE->EndMessage(hWrite);
 		return true;
 	}
-	// Version 5: MSG_MOD_SCRIPT to that player's client, or (NULL) every client.
+	// MSG_MOD_SCRIPT to that player's client, or (NULL) every client.
 	virtual bool SendToClient(void* hPlayer, const char* pName, const char* pPayload)
 	{
 		if (!g_pServerDE) return false;
@@ -176,7 +176,7 @@ public:
 		PlaySoundFromPos(&v, pPath, 1000.0f, SOUNDPRIORITY_MISC_MEDIUM);
 		return true;
 	}
-	// Version 6: mod.explode. The effect every client draws, then each model and world model within
+	// mod.explode. The effect every client draws, then each model and world model within
 	// the radius, except the source, takes a random min..max of DAMAGE_TYPE_EXPLODE
 	virtual bool Explode(float x, float y, float z, float fRadius, float fMin, float fMax, const char* pEffect,
 						 void* hSource, std::string& sWhy)
@@ -222,7 +222,7 @@ public:
 		}
 		return true;
 	}
-	// Version 4: one of the mod's archetypes, created at a point.  By its own
+	// One of the mod's archetypes, created at a point.  By its own
 	// class where there is one, else by its host with the Archetype
 	// property, as a Spawner's string does.
 	virtual void* Spawn(const char* pArchetype, float x, float y, float z, const char* pProps, std::string& sWhy)
@@ -230,7 +230,7 @@ public:
 		bool bObject = false;
 		return SpawnEx(pArchetype, x, y, z, pProps, 0.0f, bObject, sWhy);
 	}
-	// Version 6: an archetype as before, or any class the game registers (a level could place it
+	// An archetype as above, or any class the game registers (a level could place it
 	// too), turned fYaw degrees about the vertical. Only an archetype is an object the script holds
 	// by right; a retail AI the mod opted in is one through its own OnCreate (ModScript_Created).
 	virtual void* SpawnEx(const char* pArchetype, float x, float y, float z, const char* pProps, float fYaw, bool& bObject,
@@ -306,7 +306,7 @@ void ModScript_Load()
 	{
 		e = sum.find('\n', b);
 		if (e == std::string::npos) e = sum.size();
-		g_pServerDE->CPrint("Server: Mod\\Script.lua: %s", sum.substr(b, e - b).c_str());
+		g_pServerDE->CPrint("Server: Mod\\ServerScript.lua: %s", sum.substr(b, e - b).c_str());
 	}
 }
 

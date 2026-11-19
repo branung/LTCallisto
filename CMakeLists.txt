@@ -203,7 +203,7 @@ if(BUILD_SHOGO OR BUILD_BLOOD2)
             add_subdirectory(libs/${lt1mod_lib})
         endif()
     endforeach()
-    add_subdirectory(libs/lua)                  # LIB_Lua, a mod's Mod\Script.lua
+    add_subdirectory(libs/lua)                  # LIB_Lua, a mod's Mod\ServerScript.lua
     add_subdirectory(libs/LT1Mod)               # LIB_LT1Mod
 endif()
 if(BUILD_SHOGO)

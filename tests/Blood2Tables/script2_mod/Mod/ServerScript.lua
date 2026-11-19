@@ -1,4 +1,4 @@
--- Scripting step 2: version 2 in Blood II, on retail 01_SubwayA with
+-- Scripting step 2 in Blood II, on retail 01_SubwayA with
 -- ../archetype_mod/Mod (RedCultist, RedLeader); build it with
 --     MOD_EXTRA=script2_mod archetype_mod/build.sh out.rez
 -- The player's events, a reference kept from OnCreate and found again by

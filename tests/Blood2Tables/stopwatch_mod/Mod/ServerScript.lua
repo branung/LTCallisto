@@ -6,9 +6,10 @@
 -- The client (ClientScript.lua) only shows it.  Copy both files to start a
 -- mod of your own.
 
--- Messages came in version 5: an older game refuses this file and says so,
--- instead of failing at the first mod.client.
-mod.require_api(5)
+-- Version 1 of the scripting API, the first.  A game older than the version
+-- a script asks for refuses it and says so, instead of failing at the first
+-- call it does not have.
+mod.require_api(1)
 
 -- A player's deaths, kept by the player object.  Like every global here it
 -- lasts one level: the script starts fresh in each.  (mod.save lasts longer.)

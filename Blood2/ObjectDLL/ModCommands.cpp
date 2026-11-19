@@ -301,7 +301,7 @@ DDWORD Command::ObjectMessageFn(HOBJECT hSender, DDWORD messageID, HMESSAGEREAD 
 //
 //	ScriptTrigger: a level object that calls a script function when it is
 //	triggered. Its Function property names a global function of the mod's
-//	Mod\Script.lua, called with the trigger message and the sender's name.
+//	Mod\ServerScript.lua, called with the trigger message and the sender's name.
 //	A level editor wires a script with it the way it wires a Command object.
 //
 // ----------------------------------------------------------------------- //

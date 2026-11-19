@@ -26,6 +26,8 @@
 //                 "" is NULL in the six fields retail leaves NULL.
 //   example mod   tests/Blood2Tables/balance_mod loads, and says what it changed.
 //   new weapons   a section naming no weapon adds one on a Base.
+//   script examples  Blood2/ModReference's two scripts load, define every event of their
+//                 side, and the script checker has nothing to warn about.
 
 #include "server_de.h"
 #include "WeaponDefs.h"
@@ -41,7 +43,7 @@
 #include "BloodModPickups.h"
 #include "BloodModAI.h"
 #include "BloodModStrings.h"
-#include "lt1mod_registry.h"	// EqualNoCase: --load-mod's Mod\Scripts (API 7)
+#include "lt1mod_registry.h"	// EqualNoCase: --load-mod's Mod\Scripts
 #include "lt1mod_startcmds.h"
 #include "lt1mod_script.h"
 #include "harness.h"
@@ -665,6 +667,39 @@ void TestNewWeapons(const WeaponData* pRetail)
 		  "with no mod: no new weapon, their room is zero, and Retail(id) is the id itself");
 }
 
+// The commented examples in Blood2/ModReference, checked as the mod checker runs them
+void TestScriptExamples()
+{
+	printf("the script examples\n");
+	MemSource src;
+	src.files["Mod\\Mod.txt"] = "[Mod]\nId = \"Test\"\nGame = \"Blood2\"\n";
+	src.files["Mod\\ServerScript.lua"] = Slurp(BLOOD2_SCRIPT_EXAMPLES "/ServerScript.lua");
+	src.files["Mod\\ClientScript.lua"] = Slurp(BLOOD2_SCRIPT_EXAMPLES "/ClientScript.lua");
+	Check(!src.files["Mod\\ServerScript.lua"].empty() && !src.files["Mod\\ClientScript.lua"].empty(),
+		  "read ServerScript.lua and ClientScript.lua from " BLOOD2_SCRIPT_EXAMPLES);
+	LT1Mod::State st;
+	LT1Mod::Load(src, "Blood2", st);
+	LT1Mod::SetActive(st);
+	static std::string s_Out;
+	const auto print = [](const char* p) { s_Out += std::string(p) + "\n"; };
+	s_Out.clear();
+	const bool bServer = LT1Mod::Script_Check(src, LT1Mod::kScriptServer, print);
+	const std::string server = s_Out;
+	s_Out.clear();
+	const bool bClient = LT1Mod::Script_Check(src, LT1Mod::kScriptClient, print);
+	const std::string client = s_Out;
+	LT1Mod::SetActive(LT1Mod::State());
+	Check(bServer && server.find("WARNING") == std::string::npos &&
+		  server.find("Mod\\ServerScript.lua: handles OnWorldStart, OnCreate, OnDamage, OnDeath, OnCommand, OnWorldEnd, "
+					  "OnRemove, OnTrigger, OnPlayerSpawn, OnPlayerDeath, OnPlayerJoin, OnPlayerLeave, OnUpdate, "
+					  "OnRestore, OnClientMessage\n") != std::string::npos,
+		  "the server's loads, defines all 15 events, and has no warning:\n" + server);
+	Check(bClient && client.find("WARNING") == std::string::npos &&
+		  client.find("Mod\\ClientScript.lua: handles OnClientStart, OnWorldStart, OnDraw, OnCommand, OnUpdate, "
+					  "OnServerMessage\n") != std::string::npos,
+		  "the client's loads, defines all 6 events, and has no warning:\n" + client);
+}
+
 int SelfTest()
 {
 	// Retail's table, before anything writes it
@@ -687,6 +722,7 @@ int SelfTest()
 	TestRebalance(retail);
 	TestBalanceMod(retail);
 	TestNewWeapons(retail);
+	TestScriptExamples();
 	Check(memcmp(retail, g_WeaponDefaults, sizeof(retail)) == 0, "and the table is byte for byte retail's at the end");
 	CharactersSelfTest();
 	AISelfTest();
@@ -714,7 +750,7 @@ static int LoadMod(const char* pDir)
 	MemSource src;
 	const std::string modDir = std::string(pDir) + "/Mod";
 	std::error_code ec;
-	// Every file, the scripts' modules under Mod\\Scripts too (API 7), named as the game names them:
+	// Every file, the scripts' modules under Mod\\Scripts too, named as the game names them:
 	// backslashes, Scripts in its own spelling.
 	for (std::filesystem::recursive_directory_iterator it(modDir, ec), end; !ec && it != end; it.increment(ec))
 		if (it->is_regular_file())

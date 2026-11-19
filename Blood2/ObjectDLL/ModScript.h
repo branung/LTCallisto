@@ -2,7 +2,7 @@
 //
 // MODULE  : ModScript.h
 //
-// PURPOSE : A mod's Mod\Script.lua in Blood 2's server
+// PURPOSE : A mod's Mod\ServerScript.lua in Blood 2's server
 //
 // The game side of the scripting layer, as Shogo's: the host the script
 // reaches (the console, the command manager, the game's time, an AI's health
@@ -20,7 +20,7 @@
 
 class CBaseCharacter;
 
-// Loads Mod\Script.lua and prints what it handles, or why it was refused.
+// Loads Mod\ServerScript.lua and prints what it handles, or why it was refused.
 void ModScript_Load();
 // A world has started; nothing on a restored save, as for the start commands.
 void ModScript_WorldStarted(const char* pWorld, DBOOL bRestoring);
@@ -32,7 +32,7 @@ void ModScript_Created(CBaseCharacter* pChar, const char* pArchetype, DBOOL bPla
 void ModScript_Damaged(CBaseCharacter* pChar, const char* pArchetype, DFLOAT fAmount, HOBJECT hFrom = DNULL, int nType = -1);
 void ModScript_Died(CBaseCharacter* pChar, const char* pArchetype, HOBJECT hKiller = DNULL, int nType = -1,
 					DFLOAT fDamage = -1.0f);
-// Version 2 (lt1mod_script.h): a trigger message, with its sender's name.
+// A trigger message (lt1mod_script.h), with its sender's name.
 void ModScript_Triggered(CBaseCharacter* pChar, const char* pArchetype, const char* pMsg, HOBJECT hSender);
 // Before an object's memory goes, for any object a script may hold.
 void ModScript_Removed(void* pObj);

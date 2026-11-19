@@ -1,6 +1,6 @@
 # stopwatch_mod: an example of a mod's two scripts
 
-The example to start a scripted mod from: `Mod/Script.lua` and
+The example to start a scripted mod from: `Mod/ServerScript.lua` and
 `Mod/ClientScript.lua`, with every line commented. The two scripts are the
 same in Shogo and in Blood 2; only `Mod/Mod.txt` names the game.
 
