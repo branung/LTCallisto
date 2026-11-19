@@ -99,6 +99,7 @@ GameProfile NOLF2Profile(const std::string &sExeDir)
     game.m_Spec.m_sEngineDir = game.m_Spec.m_sGameDir = sExeDir;
     game.m_Spec.m_EngineRez = { "Engine.REZ", "GAME.REZ", "GAME2.REZ", "SOUND.REZ" };
     game.m_Spec.m_OptionalRez = { "Update_v1x3.rez" }; // The 1.3 patch
+    game.m_Spec.m_SeedDirs = { "Profiles" }; // CProfileMgr parses Profiles\Default.prf from the working directory to make a profile, and the game won't start without one
     return game;
 }
 
@@ -457,6 +458,38 @@ std::vector<std::string> BuildCommandLine(const LaunchSpec &spec)
         args.push_back(spec.m_Rez[i]);
     }
     return args;
+}
+
+bool SeedFromDataDir(const LaunchSpec &spec, std::string &sError)
+{
+    if (spec.m_sDataDir.empty()) return true;
+
+    for (const std::string &sFolder : spec.m_SeedDirs)
+    {
+        // An install may spell the folder in any case, and the game opens it as written
+        std::string sFrom = JoinPath(spec.m_sDataDir, sFolder);
+        std::error_code ec;
+        for (std::filesystem::directory_iterator it(spec.m_sDataDir, ec), end; !ec && it != end; it.increment(ec))
+        {
+            const std::string sName = it->path().filename().string();
+            if (it->is_directory(ec) && EqualNoCase(sName, sFolder)) { sFrom = JoinPath(spec.m_sDataDir, sName); break; }
+        }
+        if (!DirExists(sFrom)) continue;
+
+        const std::string sTo = JoinPath(spec.m_sGameDir, sFolder);
+        for (const std::string &sName : ListFiles(sFrom, ""))
+        {
+            const std::string sDest = JoinPath(sTo, sName);
+            if (FileExists(sDest)) continue;
+            std::filesystem::create_directories(sTo, ec);
+            if (!WriteTextFile(sDest, ReadTextFile(JoinPath(sFrom, sName))))
+            {
+                sError = "Couldn't copy " + sName + " into " + sTo;
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 std::string QuoteArgs(const std::vector<std::string> &args)

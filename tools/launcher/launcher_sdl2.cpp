@@ -841,6 +841,15 @@ struct App
             SeedAddOnConfig();
         }
 
+        // The loose files the game reads from its working directory, such as NOLF2's profiles
+        launch.m_sGameDir = sCwd;
+        std::string sSeedError;
+        if (!ltlaunch::SeedFromDataDir(launch, sSeedError))
+        {
+            sStatus = sSeedError;
+            return;
+        }
+
         std::vector<std::string> args = ltlaunch::BuildCommandLine(launch);
 
         // The engine never writes display.cfg, so the addon reads the game's

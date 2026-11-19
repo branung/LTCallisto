@@ -14,6 +14,7 @@ struct LaunchSpec
     std::string m_sEngineDir; // The folder holding Lithtech.exe
     std::vector<std::string> m_Rez; // The necessary .rez files, passed with -rez (aka SHOGO.REZ)
     std::vector<std::string> m_EngineRez; // Necessary too, but the engine opens them itself (NOLF2's)
+    std::vector<std::string> m_SeedDirs; // Folders the game reads loose from its working directory (NOLF2's Profiles), seeded from the data folder
     std::vector<std::string> m_OptionalRez; // Passed with -rez when present
 };
 
@@ -151,6 +152,11 @@ bool SaveSelectedGame(const std::string &sPath, const std::string &sKey);
 // The engine's argument list. The caller sets the working directory to m_sGameDir
 // The engine opens m_EngineRez itself from there, so another data folder passes them too, and itself as GameDataDir
 std::vector<std::string> BuildCommandLine(const LaunchSpec &spec);
+
+// Copies each m_SeedDirs folder's files from the data folder into the game folder, leaving any file already there alone.
+// The game reads them by a path relative to its working directory, so a data folder alone doesn't reach them.
+// Does nothing without a data folder. False when a file couldn't be copied, with its path in sError
+bool SeedFromDataDir(const LaunchSpec &spec, std::string &sError);
 
 // Joins the arguments into one command line, quoting any with spaces
 std::string QuoteArgs(const std::vector<std::string> &args);
