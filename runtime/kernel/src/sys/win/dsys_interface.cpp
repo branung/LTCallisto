@@ -292,8 +292,17 @@ LTRESULT GetOrCopyFile( char const* pszFilename,
     return LT_OK;
         }
 
+// Set when cres.dll came from the archive, printed later because the error log isn't open yet
+static bool g_bCResFromArchive = false;
+
 LTRESULT dsi_LoadServerObjects(CClassMgr *pClassMgr)
 {
+    if (g_bCResFromArchive)
+    {
+        g_bCResFromArchive = false;
+        dsi_PrintToConsole("cres.dll: no built CRes.dll in the game directory. Using the game archive's 1998 module for its strings");
+    }
+
     char fileName[256];
     int status;
     char *pDLLName;
@@ -314,6 +323,11 @@ LTRESULT dsi_LoadServerObjects(CClassMgr *pClassMgr)
     status = cb_LoadModule(fileName, bFileCopied, pClassMgr->m_ClassModule, &version);
 
     //check for errors.
+    // A module copied out of the archive is the 1998 32-bit one, which a 64-bit engine can't load.
+    if (status != CB_NOERROR && bFileCopied) {
+        dsi_PrintToConsole("ERROR: %s was taken from the game's archive and cannot be loaded. "
+                           "Put the port's built Object.lto in the game directory", pDLLName);
+    }
     if (status == CB_CANTFINDMODULE) {
         sm_SetupError(LT_INVALIDOBJECTDLL, pDLLName);
         RETURN_ERROR_PARAM(1, LoadObjectsInDirectory, LT_INVALIDOBJECTDLL, pDLLName);
@@ -329,8 +343,25 @@ LTRESULT dsi_LoadServerObjects(CClassMgr *pClassMgr)
 
     // Get sres.dll.
 	bFileCopied = false;
-    if ((GetOrCopyClientFile("sres.dll", fileName, sizeof(fileName),bFileCopied) != LT_OK)
-        || (bm_BindModule(fileName, bFileCopied, pClassMgr->m_hServerResourceModule) != BIND_NOERROR))
+    bool bHaveSRes = GetOrCopyClientFile("sres.dll", fileName, sizeof(fileName),bFileCopied) == LT_OK;
+    if (bHaveSRes && bm_BindModule(fileName, bFileCopied, pClassMgr->m_hServerResourceModule) != BIND_NOERROR)
+    {
+        bHaveSRes = false;
+        // Shogo's 1998 sres.dll carries code a 64-bit engine refuses, but LoadString only needs its resources.
+        // A built SRes.dll in the game directory is still preferred.
+        if (bFileCopied &&
+            bm_BindResourceModule(fileName, bFileCopied, pClassMgr->m_hServerResourceModule) == BIND_NOERROR)
+        {
+            bHaveSRes = true;
+            dsi_PrintToConsole("sres.dll: no built SRes.dll in the game directory. Using the game archive's 1998 module for its strings");
+        }
+        else if (bFileCopied)
+        {
+            dsi_PrintToConsole("ERROR: sres.dll was taken from the game's archive and cannot be loaded. "
+                               "Put the port's built SRes.dll in the game directory");
+        }
+    }
+    if (!bHaveSRes)
     {
 		cb_UnloadModule( pClassMgr->m_ClassModule );
 
@@ -537,6 +568,11 @@ LTRESULT dsi_InitClientShellDE()
     status = bm_BindModule(fileName, bFileCopied, g_pClientMgr->m_hShellModule);
 
     //check if it loaded correctly.
+    // A copy out of the archive is the 1998 32-bit module, which a 64-bit engine can't load
+    if (status == BIND_CANTFINDMODULE && bFileCopied) {
+        dsi_PrintToConsole("ERROR: cshell.dll was taken from the game's archive and cannot be loaded. "
+                           "Put the port's built CShell.dll in the game directory");
+    }
     if (status == BIND_CANTFINDMODULE) {
         g_pClientMgr->SetupError(LT_MISSINGSHELLDLL, "cshell.dll");
         RETURN_ERROR(1, InitClientShellDE, LT_MISSINGSHELLDLL);
@@ -563,6 +599,18 @@ LTRESULT dsi_InitClientShellDE()
 
     //load the DLL.
     status = bm_BindModule(fileName, bFileCopied, g_pClientMgr->m_hClientResourceModule);
+
+    // The archive's 1998 cres.dll has a CRT stub a 64-bit engine refuses, so open it for its resources only
+    if (status == BIND_CANTFINDMODULE && bFileCopied) {
+        if (bm_BindResourceModule(fileName, bFileCopied, g_pClientMgr->m_hClientResourceModule) == BIND_NOERROR) {
+            status = BIND_NOERROR;
+            g_bCResFromArchive = true;
+        }
+        else {
+            dsi_PrintToConsole("ERROR: cres.dll was taken from the game's archive and cannot be loaded. "
+                               "Put the port's built CRes.dll in the game directory");
+        }
+    }
 
     //check if it was loaded.
     if (status == BIND_CANTFINDMODULE) {

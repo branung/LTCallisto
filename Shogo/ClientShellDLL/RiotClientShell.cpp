@@ -4336,6 +4336,13 @@ void CRiotClientShell::ChangeWeapon(ILTMessage_Read* hMessage)
 	}
 #endif
 
+	// A pickup's change to a weapon with no player-view model would strand the player on it
+	if (!CWeaponModel::PVModelAvailable(nWeaponId))
+	{
+		UpdatePlayerStats(IC_OUTOFAMMO_ID, nWeaponId, 1.0f);
+		return;
+	}
+
 	LTBOOL bChange = LTTRUE;
 
 	// If this is an auto weapon change and this is a multiplayer game, see 

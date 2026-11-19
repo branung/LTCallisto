@@ -1,6 +1,7 @@
 #include "RiotClientShell.h"
 #include "iltclient.h"
 #include "PlayerInventory.h"
+#include "WeaponModel.h"
 #include "ClientRes.h"
 #include "TextHelper.h"
 #include "ClientUtilities.h"
@@ -554,6 +555,9 @@ LTBOOL CPlayerInventory::CanDrawGun(uint8 nWeaponId)
 		nWeaponId >= GUN_MAX_NUMBER) return LTFALSE;
 
 	if (!m_bHaveGun[nWeaponId]) return LTFALSE;
+
+	// Nor one whose player-view model the content lacks
+	if (!CWeaponModel::PVModelAvailable(nWeaponId)) return LTFALSE;
 
 	// Special case for melee weapons.  In mecha mode we have all
 	// four mecha weapons, but we can only display the one associated

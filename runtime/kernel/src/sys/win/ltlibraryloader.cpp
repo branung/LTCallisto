@@ -18,6 +18,12 @@ HLTMODULE LTLibraryLoader::OpenLibrary(const char* pszFileName)
 	return (HLTMODULE)::LoadLibrary(pszFileName);
 }
 
+HLTMODULE LTLibraryLoader::OpenLibraryAsResource(const char* pszFileName)
+{
+	return (HLTMODULE)::LoadLibraryExA(pszFileName, NULL,
+		LOAD_LIBRARY_AS_DATAFILE | LOAD_LIBRARY_AS_IMAGE_RESOURCE);
+}
+
 void LTLibraryLoader::CloseLibrary(const HLTMODULE hModule)
 {
 	::FreeLibrary((HMODULE)hModule);

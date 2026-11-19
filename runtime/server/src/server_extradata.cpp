@@ -118,6 +118,13 @@ LTRESULT se_ChangeModelFile(LTObject *pObject, const char* pszFile)
 	else
 	{
 		Result = g_pServerMgr->LoadModel( "models\\default.ltb", pModel );
+		// LT1 fell back to models\default.abc, which LT1 games ship instead of default.ltb.
+		// Without it the Shogo demo - which lacks sanjuro.abc - can't create a player
+		if( Result != LT_OK )
+		{
+			dsi_ConsolePrint("Couldn't find model file %s. Trying models/default.abc", pszFile ? pszFile : "");
+			Result = g_pServerMgr->LoadModel( "models\\default.abc", pModel );
+		}
 		if( Result == LT_OK )
 		{
 			pModelInstance->BindModelDB(pModel);

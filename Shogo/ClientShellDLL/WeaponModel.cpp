@@ -1638,6 +1638,14 @@ LTBOOL CWeaponModel::CanChangeToWeapon(uint8 nCommandId)
 	if (g_pRiotClientShell->IsVehicleMode()) return LTFALSE;
 
 
+	// A weapon whose player-view model the content lacks isn't available
+
+	if (!PVModelAvailable(nWeaponId))
+	{
+		g_pRiotClientShell->UpdatePlayerStats(IC_OUTOFAMMO_ID, nWeaponId, 1.0f);
+		return LTFALSE;
+	}
+
 	// Make sure this is a valid weapon for us to switch to...
 
 	if (!pInventory->CanDrawGun(nWeaponId)) return LTFALSE;
@@ -2096,6 +2104,42 @@ uint8 CWeaponModel::DemoNextWeapon(uint8 nPlayerMode)
 //	PURPOSE:	See if this is a weapon available in the demo...
 //
 // ----------------------------------------------------------------------- //
+
+// ----------------------------------------------------------------------- //
+//
+//	ROUTINE:	CWeaponModel::PVModelAvailable()
+//
+//	PURPOSE:	See if this weapon's player-view model is in the content
+//
+// ----------------------------------------------------------------------- //
+
+// The demo ships five player-view models. A weapon without one falls back to
+// default.abc, whose missing Deselect animation leaves the player stuck holding nothing
+LTBOOL CWeaponModel::PVModelAvailable(uint8 nWeaponId)
+{
+	static signed char s_aKnown[256];	// 0 not asked, 1 present, -1 absent
+
+	char* pModelName = GetPVModelName(nWeaponId);
+	if (!pModelName || !pModelName[0] || !g_pLTClient) return LTTRUE;
+
+	if (!s_aKnown[nWeaponId])
+	{
+		ILTStream* pStream = LTNULL;
+		if (g_pLTClient->OpenFile(pModelName, &pStream) == LT_OK && pStream)
+		{
+			pStream->Release();
+			s_aKnown[nWeaponId] = 1;
+		}
+		else
+		{
+			s_aKnown[nWeaponId] = -1;
+			g_pLTClient->CPrint("Weapons: weapon %d has no player-view model in this content (%s). It is not offered",
+				(int)nWeaponId, pModelName);
+		}
+	}
+	return s_aKnown[nWeaponId] > 0;
+}
+
 
 LTBOOL CWeaponModel::IsDemoWeapon(uint8 nCommandId)
 {
