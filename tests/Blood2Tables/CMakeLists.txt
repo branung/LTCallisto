@@ -71,7 +71,7 @@ if(BUILD_BLOOD2_ADDON)
 		target_compile_options(Test_Blood2TablesNM PRIVATE -fpermissive)
 	endif()
 	target_compile_definitions(Test_Blood2TablesNM PRIVATE _ADDON _ADD_ON ${BLOOD2TABLES_DEFS}
-		BLOOD2_GAME_DIR="Games/Blood2NM")
+		BLOOD2_GAME_DIR="Games/Blood2/Nightmares")
 	target_link_libraries(Test_Blood2TablesNM LIB_LT1Mod ${CMAKE_DL_LIBS})
 	set_target_properties(Test_Blood2TablesNM PROPERTIES OUTPUT_NAME testBlood2TablesNM)
 endif()

@@ -25,7 +25,7 @@ would load every table; 1 when it would refuse one; 2 for a usage error.
 A Blood II mod is checked against the base game first. When the base game
 refuses it, it is checked again against The Nightmare Levels'
 (testBlood2TablesNM, built with BUILD_BLOOD2_ADDON), and if the add-on's
-loaders take every table it is an add-on mod: "ok: Blood2NM would load this
+loaders take every table it is an add-on mod: "ok: Nightmares would load this
 mod", with the lines the base game refused. Both modules read the same
 manifest, Game "Blood2", so the add-on's own tables are what tell the two
 apart. --addon checks against the add-on alone, as the launcher's --addon
@@ -67,7 +67,7 @@ GAMES = {'shogo': 'Shogo', 'blood2': 'Blood2'}
 # The Nightmare Levels: Blood II's modules built with _ADDON, which load the same Mod\Mod.txt
 # (Game "Blood2") but know the add-on's weapons, characters and classes
 ADDON_TESTER = {'blood2': 'testBlood2TablesNM'}
-ADDON_GAMES = {'blood2': 'Blood2NM'}
+ADDON_GAMES = {'blood2': 'Nightmares'}
 BUILDS = ['build_dxvk', 'build_linux', 'build']
 
 
@@ -380,14 +380,14 @@ def selftest():
                    'a base-game mod is checked against the base game alone')
             rc, lines, r = run(b2mod('nm', 'COMBATSHOTGUN'))
             expect(rc == 0 and r == ['testBlood2Tables', 'testBlood2TablesNM'] and
-                   lines[-1] == 'ok: Blood2NM would load this mod' and
+                   lines[-1] == 'ok: Nightmares would load this mod' and
                    '  Mod\\Weapons.txt: [COMBATSHOTGUN] is not a Blood 2 weapon' in lines,
                    'a mod the base game refuses and the add-on takes is an add-on mod, with what the base refused')
             rc, lines, r = run(b2mod('typo', 'BERRETTA'))
             expect(rc == 1 and len(r) == 2 and 'refuses it too' in ' '.join(lines) and
                    not any(ln.startswith('ok') for ln in lines), 'a mod both refuse is refused')
             rc, lines, r = run(os.path.join(t, 'base'), addon=True)
-            expect(rc == 0 and r == ['testBlood2TablesNM'] and lines[-1] == 'ok: Blood2NM would load this mod',
+            expect(rc == 0 and r == ['testBlood2TablesNM'] and lines[-1] == 'ok: Nightmares would load this mod',
                    '--addon checks against the add-on alone')
             rc, lines, r = run(b2mod('shogo', 'BERETTA', 'Shogo'), addon=True)
             expect(rc == 2 and r == [], 'and Shogo has none')

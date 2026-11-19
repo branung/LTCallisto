@@ -746,8 +746,7 @@ struct App
         if (!sSelectedPath.empty()) ltlaunch::SaveSelectedGame(sSelectedPath, game.m_sKey);
     }
 
-    // An archive the addon loads, named from its own folder.
-    // Its folder is usually inside the game's, but the combined launcher's is beside it
+    // An archive the addon loads, named from its own folder inside the game's
     std::string FromAddOn(const std::string &sPath) const
     {
         if (ltlaunch::IsAbsolutePath(sPath)) return sPath;

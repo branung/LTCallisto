@@ -295,7 +295,7 @@ lt_game_output(NOLF2/Game NOLF2_ClientFXDLL)
 lt_game_output(Shogo      SHOGO_ClientShellDLL SHOGO_ClientRes SHOGO_ObjectDLL SHOGO_ServerRes)
 
 lt_game_output(Blood2     BLOOD2_ClientShellDLL BLOOD2_ClientRes BLOOD2_ObjectDLL)
-lt_game_output(Blood2NM   BLOOD2NM_ClientShellDLL BLOOD2NM_ClientRes BLOOD2NM_ObjectDLL)
+lt_game_output(Blood2/Nightmares BLOOD2NM_ClientShellDLL BLOOD2NM_ClientRes BLOOD2NM_ObjectDLL)
 
 if(BUILD_TOOLS)
     add_subdirectory(tools/DtxView)			# TOOLS_DtxView
@@ -336,7 +336,7 @@ if(WIN32)
 
     # lt_game_package(<folder>
     #     TARGETS <targets>              Copied into the folder
-    #     SUBFOLDER <name>               A folder inside it (NOLF2's Game, Blood II's Blood2NM)
+    #     SUBFOLDER <name>               A folder inside it (NOLF2's Game, Blood II's Nightmares)
     #     SUBFOLDER_TARGETS <targets>    Copied into that folder, which is only made when one of them is built
     #     SUBFOLDER_FILES <files>        Copied into that folder like FILES, when it's made
     #     FILES <files>                  Copied when changed, so a rebuild resets autoexec.cfg to its default
@@ -412,7 +412,7 @@ if(WIN32)
     if(BUILD_BLOOD2)
         lt_game_package(Blood2
             TARGETS BLOOD2_ClientShellDLL BLOOD2_ClientRes BLOOD2_ObjectDLL
-            SUBFOLDER Blood2NM
+            SUBFOLDER Nightmares
             SUBFOLDER_TARGETS BLOOD2NM_ClientShellDLL BLOOD2NM_ClientRes BLOOD2NM_ObjectDLL
             SUBFOLDER_FILES ${CMAKE_SOURCE_DIR}/Blood2/Config/autoexec.cfg
             FILES ${CMAKE_SOURCE_DIR}/Blood2/Config/autoexec.cfg
@@ -466,7 +466,7 @@ if(WIN32)
             string(APPEND zip_cfgs "${CMAKE_SOURCE_DIR}/Shogo/Config/${f}*Games/Shogo|")
         endforeach()
         string(APPEND zip_cfgs "${CMAKE_SOURCE_DIR}/Blood2/Config/autoexec.cfg*Games/Blood2|"
-                               "${CMAKE_SOURCE_DIR}/Blood2/Config/autoexec.cfg*Games/Blood2NM")
+                               "${CMAKE_SOURCE_DIR}/Blood2/Config/autoexec.cfg*Games/Blood2/Nightmares")
 
         add_custom_target(LTCallisto_Zip ALL
             COMMAND ${CMAKE_COMMAND}
@@ -497,7 +497,7 @@ else()
         endif()
 
         # The staging targets that copy each game's modules into OUT/Games run first
-        foreach(t lt_stage_NOLF2 lt_stage_NOLF2_Game lt_stage_Shogo lt_stage_Blood2 lt_stage_Blood2NM)
+        foreach(t lt_stage_NOLF2 lt_stage_NOLF2_Game lt_stage_Shogo lt_stage_Blood2 lt_stage_Blood2_Nightmares)
             if(TARGET ${t})
                 list(APPEND tar_deps ${t})
             endif()
@@ -509,7 +509,7 @@ else()
             string(APPEND tar_cfgs "${CMAKE_SOURCE_DIR}/Shogo/Config/${f}*Games/Shogo|")
         endforeach()
         string(APPEND tar_cfgs "${CMAKE_SOURCE_DIR}/Blood2/Config/autoexec.cfg*Games/Blood2|"
-                               "${CMAKE_SOURCE_DIR}/Blood2/Config/autoexec.cfg*Games/Blood2NM")
+                               "${CMAKE_SOURCE_DIR}/Blood2/Config/autoexec.cfg*Games/Blood2/Nightmares")
 
         add_custom_target(LTCallisto_Package ALL
             COMMAND ${CMAKE_COMMAND}

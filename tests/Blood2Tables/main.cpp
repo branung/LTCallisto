@@ -810,7 +810,7 @@ int main(int argc, char** argv)
 	// A line at a time, so a crash still leaves the checks before it in the log
 	setvbuf(stdout, NULL, _IONBF, 0);	// the UCRT refuses _IOLBF with no size
 	// The string module the build put beside this binary, under BLOOD2_GAME_DIR (Games/Blood2, or
-	// Games/Blood2NM for the add-on's harness); BLOOD2_CRES overrides it
+	// Games/Blood2/Nightmares for the add-on's harness); BLOOD2_CRES overrides it
 	{
 		std::string dir(argv[0]);
 		const size_t slash = dir.find_last_of("/\\");

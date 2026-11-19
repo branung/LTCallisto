@@ -50,10 +50,6 @@ std::vector<GameProfile> CombinedProfiles(const std::string &sExeDir)
     for (GameProfile game : all)
     {
         game.m_Spec.m_sGameDir = JoinPath(sGames, game.m_sKey);
-
-        // The build puts an addon's modules beside the games, not inside its game's folder
-        if (!game.m_AddOn.m_sDir.empty()) game.m_AddOn.m_sDir = JoinPath(sGames, game.m_AddOn.m_sDir);
-
         if (DirExists(game.m_Spec.m_sGameDir)) out.push_back(game);
     }
     if (out.empty())
@@ -80,7 +76,7 @@ GameProfile Blood2Profile(const std::string &sExeDir)
     // The retail launcher adds BLOOD2NM2.REZ too, which no install here has
     game.m_AddOn.m_sLabel = "The Nightmare Levels";
     game.m_AddOn.m_sButton = "Launch Nightmares";
-    game.m_AddOn.m_sDir = "Blood2NM";
+    game.m_AddOn.m_sDir = "Nightmares";
     game.m_AddOn.m_sSplashRez = "BLOOD2NM.REZ";
     game.m_AddOn.m_sSplashPath = "SCREENS_AO\\TITLE.PCX";
     game.m_AddOn.m_Rez = { "BLOOD2NM.REZ" };
