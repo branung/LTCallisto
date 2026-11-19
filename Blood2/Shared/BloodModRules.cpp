@@ -54,6 +54,7 @@ BloodModRulesValues gRules =
 	100,			// CCorpse::CreateGibs: "100 % create a head"
 	80,				// its IsRandomChance(80) for each arm
 	60,				// and IsRandomChance(60) for each leg
+	1,				// AI_Shared::HideLimb's arms hide nNode+3 too
 	// SFXMgr.cpp's:
 	20, 2, 1,		// CreateGibs: IsRandomChance(20) *= 2, else *= (DBYTE)1.5
 	{ 300, 300, 80, 80, 80, 80, 100, 80 },	// s_nDynArrayMaxNums
@@ -126,6 +127,7 @@ const Rule kRules[] =
 	R("Corpse", "GibHeadChance",		PERCENT,	nGibHeadChance),
 	R("Corpse", "GibArmChance",			PERCENT,	nGibArmChance),
 	R("Corpse", "GibLegChance",			PERCENT,	nGibLegChance),
+	R("Corpse", "ArmHidesNextLimb",		BOOL,		bArmHidesNextLimb),
 	R("Effects", "FleshGibChance",		PERCENT,	nFleshGibChance),
 	RM("Effects", "FleshGibMore",		INT,		nFleshGibMore, 16),		// a DBYTE count's multiplier
 	RM("Effects", "FleshGibScale",		INT,		nFleshGibScale, 16),

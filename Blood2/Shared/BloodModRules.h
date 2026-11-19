@@ -88,6 +88,12 @@
 //              GibHeadChance, GibArmChance, GibLegChance
 //                               percent: the head, each arm and each leg a
 //                               gibbed corpse throws (100, 80, 60)
+//              ArmHidesNextLimb
+//                               TRUE: a corpse losing an arm also hides
+//                               the next limb's top, lu_arm with the
+//                               right arm and lu_leg with the left.
+//                               (This was a glitch in the original game,
+//                               TRUE retains it, FALSE hides just the arm alone)
 //
 // Both modules load the file and read their own keys. An unknown section or key, a value of the
 // wrong kind or out of range, or a minimum above its maximum loads nothing, and the error says
@@ -152,6 +158,7 @@ struct BloodModRulesValues
 	int			nGibHeadChance;
 	int			nGibArmChance;
 	int			nGibLegChance;
+	int			bArmHidesNextLimb;
 	// [Effects] (the client's)
 	int			nFleshGibChance;
 	int			nFleshGibMore;

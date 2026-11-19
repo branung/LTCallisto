@@ -10,8 +10,10 @@
 // and goggles' seconds of charge; [Impacts] the damage above which a
 // flesh hit always spurts blood; [Corpse] the effects a burning and a
 // smoking corpse show, one of each list at random, whether only an
-// explosion gibs a corpse, and the percent chance of each limb a gib
-// throws.  The client reads [Camera] (bob, sway, shake), [ViewWeapon]
+// explosion gibs a corpse, the percent chance of each limb a gib
+// throws, and whether losing an arm hides the next limb's top 
+// too (a bug in the original game). 
+// The client reads [Camera] (bob, sway, shake), [ViewWeapon]
 // (the idle delay), [Movement] (ladders and swimming), [Items]'
 // FlashlightRadius, the rest of [Impacts] (WeaponFX.cpp's numbers) and
 // [Effects] (gib bursts and how many effects live at once), [HUD] and
@@ -79,6 +81,7 @@ GibOnExplosionOnly = FALSE
 GibHeadChance = 100
 GibArmChance = 80
 GibLegChance = 60
+ArmHidesNextLimb = TRUE
 
 [Effects]
 FleshGibChance = 20
