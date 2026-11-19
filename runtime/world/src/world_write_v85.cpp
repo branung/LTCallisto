@@ -337,7 +337,7 @@ void BuildSections(const std::vector<const WorldModel *> &models, WorldV56TexDim
 			if ((surf.m_nFlags & kSurfLightMap) && !bTransparent && !m.m_bSkyObject)
 			{
 				std::map<uint32, WorldModel::LMPage>::const_iterator itLM = m.m_Lightmaps.find((uint32)pi);
-				if (itLM != m.m_Lightmaps.end() && itLM->second.m_nW >= 1 && itLM->second.m_nH >= 1)
+				if (itLM != m.m_Lightmaps.end() && itLM->second.m_nW >= 1 && itLM->second.m_nH >= 1 && !(m.m_dLMGrid > 0.0 && surf.m_bLMBasisMissing))
 				{
 					lm.m_bHas = true;
 					lm.m_nW = itLM->second.m_nW;
@@ -350,8 +350,18 @@ void BuildSections(const std::vector<const WorldModel *> &models, WorldV56TexDim
 					{
 						const float *V = verts[k].m_Pos;
 						double d[3] = { (double)V[0] - (double)p.m_LMOrigin[0], (double)V[1] - (double)p.m_LMOrigin[1], (double)V[2] - (double)p.m_LMOrigin[2] };
-						double lu = (d[0] * (double)surf.m_LMU[0] + d[1] * (double)surf.m_LMU[1] + d[2] * (double)surf.m_LMU[2]) * 0.05 + 0.5;
-						double lv = (d[0] * (double)surf.m_LMV[0] + d[1] * (double)surf.m_LMV[1] + d[2] * (double)surf.m_LMV[2]) * 0.05 + 0.5;
+						double lu, lv;
+						if (m.m_dLMGrid > 0.0)
+						{
+							// LT2: dot(V - ref, U) / LMGridSize + 0.5
+							lu = (d[0] * surf.m_LMUd[0] + d[1] * surf.m_LMUd[1] + d[2] * surf.m_LMUd[2]) / m.m_dLMGrid + 0.5;
+							lv = (d[0] * surf.m_LMVd[0] + d[1] * surf.m_LMVd[1] + d[2] * surf.m_LMVd[2]) / m.m_dLMGrid + 0.5;
+						}
+						else
+						{
+							lu = (d[0] * (double)surf.m_LMU[0] + d[1] * (double)surf.m_LMU[1] + d[2] * (double)surf.m_LMU[2]) * 0.05 + 0.5;
+							lv = (d[0] * (double)surf.m_LMV[0] + d[1] * (double)surf.m_LMV[1] + d[2] * (double)surf.m_LMV[2]) * 0.05 + 0.5;
+						}
 						// Clamped to the page, as the atlas puts another polygon's page right beside it
 						if (lu < 0.0) lu = 0.0; else if (lu > dW) lu = dW;
 						if (lv < 0.0) lv = 0.0; else if (lv > dH) lv = dH;
@@ -770,8 +780,12 @@ void BuildBlockBasePassSections(Block &b)
 			cur.m_Canvas.assign((size_t)kLMPageW * kLMPageMaxH * 3, 0);
 			x = y = shelfH = 0;
 		}
+		// A v66 page arrives as RGB888 (w*h*3 bytes), and a v56 page as RGB565 (w*h*2)
 		std::vector<uint8> rgb;
-		RGB565To888(lm.m_Texels, rgb);
+		if (lm.m_Texels.size() == (size_t)w * h * 3)
+			rgb = lm.m_Texels;
+		else
+			RGB565To888(lm.m_Texels, rgb);
 		for (uint32 row = 0; row < h; ++row)
 		{
 			size_t src = (size_t)row * w * 3;
@@ -1937,14 +1951,31 @@ void WriteWorldModel(Writer &w, const WorldModel &m, const std::string &sName, b
 }
 
 
+// Which model is the level: model 0 by convention in v56, and the one flagged MAINWORLD in v66.
+// A v66 world's model 0 is an ordinary brush, as a native Jupiter world's is.
+size_t worldconv::MainModelIndex(const SourceWorld &src)
+{
+	if (src.m_bSourceWorldInfoFlags)
+	{
+		for (size_t i = 0; i < src.m_Models.size(); ++i)
+		{
+			if (src.m_Models[i].m_nSrcWorldInfoFlags & kWifMainWorld)
+				return i;
+		}
+	}
+	return 0;
+}
+
+
 // The whole model translucency verdict for each model.
 // The main world is never blended, and any other model is blended if its polygon 0 carries SURF_TRANSPARENT.
 void worldconv::StampWholeModelTranslucency(SourceWorld &src)
 {
+	const size_t nMainIdx = MainModelIndex(src);
 	for (size_t i = 0; i < src.m_Models.size(); ++i)
 	{
 		WorldModel &m = src.m_Models[i];
-		if (i == 0 || m.m_Polies.empty() || m.m_Polies[0].m_nSurface >= m.m_Surfaces.size())
+		if (i == nMainIdx || m.m_Polies.empty() || m.m_Polies[0].m_nSurface >= m.m_Surfaces.size())
 		{
 			m.m_nLT1Translucent = 0;
 		}
@@ -1965,20 +1996,7 @@ LTRESULT worldconv::BuildV85ImageFromSource(const SourceWorld &src, uint8 **ppIm
 
 	if (src.m_Models.empty()) return LT_INVALIDFILE;
 
-	// Which model is the level: model 0 by convention in v56, and the one flagged MAINWORLD in v66.
-	// A v66 world's model 0 is an ordinary brush, as a native Jupiter world's is.
-	size_t nMainIdx = 0;
-	if (src.m_bSourceWorldInfoFlags)
-	{
-		for (size_t i = 0; i < src.m_Models.size(); ++i)
-		{
-			if (src.m_Models[i].m_nSrcWorldInfoFlags & kWifMainWorld)
-			{
-				nMainIdx = i;
-				break;
-			}
-		}
-	}
+	const size_t nMainIdx = MainModelIndex(src);
 
 	// Extents come from every model, so the world box and world tree cover the whole level
 	std::vector<const WorldModel *> all;

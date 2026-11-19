@@ -6,7 +6,7 @@ namespace worldconv {
 
 
 // LithTech 2.x worlds (DAT v66)
-// Only the reader is new. Everything downstream runs over a v66 model unchanged, as it does over a v56 one.
+// Only the reader is new. Everything downstream is shared with v56 apart from the lightmap UV rule, which m_dLMGrid selects.
 // The layout differs from v56's: twelve header counts, the spare word before the name, three surface vectors instead of six,
 // 14-byte nodes, a uint32 leaf polygon count, points with a normal, and no packed lightmap block.
 
@@ -18,6 +18,38 @@ static std::string ToLowerV66(const std::string &s)
 	return out;
 }
 
+// LT2's lightmap basis.
+// The row whose second vector has the strictly greatest dot with the plane normal is picked, then U = v1 x n and V = n x U.
+static const double kLT2LMPlanes[6][2][3] =
+{
+	{ { 0.0, 0.0, -1.0 }, { 0.0, 1.0, 0.0 } },
+	{ { 0.0, 0.0, 1.0 }, { 0.0, -1.0, 0.0 } },
+	{ { 0.0, 1.0, 0.0 }, { 0.0, 0.0, 1.0 } },
+	{ { 0.0, -1.0, 0.0 }, { 0.0, 0.0, -1.0 } },
+	{ { 0.0, -1.0, 0.0 }, { 1.0, 0.0, 0.0 } },
+	{ { 0.0, -1.0, 0.0 }, { -1.0, 0.0, 0.0 } },
+};
+
+static void LT2LightmapBasis(const float *pNormal, double U[3], double V[3])
+{
+	const double n[3] = { (double)pNormal[0], (double)pNormal[1], (double)pNormal[2] };
+	double dBest = -2.0;
+	int nBest = 0;
+	for (int i = 0; i < 6; ++i)
+	{
+		const double *v2 = kLT2LMPlanes[i][1];
+		double d = v2[0] * n[0] + v2[1] * n[1] + v2[2] * n[2];
+		if (d > dBest) { dBest = d; nBest = i; }
+	}
+	const double *a = kLT2LMPlanes[nBest][0];
+	U[0] = a[1] * n[2] - a[2] * n[1];
+	U[1] = a[2] * n[0] - a[0] * n[2];
+	U[2] = a[0] * n[1] - a[1] * n[0];
+	V[0] = n[1] * U[2] - n[2] * U[1];
+	V[1] = n[2] * U[0] - n[0] * U[2];
+	V[2] = n[0] * U[1] - n[1] * U[0];
+}
+
 static bool ReadWorldModelV66(Reader &r, WorldModel &m)
 {
 	uint32 nNextPos = r.U32();
@@ -26,8 +58,9 @@ static bool ReadWorldModelV66(Reader &r, WorldModel &m)
 	r.U32(); // Spare, which v56 puts after the name
 	m.m_sName = r.S16();
 	m.m_bSkyObject = false;
-	m.m_nLT1Translucent = -1; // Decided per polygon
+	m.m_nLT1Translucent = -1; // Stamped by StampWholeModelTranslucency
 	m.m_bHasVisPrune = false;
+	m.m_dLMGrid = 0.0; // Set by AttachLightmapsV66
 
 	m.m_nPoints = r.U32();
 	m.m_nPlanes = r.U32();
@@ -104,7 +137,18 @@ static bool ReadWorldModelV66(Reader &r, WorldModel &m)
 		if (r.Bad()) return false;
 	}
 
-	r.Skip(m.m_nPlanes * 16); // Normal and distance
+	// Normal and distance. The normals are kept for the lightmap basis.
+	std::vector<float> PlaneNormals;
+	for (uint32 i = 0; i < m.m_nPlanes && !r.Bad(); ++i)
+	{
+		float n[3];
+		r.V3(n);
+		r.F32();
+		PlaneNormals.push_back(n[0]);
+		PlaneNormals.push_back(n[1]);
+		PlaneNormals.push_back(n[2]);
+	}
+	if (r.Bad()) return false;
 
 	m.m_Surfaces.resize(m.m_nSurfaces);
 	for (uint32 i = 0; i < m.m_nSurfaces; ++i)
@@ -117,7 +161,7 @@ static bool ReadWorldModelV66(Reader &r, WorldModel &m)
 		for (int k = 0; k < 3; ++k) s.m_LMU[k] = s.m_LMV[k] = 0.0f;
 		s.m_nVisPrune = 0;
 		s.m_nTexture = r.U16();
-		r.U32(); // Plane index
+		uint32 nPlane = r.U32();
 		s.m_nFlags = r.U32();
 		r.U8(); r.U8(); r.U8(); r.U8();
 		if (r.U8() == 1) // The fifth byte gates the effect strings
@@ -126,6 +170,15 @@ static bool ReadWorldModelV66(Reader &r, WorldModel &m)
 			s.m_sEffectParams = r.S16();
 		}
 		s.m_nTexFlags = r.U16(); // After the effect strings, where v56 has it before
+		if (nPlane < m.m_nPlanes)
+		{
+			s.m_bLMBasisMissing = false;
+			LT2LightmapBasis(&PlaneNormals[(size_t)nPlane * 3], s.m_LMUd, s.m_LMVd);
+		}
+		else
+		{
+			s.m_bLMBasisMissing = true;
+		}
 		if (r.Bad()) return false;
 	}
 
@@ -252,6 +305,93 @@ static bool SkipWorldTreeV66(Reader &r, uint32 nNodes)
 }
 
 
+// Decodes exactly nTexels texels of an LT2 lightmap blob to RGB888, or fails.
+// The blob is u16 RGB555 words, and bit 15 means a u8 run count follows.
+static bool DecodeLM555(const uint8 *p, uint32 n, uint32 nTexels, std::vector<uint8> &out)
+{
+	out.clear();
+	uint32 i = 0, nGot = 0;
+	while (i + 2 <= n)
+	{
+		uint32 word = (uint32)p[i] | ((uint32)p[i + 1] << 8);
+		i += 2;
+		uint32 nRun = 1;
+		if (word & 0x8000)
+		{
+			if (i >= n) return false;
+			nRun = p[i];
+			i += 1;
+		}
+		if (nRun == 0) return false;
+		uint32 rr = (word >> 10) & 0x1F, gg = (word >> 5) & 0x1F, bb = word & 0x1F;
+		uint8 px[3] = { (uint8)((rr << 3) | (rr >> 2)), (uint8)((gg << 3) | (gg >> 2)), (uint8)((bb << 3) | (bb >> 2)) };
+		for (uint32 k = 0; k < nRun; ++k)
+			out.insert(out.end(), px, px + 3);
+		nGot += nRun;
+	}
+	return i == n && nGot == nTexels;
+}
+
+// The lightmaps, from the render data section: frame 0 of animation 0, which is the base lighting in every retail world.
+// The switchable light animations after it are not baked.
+// Pages are staged, and kept only if the whole of frame 0 reads cleanly.
+static void AttachLightmapsV66(const uint8 *pData, uint32 nSize, uint32 nPos, float fGrid, SourceWorld &out)
+{
+	if (!(fGrid > 0.0f))
+		return;
+	for (size_t i = 0; i < out.m_Models.size(); ++i)
+		out.m_Models[i].m_dLMGrid = (double)fGrid;
+
+	if ((uint64)nPos + 20 > (uint64)nSize)
+		return;
+	Reader r(pData, nSize);
+	r.SeekTo(nPos + 16);
+	uint32 nAnims = r.U32();
+	if (r.Bad() || nAnims < 1)
+		return;
+	uint16 nNameLen = r.U16();
+	r.Skip(nNameLen);
+	uint32 nShadow = r.U32();
+	uint32 nFrames = r.U32();
+	uint32 nRefs = r.U32();
+	if (r.Bad() || nShadow != 0 || nFrames < 1)
+		return;
+	if ((uint64)r.Pos() + (uint64)nRefs * 4 > (uint64)nSize)
+		return;
+	// A model index and a polygon index for each blob
+	std::vector<uint16> Refs((size_t)nRefs * 2);
+	for (size_t k = 0; k < Refs.size(); ++k)
+		Refs[k] = r.U16();
+
+	std::map<std::pair<uint32, uint32>, WorldModel::LMPage> Staged;
+	std::vector<uint8> rgb;
+	for (uint32 k = 0; k < nRefs; ++k)
+	{
+		uint32 nBlob = r.U32();
+		if (r.Bad() || (uint64)r.Pos() + nBlob > (uint64)nSize)
+			return;
+		const uint8 *pBlob = pData + r.Pos();
+		r.Skip(nBlob);
+		uint32 mi = Refs[(size_t)k * 2], pi = Refs[(size_t)k * 2 + 1];
+		if (mi >= out.m_Models.size() || pi >= out.m_Models[mi].m_Polies.size())
+			continue;
+		const Poly &p = out.m_Models[mi].m_Polies[pi];
+		uint32 w = p.m_nLMW, h = p.m_nLMH;
+		if (w < 1 || h < 1 || w > 255 || h > 255)
+			continue;
+		if (DecodeLM555(pBlob, nBlob, w * h, rgb))
+		{
+			WorldModel::LMPage &page = Staged[std::make_pair(mi, pi)];
+			page.m_nW = (uint8)w;
+			page.m_nH = (uint8)h;
+			page.m_Texels = rgb;
+		}
+	}
+	for (std::map<std::pair<uint32, uint32>, WorldModel::LMPage>::const_iterator it = Staged.begin(); it != Staged.end(); ++it)
+		out.m_Models[it->first.first].m_Lightmaps[it->first.second] = it->second;
+}
+
+
 bool ReadV66(const uint8 *pData, uint32 nSize, SourceWorld &out)
 {
 	Reader r(pData, nSize);
@@ -265,7 +405,7 @@ bool ReadV66(const uint8 *pData, uint32 nSize, SourceWorld &out)
 	if (!pInfo) return false;
 	out.m_sWorldInfo.assign((const char *)pInfo, nInfoLen);
 
-	r.F32(); // Lightmap grid size
+	float fLMGrid = r.F32(); // Lightmap grid size
 	r.Skip(12 + 12); // World extents
 	r.Skip(12 + 12); // The world tree's own box
 	uint32 nNodes = r.U32();
@@ -321,6 +461,8 @@ bool ReadV66(const uint8 *pData, uint32 nSize, SourceWorld &out)
 		if (!m.m_sName.empty() && SkyObjectNames.find(ToLowerV66(m.m_sName)) != SkyObjectNames.end())
 			m.m_bSkyObject = true;
 	}
+
+	AttachLightmapsV66(pData, nSize, nRenderDataPos, fLMGrid, out);
 	return true;
 }
 
@@ -341,6 +483,9 @@ LTRESULT world_v66_BuildV85Image(const uint8 *pSrc, uint32 nSrcSize, uint8 **ppI
 	if (!ReadV66(pSrc, nSrcSize, src)) return LT_INVALIDFILE;
 	src.m_bSourceWorldInfoFlags = true;
 	src.m_bLT25Lights = bLT25Lights;
+
+	// LT2 sorts a world model as LT1 does, from polygon 0, and never reads SURF_TRANSPARENT on the main world
+	StampWholeModelTranslucency(src);
 
 	return BuildV85ImageFromSource(src, ppImage, pImageSize, pTexDims, pUser, pWarn, pWarnUser, nMaxBlockVerts);
 }

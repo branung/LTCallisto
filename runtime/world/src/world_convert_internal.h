@@ -121,6 +121,10 @@ struct Surface
 	// The lightmap basis. 
 	// The basis length is a per-surface luxel scale, so it is never normalised.
 	float m_LMU[3], m_LMV[3];
+	// v66 only: LT2's lightmap basis, built from the plane normal and kept in double so the UVs round once,
+	// and whether the surface's plane index was out of range
+	double m_LMUd[3], m_LMVd[3];
+	bool m_bLMBasisMissing;
 	uint16 m_nTexture;
 	uint32 m_nFlags;
 	uint16 m_nTexFlags;
@@ -208,7 +212,8 @@ struct WorldModel
 	std::vector<float> m_Points; // 3 floats per point
 	int32 m_nRootNode;
 
-	// Per poly lightmap pages keyed by polygon index, as they sit in the file's packed lightmap block
+	// Per poly lightmap pages keyed by polygon index.
+	// A v56 page is the file's RGB565 texels, and a v66 page is RGB888 decoded from the render data.
 	struct LMPage
 	{
 		uint8 m_nW, m_nH;
@@ -216,11 +221,15 @@ struct WorldModel
 	};
 	std::map<uint32, LMPage> m_Lightmaps;
 
+	// The world's lightmap grid size on a v66 model whose lightmaps were attached.
+	// 0 selects LT1's UV rule.
+	double m_dLMGrid;
+
 	// True when the object block registers this model as a sky object. 
 	// Set by ReadWorld
 	bool m_bSkyObject;
 
-	// LT1's whole model translucency verdict: 1 blended, 0 opaque, -1 decide per polygon
+	// The whole model translucency verdict LT1 and LT2 share: 1 blended, 0 opaque, -1 decide per polygon
 	int m_nLT1Translucent;
 };
 
@@ -249,6 +258,7 @@ void SetLT1PositionBox(const uint8 *pSrc, uint32 nSrcSize);
 void ClearLT1PositionBox();
 
 // The shared v85 synthesis
+size_t MainModelIndex(const SourceWorld &src);
 void StampWholeModelTranslucency(SourceWorld &src);
 LTRESULT BuildV85ImageFromSource(const SourceWorld &src, uint8 **ppImage, uint32 *pImageSize, WorldV56TexDimsFn pTexDims, void *pUser, WorldV56WarnFn pWarn, void *pWarnUser, uint32 nMaxBlockVerts);
 

@@ -14,8 +14,9 @@ static bool ReadWorldModel(Reader &r, WorldModel &m)
 	r.Skip(32);
 
 	m.m_bSkyObject = false;		// Set by ReadWorld from the object block
-	m.m_nLT1Translucent = -1;	// Stamped by world_v56_BuildV85Image
+	m.m_nLT1Translucent = -1;	// Stamped by StampWholeModelTranslucency
 	m.m_nSrcWorldInfoFlags = 0;	// v56's word isn't a bitfield, so it's never read
+	m.m_dLMGrid = 0.0;			// LT1's lightmap UV rule
 
 	r.U32(); // World info flags, not carried
 	m.m_sName = r.S16();
