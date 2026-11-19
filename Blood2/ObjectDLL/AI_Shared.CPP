@@ -1711,16 +1711,14 @@ DBOOL AI_Shared::HideLimb(HOBJECT hObject, int nNode, DBOOL bInverse)
 		}
 		case NODE_RARM:			//RU_ARM
 		{
-			HideNodeAndSubNodes(hObject,nNode+1,DTRUE);	
+			HideNodeAndSubNodes(hObject,nNode+1,DTRUE);
 			HideNodeAndSubNodes(hObject,nNode+2,DTRUE);
-			HideNodeAndSubNodes(hObject,nNode+3,DTRUE);			
 			break;
 		}
-		case NODE_LARM:			//LU_ARM	
+		case NODE_LARM:			//LU_ARM
 		{
-			HideNodeAndSubNodes(hObject,nNode+1,DTRUE);	
+			HideNodeAndSubNodes(hObject,nNode+1,DTRUE);
 			HideNodeAndSubNodes(hObject,nNode+2,DTRUE);
-			HideNodeAndSubNodes(hObject,nNode+3,DTRUE);						
 			break;
 		}
 		case NODE_LLEG:			//LU_LEG

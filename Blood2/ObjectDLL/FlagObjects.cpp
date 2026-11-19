@@ -184,10 +184,10 @@ void FlagObject::PostPropRead(ObjectCreateStruct* pStruct)
 
 	if (m_nTeamID == 1)
 	{
-		char* pSkin = "Skins\\WorldObjects\\flagblue.dtx";	
+		char* pSkin = "Skins\\WorldObjects\\flagblue.dtx";
 		_mbscpy((unsigned char*)pStruct->m_SkinName, (const unsigned char*)pSkin);
 	}
-	else if (m_nTeamID = 2)
+	else if (m_nTeamID == 2)
 	{
 		char* pSkin = "Skins\\WorldObjects\\flagred.dtx";	
 		_mbscpy((unsigned char*)pStruct->m_SkinName, (const unsigned char*)pSkin);
@@ -602,10 +602,10 @@ void FlagStand::PostPropRead(ObjectCreateStruct* pStruct)
 
 	if (m_nTeamID == 1)
 	{
-		char* pSkin = "Skins_Multipatch\\flagbaseblue.dtx";	
+		char* pSkin = "Skins_Multipatch\\flagbaseblue.dtx";
 		_mbscpy((unsigned char*)pStruct->m_SkinName, (const unsigned char*)pSkin);
 	}
-	else if (m_nTeamID = 2)
+	else if (m_nTeamID == 2)
 	{
 		char* pSkin = "Skins_Multipatch\\flagbasered.dtx";	
 		_mbscpy((unsigned char*)pStruct->m_SkinName, (const unsigned char*)pSkin);
