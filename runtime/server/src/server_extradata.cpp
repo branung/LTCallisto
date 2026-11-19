@@ -118,6 +118,13 @@ LTRESULT se_ChangeModelFile(LTObject *pObject, const char* pszFile)
 	else
 	{
 		Result = g_pServerMgr->LoadModel( "models\\default.ltb", pModel );
+		// LT1 fell back to models\default.abc, which LT1 games ship instead of default.ltb.
+		// Without it the Shogo demo - which lacks sanjuro.abc - can't create a player
+		if( Result != LT_OK )
+		{
+			dsi_ConsolePrint("Couldn't find model file %s. Trying models/default.abc", pszFile ? pszFile : "");
+			Result = g_pServerMgr->LoadModel( "models\\default.abc", pModel );
+		}
 		if( Result == LT_OK )
 		{
 			pModelInstance->BindModelDB(pModel);
@@ -245,6 +252,22 @@ static LTRESULT se_InitWorldModel(LTObject *pObject, ObjectCreateStruct *pStruct
 		pModelBsp = (WorldBsp*)pInstance->m_pOriginalBsp;
 		newDims = (pModelBsp->m_MaxBox - pModelBsp->m_MinBox) * 0.5f;
 
+		// LT1WorldModelLast: report a binding that differs from Jupiter's first stricmp match
+		extern int32 g_bLT1WorldModelLast;
+		if (g_bLT1WorldModelLast)
+		{
+			for (uint32 i = 0; i < world_bsp_server->NumWorldModels(); i++)
+			{
+				const WorldBsp *pBsp = world_bsp_server->GetWorldModel(i)->OriginalBSP();
+				if (stricmp(pBsp->m_WorldName, pStruct->m_Filename) != 0)
+					continue;
+				if (pBsp != pModelBsp)
+					dsi_ConsolePrint("LT1WorldModelLast: '%s' binds model '%s', not model %u '%s'",
+						pStruct->m_Filename, pModelBsp->m_WorldName, i, pBsp->m_WorldName);
+				break;
+			}
+		}
+
 		// Move the OBJECT to the center of the world model geometry.
 		pObject->SetPos(pModelBsp->m_WorldTranslation);
 
@@ -290,6 +313,15 @@ ExtraDataStruct g_ExtraDataStructs[NUM_OBJECTTYPES] =
 LTRESULT sm_InitExtraData(LTObject *pObject, ObjectCreateStruct *pStruct)
 {
 	char formattedFilename[512];
+
+	// LT1WorldModelLast: a world model's filename is a model name compared with case,
+	// and FormatFilename uppercases it on Windows, where the strcmp would then find nothing
+	extern int32 g_bLT1WorldModelLast;
+	if (g_bLT1WorldModelLast &&
+		(pObject->m_ObjectType == OT_WORLDMODEL || pObject->m_ObjectType == OT_CONTAINER))
+	{
+		return g_ExtraDataStructs[pObject->m_ObjectType].Init(pObject, pStruct);
+	}
 
 	// before we pass this off we need to redo the file name
 	CHelpers::FormatFilename(pStruct->m_Filename, 

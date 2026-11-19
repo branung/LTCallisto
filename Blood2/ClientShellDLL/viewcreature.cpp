@@ -36,6 +36,9 @@ CViewCreature::CViewCreature()
 	m_nNumUseHits = 0;
 	m_nTotalNumUseHits = 0;
 	m_fLastHitUse = 0.0f;
+	m_bHaveWorld = DFALSE;
+	VEC_INIT(m_vWorldPos);
+	ROT_INIT(m_rWorldRot);
 
 	return;
 }
@@ -161,7 +164,6 @@ void CViewCreature::Update(DFLOAT fPitch, DFLOAT fYaw, DVector *pos)
 	DVector myPos;
 
 	m_pClientDE->SetupEuler(&rRot, fPitch, fYaw, (float)0);
-	m_pClientDE->SetObjectRotation(m_hServerObject, &rRot);
 
 	m_pClientDE->GetRotationVectors(&rRot, &vU, &vR, &vF);
 
@@ -189,7 +191,11 @@ void CViewCreature::Update(DFLOAT fPitch, DFLOAT fYaw, DVector *pos)
 	VEC_ADD(myPos, myPos, vR);
 	VEC_ADD(myPos, myPos, vF);
 
-	m_pClientDE->SetObjectPos(m_hServerObject, &myPos);
+	// LT1 set this world position and rotation here. 
+	// They're kept, and PlaceForCamera sets their camera space form once the camera is final.
+	VEC_COPY(m_vWorldPos, myPos);
+	ROT_COPY(m_rWorldRot, rRot);
+	m_bHaveWorld = DTRUE;
 
 	switch(m_dwType)
 	{
@@ -219,4 +225,35 @@ void CViewCreature::Update(DFLOAT fPitch, DFLOAT fYaw, DVector *pos)
 	}
 
 	return;
+}
+
+// --------------------------------------------------------------------------- //
+//
+//	ROUTINE:	CViewCreature::PlaceForCamera()
+//
+//	PURPOSE:	Places the creature in the camera's frame. The server makes an attached
+//				creature FLAG_REALLYCLOSE, which LT1 drew at its world position and this
+//				engine draws in camera space, so Update's world placement is converted here.
+//				Under the death camera it stays where LT1 put it relative to the orbiting view.
+//
+// --------------------------------------------------------------------------- //
+
+void CViewCreature::PlaceForCamera(HLOCALOBJ hCamera)
+{
+	if (!m_bHaveWorld || !hCamera || !m_hServerObject)
+		return;
+
+	DVector vCamPos, vR, vU, vF, vRel, vLocal;
+	DRotation rCam;
+	m_pClientDE->GetObjectPos(hCamera, &vCamPos);
+	m_pClientDE->GetObjectRotation(hCamera, &rCam);
+	m_pClientDE->GetRotationVectors(&rCam, &vU, &vR, &vF);
+
+	VEC_SUB(vRel, m_vWorldPos, vCamPos);
+	VEC_SET(vLocal, VEC_DOT(vRel, vR), VEC_DOT(vRel, vU), VEC_DOT(vRel, vF));
+
+	DRotation rLocal = rCam.Conjugate() * m_rWorldRot;
+
+	m_pClientDE->SetObjectRotation(m_hServerObject, &rLocal);
+	m_pClientDE->SetObjectPos(m_hServerObject, &vLocal);
 }

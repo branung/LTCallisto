@@ -57,6 +57,18 @@ int bm_BindModule(const char *pModuleName, bool bTempFile, CBindModuleType *&pMo
 	return BIND_NOERROR;
 }
 
+int bm_BindResourceModule(const char *pModuleName, bool bTempFile, CBindModuleType *&pModule)
+{
+	HLTMODULE hModule = LTLibraryLoader::OpenLibraryAsResource(pModuleName);
+	if (hModule == NULL)
+	{
+		return BIND_CANTFINDMODULE;
+	}
+
+	pModule = bm_CreateHandleBinding(bTempFile ? pModuleName : "", (void*)hModule);
+	return BIND_NOERROR;
+}
+
 CBindModuleType *bm_CreateHandleBinding(const char *pModuleName, void *pHandle)
 {
 	if (pHandle == NULL)

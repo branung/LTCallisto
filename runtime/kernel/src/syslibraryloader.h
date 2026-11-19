@@ -27,6 +27,10 @@ public:
 	// a handle.  Note that calls to LoadLibrary are reference counted.
 	static HLTMODULE OpenLibrary(const char* pszFileName);
 
+	// Open a module for its resources only, so one built for another machine loads.
+	// Linux has no such mode and acts as OpenLibrary
+	static HLTMODULE OpenLibraryAsResource(const char* pszFileName);
+
 	// Unload the specified module.  Note that the library is actually freed only
 	// when the reference count reaches zero.
 	static void      CloseLibrary(const HLTMODULE hModule);

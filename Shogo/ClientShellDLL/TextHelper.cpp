@@ -331,11 +331,15 @@ HSURFACE CTextHelper::CreateWrappedStringSurface (ILTClient* pClientDE, int nWid
 	HSTRING hStr = pClientDE->FormatString (strID);
 	if (!hStr) return LTNULL;
 
-	char szText[512];
-	SAFE_STRCPY(szText, pClientDE->GetStringData (hStr));
+	const char* pData = pClientDE->GetStringData (hStr);
+	size_t nLen = pData ? strlen (pData) : 0;
+	char* szText = new char[nLen + 1];
+	memcpy (szText, pData ? pData : "", nLen);
+	szText[nLen] = '\0';
 
 	HSURFACE hSurf = CreateWrappedStringSurface (pClientDE, nWidth, pFont, szText, nAlignment, bCrop);
 
+	delete [] szText;
 	pClientDE->FreeString (hStr);
 
 	return hSurf;

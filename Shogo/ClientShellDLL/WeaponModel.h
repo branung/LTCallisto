@@ -29,6 +29,8 @@ class CWeaponModel
 		void ToggleVehicleMode();
 
 		LTBOOL IsDemoWeapon(uint8 nCommandId);
+		// Whether this weapon's player-view model is in the loaded content
+		static LTBOOL PVModelAvailable(uint8 nWeaponId);
 
 		WeaponState UpdateWeaponModel(LTRotation rRot, LTVector vPos, LTBOOL bFire);
 		void HandleStateChange(ILTMessage_Read* hMessage);

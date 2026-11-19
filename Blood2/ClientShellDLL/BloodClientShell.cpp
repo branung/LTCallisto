@@ -2401,6 +2401,10 @@ void CBloodClientShell::UpdateCamera()
 
 	// Adjust camera for current resolution
 	SetCameraStuff(hPlayerObj, m_hCamera);
+
+	// The creature on the player's face, placed in the final camera's frame
+	if (m_pCreature)
+		m_pCreature->PlaceForCamera(m_hCamera);
 }
 
 

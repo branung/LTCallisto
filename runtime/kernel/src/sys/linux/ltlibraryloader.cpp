@@ -53,3 +53,8 @@ HLTPROC LTLibraryLoader::GetProcAddress(HLTMODULE hModule, const char* pProcName
 {
 	return ::dlsym(hModule, pProcName);
 }
+
+HLTMODULE LTLibraryLoader::OpenLibraryAsResource(const char* pszFileName)
+{
+	return OpenLibrary(pszFileName);
+}
