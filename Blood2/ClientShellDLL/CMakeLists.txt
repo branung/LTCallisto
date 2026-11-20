@@ -51,6 +51,7 @@ add_library(${PROJECT_NAME} SHARED
 	MenuCustomLevel.cpp
 	MenuDifficulty.cpp
 	MenuDisplay.cpp
+	MenuGeneral.cpp
 	MenuJoystick.cpp
 	MenuJoystickAxis.cpp
 	MenuKeyboard.cpp

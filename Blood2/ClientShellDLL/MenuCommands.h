@@ -36,6 +36,7 @@
 #define MENU_CMD_MOUSE				303
 #define MENU_CMD_JOYSTICK			304
 #define MENU_CMD_KEYBOARD			305
+#define MENU_CMD_GENERAL			306
 
 // Difficulty
 #define	MENU_CMD_DIFFICULTY_EASY	400

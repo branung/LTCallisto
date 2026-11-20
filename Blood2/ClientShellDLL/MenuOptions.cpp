@@ -33,6 +33,7 @@ void CMenuOptions::Build()
 	SetOptionPos(m_pMainMenus->GetOptionsPos());
 	SetItemSpacing(0);
 
+	AddLargeTextItemOption(IDS_MENU_OPTIONS_GENERAL,	MENU_CMD_GENERAL);
 	AddLargeTextItemOption(IDS_MENU_OPTIONS_DISPLAY,	MENU_CMD_DISPLAY);
 	AddLargeTextItemOption(IDS_MENU_OPTIONS_AUDIO,		MENU_CMD_AUDIO);
 	AddLargeTextItemOption(IDS_MENU_OPTIONS_CONTROLS,	MENU_CMD_CUSTOMIZE_CONTROLS);
@@ -45,6 +46,11 @@ DDWORD CMenuOptions::OnCommand(DDWORD dwCommand, DDWORD dwParam1, DDWORD dwParam
 {
 	switch (dwCommand)
 	{
+	case MENU_CMD_GENERAL:
+		{
+			m_pMainMenus->SetCurrentMenu(MENU_ID_GENERAL);
+			break;
+		}
 	case MENU_CMD_CUSTOMIZE_CONTROLS:
 		{
 			m_pMainMenus->SetCurrentMenu(MENU_ID_CONTROLS);

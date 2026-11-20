@@ -33,6 +33,7 @@
 #include "MenuMouse.h"
 #include "MenuJoystick.h"
 #include "MenuKeyboard.h"
+#include "MenuGeneral.h"
 
 #include "SharedResourceMgr.h"
 
@@ -79,6 +80,7 @@
 #define MENU_ID_JOYSTICK		15
 #define MENU_ID_KEYBOARD		16
 #define MENU_ID_CHARACTERFILES	17
+#define MENU_ID_GENERAL			18
 
 // Used when changing the menus but not changing the top level menu
 #define MENU_TOPLEVEL_NOT_SPECIFIED	32768
@@ -265,6 +267,7 @@ protected:
 		CMenuMouse				m_mouseMenu;			// The mouse settings menu
 		CMenuKeyboard			m_keyboardMenu;			// The keyboard menu
 		CMenuJoystick			m_joystickMenu;			// The joystick menu
+		CMenuGeneral			m_generalMenu;			// The general settings menu
 
 		CMoArray<CMenuBase *>	m_menuArray;			// Pointer to each menu
 

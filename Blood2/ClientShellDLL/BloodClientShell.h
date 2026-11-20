@@ -215,6 +215,13 @@ class CBloodClientShell : public CClientShellDE
 		DBOOL			IsLookSpring()							{ return m_bLookSpring; }
 		void			SetLookSpring(DBOOL bLookSpring)		{ m_bLookSpring=bLookSpring; }
 
+		// The General menu's settings. Both console variables are read only at OnEngineInitialized,
+		// so a menu change sets the live state directly, as COMMAND_CROSSHAIR and COMMAND_RUNLOCK do
+		DBOOL			IsShowCrosshair()						{ return m_bShowCrosshair; }
+		void			SetShowCrosshair(DBOOL bShow)			{ m_bShowCrosshair = m_bCrosshairOriginallyOn = bShow; }
+		DBOOL			IsRunLock()								{ return (cdata.byFlags & CDATA_RUNLOCK) ? DTRUE : DFALSE; }
+		void			SetRunLock(DBOOL bRunLock)				{ if (bRunLock) cdata.byFlags |= CDATA_RUNLOCK; else cdata.byFlags &= ~CDATA_RUNLOCK; }
+
 		// Joystick routines
 		DBOOL			IsUseJoystick()							{ return m_bUseJoystick; }
 		void			SetUseJoystick(DBOOL bUseJoystick);
