@@ -367,11 +367,11 @@ int main(int argc, char **argv)
 	const bool bV66 = world_v66_IsV66(pSrc, (uint32)nLen);
 	if (!bV56 && !bV66)
 	{
-		fprintf(stderr, "not a v56 or v66 world\n");
+		fprintf(stderr, "not a v56, v66 or v70 world\n");
 		delete[] pSrc;
 		return 1;
 	}
-	printf("source is %s\n", bV56 ? "v56 (LithTech 1.0)" : "v66 (LithTech 2.x)");
+	printf("source is %s\n", bV56 ? "v56 (LithTech 1.0)" : "v66/v70 (LithTech 2.x)");
 
 	uint8 *pImage = NULL;
 	uint32 nImageSize = 0;

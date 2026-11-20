@@ -11,6 +11,9 @@ namespace worldconv {
 // Only the reader is new. Everything downstream is shared with v56 apart from the lightmap UV rule, which m_dLMGrid selects.
 // The layout differs from v56's: twelve header counts, the spare word before the name, three surface vectors instead of six,
 // 14-byte nodes, a uint32 leaf polygon count, points with a normal, and no packed lightmap block.
+// AVP2's v70 differs from v66 in four places, as its own w_LoadWorldBsp reads them: a surface has no plane index, the
+// points follow the surfaces at 12 bytes each, a polygon carries its own plane index and O/P/Q texture vectors after
+// its surface index, and a user portal has a second uint32. Its lightmap section has its own layout too.
 
 static std::string ToLowerV66(const std::string &s)
 {
@@ -52,7 +55,56 @@ static void LT2LightmapBasis(const float *pNormal, double U[3], double V[3])
 	V[2] = n[0] * U[1] - n[1] * U[0];
 }
 
-static bool ReadWorldModelV66(Reader &r, WorldModel &m)
+// V70 maps a polygon's texture from its own O/P/Q and takes its lightmap basis from its own plane, where everything
+// downstream reads both from the surface. So the surfaces are split, one per distinct (surface index, the 36 bytes of
+// O/P/Q, plane index) in order of first use, with every other field copied. A polygon naming a surface out of range is refused, as AVP2 refuses it.
+static bool SplitV70Surfaces(WorldModel &m, const std::vector<float> &PlaneNormals, const std::vector<uint32> &PolyPlanes,
+	const std::vector<uint8> &PolyTex)
+{
+	if (PolyPlanes.size() != m.m_Polies.size() || PolyTex.size() != m.m_Polies.size() * 36)
+		return false;
+	std::vector<Surface> New;
+	std::map<std::string, uint32> Index;
+	for (size_t i = 0; i < m.m_Polies.size(); ++i)
+	{
+		Poly &poly = m.m_Polies[i];
+		if (poly.m_nSurface >= m.m_Surfaces.size()) return false;
+		const uint32 nPlane = PolyPlanes[i];
+		std::string sKey((const char *)&poly.m_nSurface, 4);
+		sKey.append((const char *)&PolyTex[i * 36], 36);
+		sKey.append((const char *)&nPlane, 4);
+		std::map<std::string, uint32>::iterator it = Index.find(sKey);
+		if (it == Index.end())
+		{
+			Surface s = m.m_Surfaces[poly.m_nSurface];
+			float f[9];
+			memcpy(f, &PolyTex[i * 36], 36);
+			for (int k = 0; k < 3; ++k)
+			{
+				s.m_O[k] = f[k];
+				s.m_P[k] = f[3 + k];
+				s.m_Q[k] = f[6 + k];
+			}
+			if ((size_t)nPlane * 3 + 3 <= PlaneNormals.size())
+			{
+				s.m_bLMBasisMissing = false;
+				LT2LightmapBasis(&PlaneNormals[(size_t)nPlane * 3], s.m_LMUd, s.m_LMVd);
+			}
+			else
+			{
+				s.m_bLMBasisMissing = true;
+			}
+			it = Index.insert(std::make_pair(sKey, (uint32)New.size())).first;
+			New.push_back(s);
+		}
+		poly.m_nSurface = it->second;
+	}
+	m.m_Surfaces.swap(New);
+	m.m_nSurfaces = (uint32)m.m_Surfaces.size();
+	return true;
+}
+
+static bool ReadWorldModelV66(Reader &r, WorldModel &m, bool bV70)
 {
 	uint32 nNextPos = r.U32();
 	r.Skip(32); // Dummy block, 8 dwords
@@ -163,7 +215,7 @@ static bool ReadWorldModelV66(Reader &r, WorldModel &m)
 		for (int k = 0; k < 3; ++k) s.m_LMU[k] = s.m_LMV[k] = 0.0f;
 		s.m_nVisPrune = 0;
 		s.m_nTexture = r.U16();
-		uint32 nPlane = r.U32();
+		uint32 nPlane = bV70 ? 0xFFFFFFFFu : r.U32(); // v70's polygons carry the plane instead
 		s.m_nFlags = r.U32();
 		r.U8(); r.U8(); r.U8(); r.U8();
 		if (r.U8() == 1) // The fifth byte gates the effect strings
@@ -184,6 +236,17 @@ static bool ReadWorldModelV66(Reader &r, WorldModel &m)
 		if (r.Bad()) return false;
 	}
 
+	// v70's points come here, position only, 12 bytes each
+	m.m_Points.resize((size_t)m.m_nPoints * 3);
+	if (bV70)
+	{
+		for (uint32 i = 0; i < m.m_nPoints; ++i)
+			r.V3(&m.m_Points[(size_t)i * 3]);
+		if (r.Bad()) return false;
+	}
+
+	std::vector<uint32> PolyPlanes; // v70, per polygon
+	std::vector<uint8> PolyTex; // v70, 36 bytes of O/P/Q per polygon
 	m.m_Polies.resize(m.m_nPolies);
 	for (uint32 i = 0; i < m.m_nPolies; ++i)
 	{
@@ -194,6 +257,13 @@ static bool ReadWorldModelV66(Reader &r, WorldModel &m)
 		uint16 nExtra = r.U16();
 		r.Skip((uint32)nExtra * 4);
 		poly.m_nSurface = r.U32();
+		if (bV70)
+		{
+			PolyPlanes.push_back(r.U32());
+			const uint8 *pPolyTex = r.Raw(36);
+			if (!pPolyTex) return false;
+			PolyTex.insert(PolyTex.end(), pPolyTex, pPolyTex + 36);
+		}
 		uint32 nDrawn = m.m_PolyVertCounts[i];
 		for (uint32 k = 0; k < m.m_PolyVertTotals[i]; ++k)
 		{
@@ -229,18 +299,22 @@ static bool ReadWorldModelV66(Reader &r, WorldModel &m)
 		WorldModel::UserPortal &up = m.m_UserPortals[i];
 		up.m_sName = r.S16();
 		up.m_nUnknown32 = r.U32();
+		if (bV70)
+			r.U32(); // v70's second uint32, which AVP2 discards as it does the first
 		up.m_nUnknown16 = r.U16();
 		r.V3(up.m_Centre);
 		r.V3(up.m_Dims);
 		if (r.Bad()) return false;
 	}
 
-	// Position and normal, 24 bytes each, where v56 stores the position only
-	m.m_Points.resize((size_t)m.m_nPoints * 3);
-	for (uint32 i = 0; i < m.m_nPoints; ++i)
+	// v66: position and normal, 24 bytes each, where v56 stores the position only
+	if (!bV70)
 	{
-		r.V3(&m.m_Points[(size_t)i * 3]);
-		r.Skip(12);
+		for (uint32 i = 0; i < m.m_nPoints; ++i)
+		{
+			r.V3(&m.m_Points[(size_t)i * 3]);
+			r.Skip(12);
+		}
 	}
 
 	// The PBlockTable, a spatial grid nothing in LT2's rendering or collision reads back.
@@ -263,6 +337,7 @@ static bool ReadWorldModelV66(Reader &r, WorldModel &m)
 	r.U32(); // Terrain section count
 
 	if (r.Bad()) return false;
+	if (bV70 && !SplitV70Surfaces(m, PlaneNormals, PolyPlanes, PolyTex)) return false;
 
 	// Seek rather than trust the body's length, as the engine does: some models carry more after it
 	r.SeekTo(nNextPos);
@@ -334,15 +409,177 @@ static bool DecodeLM555(const uint8 *p, uint32 n, uint32 nTexels, std::vector<ui
 	return i == n && nGot == nTexels;
 }
 
+// Decodes exactly nTexels texels of a v70 lightmap blob to RGB888, or fails.
+// The blob is u32 0x00RRGGBB words, and bit 31 means a u8 run count follows.
+static bool DecodeLM8888(const uint8 *p, uint32 n, uint32 nTexels, std::vector<uint8> &out)
+{
+	out.clear();
+	uint32 i = 0, nGot = 0;
+	while (i + 4 <= n)
+	{
+		uint32 word = (uint32)p[i] | ((uint32)p[i + 1] << 8) | ((uint32)p[i + 2] << 16) | ((uint32)p[i + 3] << 24);
+		i += 4;
+		uint32 nRun = 1;
+		if (word & 0x80000000u)
+		{
+			if (i >= n) return false;
+			nRun = p[i];
+			i += 1;
+		}
+		if (nRun == 0) return false;
+		uint8 px[3] = { (uint8)((word >> 16) & 0xFF), (uint8)((word >> 8) & 0xFF), (uint8)(word & 0xFF) };
+		for (uint32 k = 0; k < nRun; ++k)
+			out.insert(out.end(), px, px + 3);
+		nGot += nRun;
+	}
+	return i == n && nGot == nTexels;
+}
+
+// The v70 render data section, as AVP2's MainWorld::ReadLightmapData reads it.
+// LT 2.5 narrows the counts (u8 frames, u16 refs, u16 blob sizes) and widens the texels to 32 bits. After each frame's
+// blobs comes every ref's vertex lighting, a u8 count and then that many R, G and B bytes, because v70 polygon records
+// carry RGB 0. Animation 0 frame 0 gives the base pages and vertex colors, and the later non-shadow animations ride on
+// those pages as for v66. Each animation is kept only when it reads to its end, and one that doesn't ends the walk.
+static void AttachLightmapsV70(const uint8 *pData, uint32 nSize, uint32 nPos, SourceWorld &out)
+{
+	if ((uint64)nPos + 20 > (uint64)nSize)
+		return;
+	Reader r(pData, nSize);
+	r.SeekTo(nPos + 16);
+	uint32 nAnims = r.U32();
+	if (r.Bad())
+		return;
+	std::vector<uint8> rgb;
+	for (uint32 a = 0; a < nAnims; ++a)
+	{
+		uint16 nLen = r.U16();
+		const uint8 *pName = r.Raw(nLen);
+		uint32 nShadow = r.U32();
+		uint32 nFrames = r.U8();
+		uint32 nRefs = r.U16();
+		if (r.Bad() || !pName)
+			return;
+		if (a == 0 && (nShadow != 0 || nFrames < 1))
+			return;
+		if ((uint64)r.Pos() + (uint64)nRefs * 4 > (uint64)nSize)
+			return;
+		// A model index and a polygon index for each blob
+		std::vector<uint16> Refs((size_t)nRefs * 2);
+		for (size_t k = 0; k < Refs.size(); ++k)
+			Refs[k] = r.U16();
+
+		std::vector<std::pair<std::pair<uint32, uint32>, WorldModel::LMPage> > Pages;
+		std::vector<std::pair<std::pair<uint32, uint32>, std::pair<uint32, uint32> > > Colors;
+		std::vector<std::pair<std::pair<uint32, uint32>, WorldModel::LMAnimFrame> > Frames;
+		for (uint32 f = 0; f < nFrames; ++f)
+		{
+			for (uint32 k = 0; k < nRefs; ++k)
+			{
+				uint32 nBlob = r.U16();
+				if (r.Bad() || (uint64)r.Pos() + nBlob > (uint64)nSize)
+					return;
+				const uint8 *pBlob = pData + r.Pos();
+				r.Skip(nBlob);
+				if (nShadow != 0)
+					continue;
+				uint32 mi = Refs[(size_t)k * 2], pi = Refs[(size_t)k * 2 + 1];
+				if (mi >= out.m_Models.size() || pi >= out.m_Models[mi].m_Polies.size())
+					continue;
+				if (a == 0)
+				{
+					if (f != 0)
+						continue;
+					const Poly &p = out.m_Models[mi].m_Polies[pi];
+					uint32 w = p.m_nLMW, h = p.m_nLMH;
+					if (w < 1 || h < 1 || w > 255 || h > 255)
+						continue;
+					if (DecodeLM8888(pBlob, nBlob, w * h, rgb))
+					{
+						WorldModel::LMPage page;
+						page.m_nW = (uint8)w;
+						page.m_nH = (uint8)h;
+						page.m_Texels = rgb;
+						Pages.push_back(std::make_pair(std::make_pair(mi, pi), page));
+					}
+				}
+				else
+				{
+					std::map<uint32, WorldModel::LMPage>::const_iterator itPage = out.m_Models[mi].m_Lightmaps.find(pi);
+					if (itPage == out.m_Models[mi].m_Lightmaps.end())
+						continue;
+					const uint32 w = itPage->second.m_nW, h = itPage->second.m_nH;
+					if (DecodeLM8888(pBlob, nBlob, w * h, rgb))
+					{
+						WorldModel::LMAnimFrame fr;
+						fr.m_nAnim = a;
+						fr.m_nFrame = f;
+						fr.m_RGB = rgb;
+						Frames.push_back(std::make_pair(std::make_pair(mi, pi), fr));
+					}
+				}
+			}
+			for (uint32 k = 0; k < nRefs; ++k)
+			{
+				uint32 n = r.U8();
+				if (r.Bad() || (uint64)r.Pos() + (uint64)n * 3 > (uint64)nSize)
+					return;
+				if (a == 0 && f == 0)
+				{
+					uint32 mi = Refs[(size_t)k * 2], pi = Refs[(size_t)k * 2 + 1];
+					if (mi < out.m_Models.size() && pi < out.m_Models[mi].m_Polies.size() &&
+						n == out.m_Models[mi].m_PolyVertTotals[pi])
+						Colors.push_back(std::make_pair(std::make_pair(mi, pi), std::make_pair(r.Pos(), n)));
+				}
+				r.Skip(n * 3);
+			}
+		}
+
+		// The animation read to its end, so it is kept
+		WorldV66LightAnim anim;
+		anim.m_sName.assign((const char *)pName, nLen);
+		anim.m_nFrames = nFrames;
+		anim.m_bShadowMap = (a != 0) && nShadow != 0;
+		if (a == 0)
+		{
+			for (size_t k = 0; k < Pages.size(); ++k)
+				out.m_Models[Pages[k].first.first].m_Lightmaps[Pages[k].first.second] = Pages[k].second;
+			// The arrays cover the drawn and T-junction vertices, and the drawn ones come first
+			for (size_t k = 0; k < Colors.size(); ++k)
+			{
+				Poly &p = out.m_Models[Colors[k].first.first].m_Polies[Colors[k].first.second];
+				const uint32 at = Colors[k].second.first, n = Colors[k].second.second;
+				for (size_t v = 0; v < p.m_Verts.size(); ++v)
+				{
+					p.m_Verts[v].m_RGB[0] = pData[at + v];
+					p.m_Verts[v].m_RGB[1] = pData[at + n + v];
+					p.m_Verts[v].m_RGB[2] = pData[at + 2 * n + v];
+				}
+			}
+			out.m_LightAnims.push_back(anim);
+		}
+		else
+		{
+			out.m_LightAnims.push_back(anim);
+			for (size_t k = 0; k < Frames.size(); ++k)
+				out.m_Models[Frames[k].first.first].m_Lightmaps[Frames[k].first.second].m_Anims.push_back(Frames[k].second);
+		}
+	}
+}
+
 // The lightmaps, from the render data section: frame 0 of animation 0, which is the base lighting in every retail world.
 // The switchable light animations after it are not baked.
 // Pages are staged, and kept only if the whole of frame 0 reads cleanly.
-static void AttachLightmapsV66(const uint8 *pData, uint32 nSize, uint32 nPos, float fGrid, SourceWorld &out)
+static void AttachLightmapsV66(const uint8 *pData, uint32 nSize, uint32 nPos, float fGrid, SourceWorld &out, bool bV70)
 {
 	if (!(fGrid > 0.0f))
 		return;
 	for (size_t i = 0; i < out.m_Models.size(); ++i)
 		out.m_Models[i].m_dLMGrid = (double)fGrid;
+	if (bV70)
+	{
+		AttachLightmapsV70(pData, nSize, nPos, out);
+		return;
+	}
 
 	if ((uint64)nPos + 20 > (uint64)nSize)
 		return;
@@ -471,7 +708,8 @@ static void AttachLightmapsV66(const uint8 *pData, uint32 nSize, uint32 nPos, fl
 bool ReadV66(const uint8 *pData, uint32 nSize, SourceWorld &out)
 {
 	Reader r(pData, nSize);
-	if (r.U32() != 66) return false;
+	uint32 nVersion = r.U32();
+	if (nVersion != 66 && nVersion != 70) return false;
 	uint32 nObjectDataPos = r.U32();
 	uint32 nRenderDataPos = r.U32();
 	// Eight dummy dwords, which v56 carries after the info string instead
@@ -494,7 +732,7 @@ bool ReadV66(const uint8 *pData, uint32 nSize, SourceWorld &out)
 	if (r.Bad() || nModels > 0x10000) return false;
 	out.m_Models.resize(nModels);
 	for (uint32 i = 0; i < nModels; ++i)
-		if (!ReadWorldModelV66(r, out.m_Models[i])) return false;
+		if (!ReadWorldModelV66(r, out.m_Models[i], nVersion >= 70)) return false;
 	if (r.Pos() != nObjectDataPos) return false;
 
 	if (nObjectDataPos > nRenderDataPos || nRenderDataPos > nSize) return false;
@@ -538,7 +776,8 @@ bool ReadV66(const uint8 *pData, uint32 nSize, SourceWorld &out)
 			m.m_bSkyObject = true;
 	}
 
-	AttachLightmapsV66(pData, nSize, nRenderDataPos, fLMGrid, out);
+	// For v70 this also brings the vertex lighting, which v70 moved out of the polygon records
+	AttachLightmapsV66(pData, nSize, nRenderDataPos, fLMGrid, out, nVersion >= 70);
 	return true;
 }
 
@@ -581,7 +820,7 @@ bool world_v66_IsV66(const uint8 *pData, uint32 nSize)
 	if (!pData || nSize < 4) return false;
 	uint32 nVersion = 0;
 	memcpy(&nVersion, pData, 4);
-	return nVersion == 66;
+	return nVersion == 66 || nVersion == 70;
 }
 
 void world_v66_TakeLightAnims(std::vector<WorldV66LightAnim> &out)

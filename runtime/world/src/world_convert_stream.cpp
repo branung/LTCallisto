@@ -224,13 +224,13 @@ ILTStream *world_WrapStream(ILTStream *pSrc, WorldV56OpenFn pOpen)
 	if (pSrc->GetLen(&nLen) != LT_OK || nLen < 4) return LTNULL;
 
 	// Peek the version before reading the whole file.
-	// LT1's 56 and LT2's 66 are converted. Anything else, Jupiter's own 85 included, returns LTNULL and the engine's loader reads it directly.
+	// LT1's 56 and LT2's 66 and 70 are converted. Anything else, Jupiter's own 85 included, returns LTNULL and the engine's loader reads it directly.
 	uint32 nVersion = 0;
 	if (pSrc->SeekTo(0) != LT_OK) return LTNULL;
 	if (pSrc->Read(&nVersion, 4) != LT_OK) return LTNULL;
 
 	const bool bV56 = (nVersion == 56);
-	const bool bV66 = (nVersion == 66);
+	const bool bV66 = (nVersion == 66 || nVersion == 70);
 	if (!bV56 && !bV66)
 	{
 		pSrc->SeekTo(0);
