@@ -102,9 +102,17 @@
 //                               (The original game names f_civilian1 on
 //                               all three rolls, so its second skin is
 //                               never seen. FALSE retains that)
+//   [Enemies]  ConsistentDamage TRUE: a shot from a weapon anyone but a
+//                               player holds deals the middle of the
+//                               weapon's damage range, the average of
+//                               the original game's roll between its
+//                               minimum and maximum. The roll is still
+//                               drawn, so later random numbers are the
+//                               same. FALSE rolls, as the original game
 //
-// The port's Bug Fixes enhancement sets LimbLossFix and FemaleSecondSkin TRUE, each only where the
-// mod did not set the key itself, so a mod's own value always wins.
+// The port's enhancements set their keys only where the mod did not set the key itself, so a mod's
+// own value always wins. Bug Fixes sets LimbLossFix and FemaleSecondSkin TRUE, and Consistent Enemy
+// Damage sets ConsistentDamage TRUE.
 //
 // Both modules load the file and read their own keys. An unknown section or key, a value of the
 // wrong kind or out of range, or a minimum above its maximum loads nothing, and the error says
@@ -172,6 +180,8 @@ struct BloodModRulesValues
 	int			bLimbLossFix;
 	// [Civilians]
 	int			bFemaleSecondSkin;
+	// [Enemies]
+	int			bConsistentDamage;
 	// [Effects] (the client's)
 	int			nFleshGibChance;
 	int			nFleshGibMore;

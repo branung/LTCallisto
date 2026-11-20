@@ -89,7 +89,7 @@ void TestRetail()
 		  gRules.fBloodSpurtDamage == 25.0f && !strcmp(gRules.szBurnFX, "FLAMING_2") &&
 		  !strcmp(gRules.szSmokeFX, "SMOKING_2") && !gRules.bGibOnExplosionOnly && gRules.nGibHeadChance == 100 &&
 		  gRules.nGibArmChance == 80 && gRules.nGibLegChance == 60 && !gRules.bLimbLossFix &&
-		  !gRules.bFemaleSecondSkin,
+		  !gRules.bFemaleSecondSkin && !gRules.bConsistentDamage,
 		  "with no mod gRules is the retail code's constants: " + All());
 	// The client's, from retail's ClientShellDLL: BloodClientShell.cpp's BOB/SWAY_WALKING and
 	// shake's * 3.0f, ViewWeapon's idle delays, MoveMgr's LADDER_STOP_TIME and swim flags,
@@ -240,6 +240,21 @@ void TestEnhancements()
 	Check(!gRules.bLimbLossFix && !gRules.bFemaleSecondSkin && gRules.fUseDistance == 122.0f,
 		  "turned off, each key goes back to retail's and the mod's keys stay");
 	Unload();
+
+	// Each enhancement sets only its own keys
+	Check(!gRules.bConsistentDamage, "Bug Fixes does not set ConsistentDamage");
+	BloodModRules_SetEnhancements(PORTENH_CONSISTENTDAMAGE);
+	Check(gRules.bConsistentDamage && !gRules.bLimbLossFix && !gRules.bFemaleSecondSkin &&
+		  BloodModRules_Summary().empty(),
+		  "Consistent Enemy Damage sets ConsistentDamage and nothing of Bug Fixes'");
+	LoadRules("[Enemies]\nConsistentDamage = FALSE\n", err);
+	Check(!gRules.bConsistentDamage, "and a mod's own ConsistentDamage wins over it" +
+		  (err.empty() ? std::string() : ": " + err));
+	Unload();
+	BloodModRules_SetEnhancements(PORTENH_BUGFIXES | PORTENH_CONSISTENTDAMAGE);
+	Check(gRules.bConsistentDamage && gRules.bLimbLossFix && gRules.bFemaleSecondSkin, "both together set all three");
+	BloodModRules_SetEnhancements(0);
+	Check(!gRules.bConsistentDamage && !gRules.bLimbLossFix, "and off, none");
 }
 
 } // namespace
@@ -262,7 +277,9 @@ std::string RulesDump()
 		"// explosion gibs a corpse, the percent chance of each limb a gib\n"
 		"// throws, and whether shooting a body's limbs off works \n"
 		"// (the original game had several bugs there); [Civilians] whether a\n"
-		"// female civilian may wear her second skin, which retail never shows.\n"
+		"// female civilian may wear her second skin, which retail never shows;\n"
+		"// [Enemies] whether a shot from anyone but a player deals the middle of\n"
+		"// its weapon's damage range instead of a roll between the two.\n"
 		"// The client reads [Camera] (bob, sway, shake), [ViewWeapon]\n"
 		"// (the idle delay), [Movement] (ladders and swimming), [Items]'\n"
 		"// FlashlightRadius, the rest of [Impacts] (WeaponFX.cpp's numbers) and\n"

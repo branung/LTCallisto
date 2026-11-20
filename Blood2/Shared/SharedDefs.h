@@ -151,6 +151,7 @@ enum ClientServerMsgs
 // CMSG_ENHANCEMENTS carry. A retail demo's playback sends none
 #define PORTENH_BUGFIXES	0x01	// LimbLossFix TRUE, FemaleSecondSkin TRUE
 #define PORTENH_REACTIONS	0x02	// AI.txt ReactTime for CultistAI, Fanatic and Prophet
+#define PORTENH_CONSISTENTDAMAGE	0x04	// ConsistentDamage TRUE
 
 #define MSG_MOD_SCRIPT		241
 

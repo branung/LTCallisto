@@ -56,6 +56,7 @@ BloodModRulesValues gRules =
 	60,				// and IsRandomChance(60) for each leg
 	0,				// CCorpse's 1 hit point, reversed hit test, and HideLimb's nNode+3
 	0,				// CivilianAI::PostPropRead's females: f_civilian1 on every roll
+	0,				// CWeapon::Fire rolls each shot between the weapon's minimum and maximum
 	// SFXMgr.cpp's:
 	20, 2, 1,		// CreateGibs: IsRandomChance(20) *= 2, else *= (DBYTE)1.5
 	{ 300, 300, 80, 80, 80, 80, 100, 80 },	// s_nDynArrayMaxNums
@@ -130,6 +131,7 @@ const Rule kRules[] =
 	R("Corpse", "GibLegChance",			PERCENT,	nGibLegChance),
 	R("Corpse", "LimbLossFix",			BOOL,		bLimbLossFix),
 	R("Civilians", "FemaleSecondSkin",	BOOL,		bFemaleSecondSkin),
+	R("Enemies", "ConsistentDamage",	BOOL,		bConsistentDamage),
 	R("Effects", "FleshGibChance",		PERCENT,	nFleshGibChance),
 	RM("Effects", "FleshGibMore",		INT,		nFleshGibMore, 16),		// a DBYTE count's multiplier
 	RM("Effects", "FleshGibScale",		INT,		nFleshGibScale, 16),
@@ -275,25 +277,27 @@ bool BloodModRules_ObjFXList(const char* pList, std::vector<int>& out, std::stri
 	return true;
 }
 
-// The Bug Fixes enhancement: each key and its fixed value
-struct EnhancementKey { const char* pKey; int nValue; };
-const EnhancementKey kBugFixes[] =
+// Each enhancement's keys and their fixed values. Enemy Reactions sets an AI.txt key instead
+struct EnhancementKey { unsigned nBit; const char* pKey; int nValue; };
+const EnhancementKey kEnhancementKeys[] =
 {
-	{ "LimbLossFix", 1 },
-	{ "FemaleSecondSkin", 1 },
+	{ PORTENH_BUGFIXES,			"LimbLossFix", 1 },
+	{ PORTENH_BUGFIXES,			"FemaleSecondSkin", 1 },
+	{ PORTENH_CONSISTENTDAMAGE,	"ConsistentDamage", 1 },
 };
 
 // Each enhancement's keys over gRules: its value when it is on, retail's when it is off, and nothing
 // where the mod set the key
 void ApplyEnhancements()
 {
-	for (size_t f = 0; f < sizeof(kBugFixes) / sizeof(kBugFixes[0]); ++f)
+	for (size_t f = 0; f < sizeof(kEnhancementKeys) / sizeof(kEnhancementKeys[0]); ++f)
 	{
+		const EnhancementKey& k = kEnhancementKeys[f];
 		for (int i = 0; i < kNumRules; ++i)
 		{
-			if (strcmp(kRules[i].pKey, kBugFixes[f].pKey)) continue;
+			if (strcmp(kRules[i].pKey, k.pKey)) continue;
 			if ((size_t)i < g_Set.size() && g_Set[i]) break;
-			N(gRules, i) = (g_nEnhancements & PORTENH_BUGFIXES) ? kBugFixes[f].nValue : N(g_Retail, i);
+			N(gRules, i) = (g_nEnhancements & k.nBit) ? k.nValue : N(g_Retail, i);
 			break;
 		}
 	}

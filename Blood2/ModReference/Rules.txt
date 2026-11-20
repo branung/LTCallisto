@@ -13,7 +13,9 @@
 // explosion gibs a corpse, the percent chance of each limb a gib
 // throws, and whether shooting a body's limbs off works 
 // (the original game had several bugs there); [Civilians] whether a
-// female civilian may wear her second skin, which retail never shows.
+// female civilian may wear her second skin, which retail never shows;
+// [Enemies] whether a shot from anyone but a player deals the middle of
+// its weapon's damage range instead of a roll between the two.
 // The client reads [Camera] (bob, sway, shake), [ViewWeapon]
 // (the idle delay), [Movement] (ladders and swimming), [Items]'
 // FlashlightRadius, the rest of [Impacts] (WeaponFX.cpp's numbers) and
@@ -86,6 +88,9 @@ LimbLossFix = FALSE
 
 [Civilians]
 FemaleSecondSkin = FALSE
+
+[Enemies]
+ConsistentDamage = FALSE
 
 [Effects]
 FleshGibChance = 20

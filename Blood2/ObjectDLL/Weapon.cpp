@@ -1035,6 +1035,10 @@ DDWORD CWeapon::Fire()
 		m_fDamage = pServerDE->Random(m_fMinAltDamage, m_fMaxAltDamage);
 		nAmmoUse = m_nAltAmmoUse;
 	}
+	// ConsistentDamage: anyone but a player deals the middle of the range, the roll's average. The roll
+	// above is still drawn, so every later random number is the same
+	if (gRules.bConsistentDamage && m_hOwner && !IsPlayer(m_hOwner))
+		m_fDamage = bAltFire ? (m_fMinAltDamage + m_fMaxAltDamage) * 0.5f : (m_fMinDamage + m_fMaxDamage) * 0.5f;
 
 	// Only fire ammo if we have the ammo
 	DFLOAT fAmmoCount = CheckAmmo(bAltFire);

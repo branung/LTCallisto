@@ -21,6 +21,7 @@ CMenuEnhancements::CMenuEnhancements()
 {
 	m_bBugFixes = DTRUE;
 	m_bReactions = DTRUE;
+	m_bConsistentDamage = DTRUE;
 }
 
 CMenuEnhancements::~CMenuEnhancements()
@@ -40,9 +41,11 @@ void CMenuEnhancements::Build()
 
 	m_bBugFixes = g_pBloodClientShell ? g_pBloodClientShell->IsEnhancementOn("EnhanceBugFixes") : DTRUE;
 	m_bReactions = g_pBloodClientShell ? g_pBloodClientShell->IsEnhancementOn("EnhanceReactions") : DTRUE;
+	m_bConsistentDamage = g_pBloodClientShell ? g_pBloodClientShell->IsEnhancementOn("EnhanceConsistentDamage") : DTRUE;
 
 	AddOnOffOption(IDS_MENU_ENHANCEMENTS_BUGFIXES, m_pMainMenus->GetSmallFont(), 100, &m_bBugFixes);
 	AddOnOffOption(IDS_MENU_ENHANCEMENTS_REACTIONS, m_pMainMenus->GetSmallFont(), 100, &m_bReactions);
+	AddOnOffOption(IDS_MENU_ENHANCEMENTS_DAMAGE, m_pMainMenus->GetSmallFont(), 100, &m_bConsistentDamage);
 
 	UpdateData(DFALSE);
 }
@@ -55,6 +58,7 @@ void CMenuEnhancements::OnFocus(DBOOL bFocus)
 		{
 			m_bBugFixes = g_pBloodClientShell->IsEnhancementOn("EnhanceBugFixes");
 			m_bReactions = g_pBloodClientShell->IsEnhancementOn("EnhanceReactions");
+			m_bConsistentDamage = g_pBloodClientShell->IsEnhancementOn("EnhanceConsistentDamage");
 		}
 		UpdateData(DFALSE);
 		return;
@@ -69,6 +73,8 @@ void CMenuEnhancements::OnFocus(DBOOL bFocus)
 		sprintf(strConsole, "+EnhanceBugFixes %f", (float)(m_bBugFixes ? 1 : 0));
 		m_pClientDE->RunConsoleString(strConsole);
 		sprintf(strConsole, "+EnhanceReactions %f", (float)(m_bReactions ? 1 : 0));
+		m_pClientDE->RunConsoleString(strConsole);
+		sprintf(strConsole, "+EnhanceConsistentDamage %f", (float)(m_bConsistentDamage ? 1 : 0));
 		m_pClientDE->RunConsoleString(strConsole);
 	}
 

@@ -25,6 +25,7 @@ public:
 protected:
 	DBOOL	m_bBugFixes;			// EnhanceBugFixes console variable
 	DBOOL	m_bReactions;			// EnhanceReactions console variable
+	DBOOL	m_bConsistentDamage;	// EnhanceConsistentDamage console variable
 
 	DDWORD	OnCommand(DDWORD dwCommand, DDWORD dwParam1, DDWORD dwParam2);
 };

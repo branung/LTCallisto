@@ -6582,6 +6582,7 @@ DBYTE CBloodClientShell::GetEnhancementFlags()
 	DBYTE nFlags = 0;
 	if (IsEnhancementOn("EnhanceBugFixes")) nFlags |= PORTENH_BUGFIXES;
 	if (IsEnhancementOn("EnhanceReactions")) nFlags |= PORTENH_REACTIONS;
+	if (IsEnhancementOn("EnhanceConsistentDamage")) nFlags |= PORTENH_CONSISTENTDAMAGE;
 	return nFlags;
 }
 
