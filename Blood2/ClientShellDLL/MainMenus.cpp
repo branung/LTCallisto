@@ -732,6 +732,15 @@ void CMainMenus::DrawVersionString(HSURFACE hSurf)
 
 //*******************************************************************
 
+// Where the scaled menu goes: centered, as the blit below centers the unscaled one.
+// The blit and the mouse mapping both ask this, so they cannot disagree.
+static void ScaledMenuOrigin(DDWORD dwScreenWidth, DDWORD dwScreenHeight, DDWORD dwWorkWidth, DDWORD dwWorkHeight,
+							 DFLOAT fScale, int &nLeft, int &nTop)
+{
+	nLeft = ((int)dwScreenWidth  - (int)((DFLOAT)dwWorkWidth  * fScale)) / 2;
+	nTop  = ((int)dwScreenHeight - (int)((DFLOAT)dwWorkHeight * fScale)) / 2;
+}
+
 // Blits the working surface to the screen cropping it if necessary.
 void CMainMenus::BlitWorkingSurface(HSURFACE hScreen)
 {
@@ -743,6 +752,29 @@ void CMainMenus::BlitWorkingSurface(HSURFACE hScreen)
 	// Get the dims of the screen and the working surface
 	m_pClientDE->GetSurfaceDims (hScreen, &dwScreenWidth, &dwScreenHeight);	
 	m_pClientDE->GetSurfaceDims (m_hSurfWork, &dwWorkWidth, &dwWorkHeight);
+
+	// The working surface at the menu scale, with the original blit below at 1. The menus are drawn
+	// outside any 3D block, and outside Start3D and StartOptimized2D a scaled blit keeps the
+	// rectangle's corner and drops its size, so the bracket is opened here for the one blit.
+	const DFLOAT fScale = GetMenuScale(dwScreenWidth, dwScreenHeight);
+	if (fScale != 1.0f)
+	{
+		int nLeft = 0, nTop = 0;
+		ScaledMenuOrigin(dwScreenWidth, dwScreenHeight, dwWorkWidth, dwWorkHeight, fScale, nLeft, nTop);
+
+		DRect rcDest;
+		rcDest.left   = nLeft;
+		rcDest.top    = nTop;
+		rcDest.right  = nLeft + (int)((DFLOAT)dwWorkWidth  * fScale);
+		rcDest.bottom = nTop  + (int)((DFLOAT)dwWorkHeight * fScale);
+
+		m_pClientDE->Start3D();
+		m_pClientDE->StartOptimized2D();
+		m_pClientDE->ScaleSurfaceToSurface(hScreen, m_hSurfWork, &rcDest, DNULL);
+		m_pClientDE->EndOptimized2D();
+		m_pClientDE->End3D();
+		return;
+	}
 
 	// If the screen surface is smaller than the working surface, crop and center the image.	
 	if ( dwScreenWidth < dwWorkWidth || dwScreenHeight < dwWorkHeight )
@@ -795,6 +827,20 @@ void CMainMenus::ScreenToWorkingSurface(int &x, int &y)
 
 	m_pClientDE->GetSurfaceDims (hScreen, &dwScreenWidth, &dwScreenHeight);
 	m_pClientDE->GetSurfaceDims (m_hSurfWork, &dwWorkWidth, &dwWorkHeight);
+
+	// Scaled: undo the blit's offset, then its size. A point left of or above the menu maps to -1,
+	// outside every control, where truncation toward zero would put it on the first column or row
+	const DFLOAT fScale = GetMenuScale(dwScreenWidth, dwScreenHeight);
+	if (fScale != 1.0f)
+	{
+		int nLeft = 0, nTop = 0;
+		ScaledMenuOrigin(dwScreenWidth, dwScreenHeight, dwWorkWidth, dwWorkHeight, fScale, nLeft, nTop);
+		const DFLOAT fX = (DFLOAT)(x - nLeft) / fScale;
+		const DFLOAT fY = (DFLOAT)(y - nTop) / fScale;
+		x = fX < 0.0f ? -1 : (int)fX;
+		y = fY < 0.0f ? -1 : (int)fY;
+		return;
+	}
 
 	if ( dwScreenWidth < dwWorkWidth || dwScreenHeight < dwWorkHeight )
 	{

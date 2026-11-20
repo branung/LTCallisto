@@ -47,6 +47,10 @@ DFLOAT GetHUDScale();
 DFLOAT GetAutoHUDScale();
 DBOOL  IsHUDScaleManual();
 
+// The menus' scale: the HUD scale, capped at the largest 25% step at which the 640x480 menu still
+// fits the screen, and never below 1. So a Manual 300% at 1280x720 draws the menus at 150%.
+DFLOAT GetMenuScale(DDWORD nScreenWidth, DDWORD nScreenHeight);
+
 // DrawHUDScaled blits at the HUD scale, and HUDScaled scales a layout offset to match.
 // CoolFont text (the CommLink, the frag table) has no size to ask for, so it's magnified.
 // MessageMgr's font is rebuilt larger instead

@@ -99,6 +99,31 @@ DFLOAT GetAutoHUDScale()
 
 // ----------------------------------------------------------------------- //
 //
+//	ROUTINE:	GetMenuScale
+//
+//	PURPOSE:	The cap only lowers the scale, never raises it, and a screen at or below
+//				640x480 keeps 1, the original centered or cropped blit.
+//
+// ----------------------------------------------------------------------- //
+
+DFLOAT GetMenuScale(DDWORD nScreenWidth, DDWORD nScreenHeight)
+{
+	if (nScreenWidth < HUDSCALE_DESIGN_WIDTH || nScreenHeight < HUDSCALE_DESIGN_HEIGHT) return 1.0f;
+
+	DFLOAT fFit = (DFLOAT)nScreenHeight / (DFLOAT)HUDSCALE_DESIGN_HEIGHT;
+	DFLOAT fFitX = (DFLOAT)nScreenWidth / (DFLOAT)HUDSCALE_DESIGN_WIDTH;
+	if (fFitX < fFit) fFit = fFitX;
+	fFit = (DFLOAT)(int)(fFit / HUDSCALE_STEP) * HUDSCALE_STEP;
+
+	DFLOAT fScale = GetHUDScale();
+	if (fScale > fFit) fScale = fFit;
+	if (fScale < 1.0f) fScale = 1.0f;
+	return fScale;
+}
+
+
+// ----------------------------------------------------------------------- //
+//
 //	ROUTINE:	DrawHUDScaled
 //
 //	PURPOSE:	Blit one ingame surface at the HUD scale, or the plain blit at 1.
