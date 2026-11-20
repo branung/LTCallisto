@@ -88,7 +88,7 @@ void TestRetail()
 		  gRules.fFlashlightChargeTime == 120.0f && gRules.fGogglesChargeTime == 30.0f &&
 		  gRules.fBloodSpurtDamage == 25.0f && !strcmp(gRules.szBurnFX, "FLAMING_2") &&
 		  !strcmp(gRules.szSmokeFX, "SMOKING_2") && !gRules.bGibOnExplosionOnly && gRules.nGibHeadChance == 100 &&
-		  gRules.nGibArmChance == 80 && gRules.nGibLegChance == 60 && gRules.bArmHidesNextLimb,
+		  gRules.nGibArmChance == 80 && gRules.nGibLegChance == 60 && !gRules.bLimbLossFix,
 		  "with no mod gRules is the retail code's constants: " + All());
 	// The client's, from retail's ClientShellDLL: BloodClientShell.cpp's BOB/SWAY_WALKING and
 	// shake's * 3.0f, ViewWeapon's idle delays, MoveMgr's LADDER_STOP_TIME and swim flags,
@@ -237,8 +237,8 @@ std::string RulesDump()
 		"// flesh hit always spurts blood; [Corpse] the effects a burning and a\n"
 		"// smoking corpse show, one of each list at random, whether only an\n"
 		"// explosion gibs a corpse, the percent chance of each limb a gib\n"
-		"// throws, and whether losing an arm hides the next limb's top \n"
-		"// too (a bug in the original game). \n"
+		"// throws, and whether shooting a body's limbs off works \n"
+		"// (the original game had several bugs there). \n"
 		"// The client reads [Camera] (bob, sway, shake), [ViewWeapon]\n"
 		"// (the idle delay), [Movement] (ladders and swimming), [Items]'\n"
 		"// FlashlightRadius, the rest of [Impacts] (WeaponFX.cpp's numbers) and\n"

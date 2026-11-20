@@ -291,6 +291,9 @@ void CCorpse::InitialUpdate(DVector *pMovement)
 	m_damage.SetMass( m_fMass );
 	m_damage.SetHitPoints( m_fHitPoints );
 	m_damage.SetMaxHitPoints( m_fHitPoints );
+	// Retail never sets the mega cap, which starts at 1, so a body dropped to 1 hit point
+	if (gRules.bLimbLossFix)
+		m_damage.SetMaxMegaHitPoints( m_fHitPoints );
 	m_damage.SetArmorPoints( 0.0f );
 	m_damage.SetMaxArmorPoints( 0.0f );
 	m_damage.SetApplyDamagePhysics(DFALSE);
@@ -424,7 +427,13 @@ DBOOL CCorpse::HandleDamage(DVector vDir, DFLOAT fDamage, int nType, DVector vPo
 
 	if(m_bLimbLoss && !bExplosionOnly)
 	{
-		nNodeHit = SetProperNode(CalculateHitLimb(vDir,vPos));
+		// vDir was reversed for the gibs, so retail tests the bones back out of the body
+		DVector vHitDir = vDir;
+		if (gRules.bLimbLossFix)
+		{
+			VEC_MULSCALAR(vHitDir, vDir, -1.0f);
+		}
+		nNodeHit = SetProperNode(CalculateHitLimb(vHitDir,vPos));
 
 		//sanity check
 		if(nNodeHit == -1 && !(nType & DAMAGE_TYPE_EXPLODE))

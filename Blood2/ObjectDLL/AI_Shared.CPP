@@ -1714,7 +1714,7 @@ DBOOL AI_Shared::HideLimb(HOBJECT hObject, int nNode, DBOOL bInverse)
 		{
 			HideNodeAndSubNodes(hObject,nNode+1,DTRUE);
 			HideNodeAndSubNodes(hObject,nNode+2,DTRUE);
-			if (gRules.bArmHidesNextLimb) // Retail also hid the next limb's top node
+			if (!gRules.bLimbLossFix) // Retail also hid the next limb's top node
 				HideNodeAndSubNodes(hObject,nNode+3,DTRUE);
 			break;
 		}
@@ -1722,7 +1722,7 @@ DBOOL AI_Shared::HideLimb(HOBJECT hObject, int nNode, DBOOL bInverse)
 		{
 			HideNodeAndSubNodes(hObject,nNode+1,DTRUE);
 			HideNodeAndSubNodes(hObject,nNode+2,DTRUE);
-			if (gRules.bArmHidesNextLimb) // Retail also hid the next limb's top node
+			if (!gRules.bLimbLossFix) // Retail also hid the next limb's top node
 				HideNodeAndSubNodes(hObject,nNode+3,DTRUE);
 			break;
 		}
