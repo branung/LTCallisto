@@ -875,10 +875,73 @@ static void abc_RigidInverse(const LTMatrix &mIn, LTMatrix &mOut)
 	mOut.m[2][3] = -(mOut.m[2][0] * tx + mOut.m[2][1] * ty + mOut.m[2][2] * tz);
 }
 
+// bake(parent) * local(n) as the track's own position and quaternion, for a skeletal node under a
+// vertex-animated one. A bake with no rotation keeps the quaternion bit for bit and only moves the
+// position. The matrix to quaternion step is quat_ConvertFromMatrix written out, so the test harness
+// links without it
+static void abc_FoldTrack(const LTMatrix &B, const LTVector &vPos, const float *q,
+                          float *pOut, float *qOut)
+{
+	const bool bNoRot = B.m[0][0] == 1.0f && B.m[1][1] == 1.0f && B.m[2][2] == 1.0f &&
+	                    B.m[0][1] == 0.0f && B.m[0][2] == 0.0f && B.m[1][0] == 0.0f &&
+	                    B.m[1][2] == 0.0f && B.m[2][0] == 0.0f && B.m[2][1] == 0.0f;
+	if (bNoRot)
+	{
+		pOut[0] = vPos.x + B.m[0][3];
+		pOut[1] = vPos.y + B.m[1][3];
+		pOut[2] = vPos.z + B.m[2][3];
+		for (int i = 0; i < 4; i++)
+			qOut[i] = q[i];
+		return;
+	}
+
+	const float s  = 2.0f / (q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]);
+	const float xs = q[0]*s, ys = q[1]*s, zs = q[2]*s;
+	const float wx = q[3]*xs, wy = q[3]*ys, wz = q[3]*zs;
+	const float xx = q[0]*xs, xy = q[0]*ys, xz = q[0]*zs;
+	const float yy = q[1]*ys, yz = q[1]*zs;
+	const float zz = q[2]*zs;
+	LTMatrix L;
+	L.Identity();
+	L.m[0][0] = 1.0f - (yy + zz);  L.m[0][1] = xy - wz;           L.m[0][2] = xz + wy;
+	L.m[1][0] = xy + wz;           L.m[1][1] = 1.0f - (xx + zz);  L.m[1][2] = yz - wx;
+	L.m[2][0] = xz - wy;           L.m[2][1] = yz + wx;           L.m[2][2] = 1.0f - (xx + yy);
+	L.SetTranslation(vPos.x, vPos.y, vPos.z);
+	const LTMatrix M = B * L;
+	pOut[0] = M.m[0][3];
+	pOut[1] = M.m[1][3];
+	pOut[2] = M.m[2][3];
+
+	static const int NEXT[3] = { 1, 2, 0 };
+	const float diag = M.m[0][0] + M.m[1][1] + M.m[2][2];
+	if (diag < -0.999f)
+	{
+		int i = 0;
+		if (M.m[1][1] > M.m[0][0])
+			i = 1;
+		if (M.m[2][2] > M.m[i][i])
+			i = 2;
+		const int j = NEXT[i], k = NEXT[j];
+		float r = sqrtf(M.m[i][i] - (M.m[j][j] + M.m[k][k]) + 1.0f);
+		qOut[i] = r * 0.5f;
+		r = 0.5f / r;
+		qOut[3] = (M.m[k][j] - M.m[j][k]) * r;
+		qOut[j] = (M.m[j][i] + M.m[i][j]) * r;
+		qOut[k] = (M.m[k][i] + M.m[i][k]) * r;
+		return;
+	}
+	float r = sqrtf(diag + 1.0f);
+	qOut[3] = r * 0.5f;
+	r = 0.5f / r;
+	qOut[0] = (M.m[2][1] - M.m[1][2]) * r;
+	qOut[1] = (M.m[0][2] - M.m[2][0]) * r;
+	qOut[2] = (M.m[1][0] - M.m[0][1]) * r;
+}
+
 static void abc_ComposeVABake_R(const ABCModel &m, const ABCAnim &an, uint32 k,
                                 const uint8 *pIsVA, uint32 &iNode,
                                 const LTMatrix &mBakeParent, bool bParentIdentity,
-                                LTMatrix *pOut)
+                                LTMatrix *pOut, uint8 *pFolded)
 {
 	if (iNode >= m.nNodes)
 		return;
@@ -906,19 +969,24 @@ static void abc_ComposeVABake_R(const ABCModel &m, const ABCAnim &an, uint32 k,
 	}
 	else
 	{
-		LTMatrix mInv;
-		abc_RigidInverse(mLocal, mInv);
-		mBake = mInv * (mBakeParent * mLocal);
-		bIdentity = false;
+		// A skeletal node under a vertex-animated one. LT1 recurses into a vertex-animated node's
+		// children with that node's own global, keyframed local included, and Jupiter's NULL channels
+		// make the node identity instead. This node's track takes the parent's bake, which makes its
+		// runtime global its true one, so nothing below it needs a bake of its own
+		pOut[self] = mBakeParent;
+		pFolded[self] = 1;
+		mBake.Identity();
+		bIdentity = true;
 	}
 
 	for (uint32 c = 0; c < n.nChildren; c++)
-		abc_ComposeVABake_R(m, an, k, pIsVA, iNode, mBake, bIdentity, pOut);
+		abc_ComposeVABake_R(m, an, k, pIsVA, iNode, mBake, bIdentity, pOut, pFolded);
 }
 
-// Fills pOut[node * nKeyFrames + key] for every vertex-animated node.
+// Fills pOut[node * nKeyFrames + key] for every vertex-animated node, and for every skeletal node
+// whose track must take its parent's bake (pFolded[node])
 static bool abc_ComposeVABake(const ABCModel &m, const ABCAnim &an,
-                              const uint8 *pIsVA, LTMatrix *pOut)
+                              const uint8 *pIsVA, LTMatrix *pOut, uint8 *pFolded)
 {
 	LTMatrix mIdent;
 	mIdent.Identity();
@@ -930,7 +998,7 @@ static bool abc_ComposeVABake(const ABCModel &m, const ABCAnim &an,
 			frame[i].Identity();
 
 		uint32 iNode = 0;
-		abc_ComposeVABake_R(m, an, k, pIsVA, iNode, mIdent, true, frame);
+		abc_ComposeVABake_R(m, an, k, pIsVA, iNode, mIdent, true, frame, pFolded);
 		if (iNode != m.nNodes)
 			return false;
 
@@ -1574,11 +1642,13 @@ static bool abc_WriteLTB(const ABCModel &m, CLTBWriter &w)
 
 		// The transform to bake into each vertex-animated node's positions, computed once per keyframe
 		LTMatrix *pBake = NULL;
+		uint8 folded[ABC_MAX_NODES];
+		memset(folded, 0, sizeof(folded));
 		if (nVAPieces > 0 && an.nKeyFrames > 0)
 		{
 			LT_MEM_TRACK_ALLOC(pBake = new LTMatrix[(size_t)m.nNodes * an.nKeyFrames],
 			                   LT_MEM_TYPE_MODEL);
-			if (!pBake || !abc_ComposeVABake(m, an, isVANode, pBake))
+			if (!pBake || !abc_ComposeVABake(m, an, isVANode, pBake, folded))
 			{
 				delete[] pBake;
 				return false;
@@ -1610,6 +1680,25 @@ static bool abc_WriteLTB(const ABCModel &m, CLTBWriter &w)
 						mBake.Apply(vIn, vOutP);
 						w.F32(vOutP.x); w.F32(vOutP.y); w.F32(vOutP.z);
 					}
+				}
+			}
+			else if (folded[n] && pBake)
+			{
+				// A skeletal node under a vertex-animated one: its track is the parent's bake times its own local, 
+				// so the engine's chain gives it LT1's global. 
+				// Exact at the keyframes - between them Jupiter interpolates the product where LT1 interpolated the factors
+				w.U8(0);
+				for (uint32 k = 0; k < an.nKeyFrames; k++)
+				{
+					float pk[3], qk[4];
+					abc_FoldTrack(pBake[(size_t)n * an.nKeyFrames + k], tr.pPos[k], tr.pQuat + k * 4, pk, qk);
+					w.F32(pk[0]); w.F32(pk[1]); w.F32(pk[2]);
+				}
+				for (uint32 k = 0; k < an.nKeyFrames; k++)
+				{
+					float pk[3], qk[4];
+					abc_FoldTrack(pBake[(size_t)n * an.nKeyFrames + k], tr.pPos[k], tr.pQuat + k * 4, pk, qk);
+					w.F32(qk[0]); w.F32(qk[1]); w.F32(qk[2]); w.F32(qk[3]);
 				}
 			}
 			else
