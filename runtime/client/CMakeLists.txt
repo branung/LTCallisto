@@ -47,7 +47,7 @@ set(exec_src
 	../server/src/world_server_bsp.cpp
 	../world/src/world_shared_bsp.cpp
 	../world/src/world_read_v56.cpp
-	../world/src/world_read_v66.cpp
+	../world/src/world_read_lt2.cpp
 	../world/src/world_write_v85.cpp
 	../world/src/world_convert_stream.cpp
 	../model/src/animtracker.cpp

@@ -7,7 +7,7 @@ using namespace worldconv;
 namespace worldconv {
 
 
-// LithTech 2.x worlds (DAT v66)
+// LithTech 2.x worlds (DAT v66, and AVP2's v70)
 // Only the reader is new. Everything downstream is shared with v56 apart from the lightmap UV rule, which m_dLMGrid selects.
 // The layout differs from v56's: twelve header counts, the spare word before the name, three surface vectors instead of six,
 // 14-byte nodes, a uint32 leaf polygon count, points with a normal, and no packed lightmap block.

@@ -1,7 +1,7 @@
 #ifndef __WORLD_CONVERT_INTERNAL_H__
 #define __WORLD_CONVERT_INTERNAL_H__
 
-// The converter's own types, shared by its readers (world_read_v56.cpp, world_read_v66.cpp) and the
+// The converter's own types, shared by its readers (world_read_v56.cpp, world_read_lt2.cpp) and the
 // v85 writer (world_write_v85.cpp). Only those files include this.
 
 #include "world_convert.h"
@@ -268,7 +268,7 @@ bool ReadV66(const uint8 *pData, uint32 nSize, SourceWorld &out);
 void SetLT1PositionBox(const uint8 *pSrc, uint32 nSrcSize);
 void ClearLT1PositionBox();
 
-// The last v66 conversion's light animations, kept by world_read_v66.cpp
+// The last v66 conversion's light animations, kept by world_read_lt2.cpp
 void ClearV66LightAnims();
 
 // The shared v85 synthesis

@@ -5,7 +5,7 @@
 
 // CWorldSharedBSP::Load requires an exact version match, so an original level is rejected before the geometry is even read.
 // This reads the old format and builds the v85 image the loader already consumes.
-// Each format has its own reader (world_read_v56.cpp, world_read_v66.cpp), and both share the v85 writer (world_write_v85.cpp).
+// Each engine line has its own reader (world_read_v56.cpp for LT1, world_read_lt2.cpp for v66 and v70), and both share the v85 writer (world_write_v85.cpp).
 
 #include "ltbasetypes.h"
 #include "ltcodes.h"
