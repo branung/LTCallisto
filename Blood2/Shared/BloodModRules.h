@@ -111,8 +111,8 @@
 //                               same. FALSE rolls, as the original game
 //
 // The port's enhancements set their keys only where the mod did not set the key itself, so a mod's
-// own value always wins. Bug Fixes sets LimbLossFix and FemaleSecondSkin TRUE, and Consistent Enemy
-// Damage sets ConsistentDamage TRUE.
+// own value always wins. Bug Fixes, always on outside a retail demo's playback, sets LimbLossFix and
+// FemaleSecondSkin TRUE, and Consistent Enemy Damage sets ConsistentDamage TRUE.
 //
 // Both modules load the file and read their own keys. An unknown section or key, a value of the
 // wrong kind or out of range, or a minimum above its maximum loads nothing, and the error says

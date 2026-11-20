@@ -150,6 +150,10 @@ LTRESULT CBloodServerShell::OnServerInitialized()
 	ModWeapons_LoadFile();
 	ModCharacters_LoadFile();
 	ModAmmo_LoadFile();
+	
+	// Bug Fixes until a client's CMSG_LOADWORLD says otherwise, which a retail demo's sets to 0.
+	// A dedicated server never gets one and keeps this
+	BloodModRules_SetEnhancements(PORTENH_BUGFIXES);
 	ModRules_LoadFile();
 	ModExplosions_LoadFile();
 	ModProjectiles_LoadFile();

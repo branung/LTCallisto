@@ -148,7 +148,8 @@ enum ClientServerMsgs
 // ReadString into a buffer of its own, because ReadFromMessageString's 512 byte slots would cut a
 // 1 KB payload short.
 // The Port Enhancements (General, Customize Enhancements) as the bits CMSG_LOADWORLD and
-// CMSG_ENHANCEMENTS carry. A retail demo's playback sends none
+// CMSG_ENHANCEMENTS carry. A retail demo's playback sends none. Bug Fixes has no menu row: it is on
+// everywhere else, Port Enhancements ON or OFF, and the server starts with it
 #define PORTENH_BUGFIXES	0x01	// LimbLossFix TRUE, FemaleSecondSkin TRUE
 #define PORTENH_REACTIONS	0x02	// AI.txt ReactTime for CultistAI, Fanatic and Prophet
 #define PORTENH_CONSISTENTDAMAGE	0x04	// ConsistentDamage TRUE

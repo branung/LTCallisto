@@ -6569,18 +6569,19 @@ DBOOL CBloodClientShell::IsEnhancementOn(const char *pVar, DBOOL bDefault)
 //
 //	ROUTINE:	CBloodClientShell::GetEnhancementFlags
 //
-//	PURPOSE:	The PORTENH_ bits the server should use. None while Port
-//				Enhancements is OFF, and none while a retail demo plays,
-//				because it must replay what retail did
+//	PURPOSE:	The PORTENH_ bits the server should use. None while a
+//				retail demo plays, because it must replay what retail did.
+//				Otherwise Bug Fixes, which has no menu row, and the rest
+//				only while Port Enhancements is ON
 //
 // ----------------------------------------------------------------------- //
 
 DBYTE CBloodClientShell::GetEnhancementFlags()
 {
-	if (m_bDemoGame || !IsEnhancementOn("PortEnhancements", DFALSE)) return 0;
+	if (m_bDemoGame) return 0;
 
-	DBYTE nFlags = 0;
-	if (IsEnhancementOn("EnhanceBugFixes")) nFlags |= PORTENH_BUGFIXES;
+	DBYTE nFlags = PORTENH_BUGFIXES;
+	if (!IsEnhancementOn("PortEnhancements", DFALSE)) return nFlags;
 	if (IsEnhancementOn("EnhanceReactions")) nFlags |= PORTENH_REACTIONS;
 	if (IsEnhancementOn("EnhanceConsistentDamage")) nFlags |= PORTENH_CONSISTENTDAMAGE;
 	return nFlags;

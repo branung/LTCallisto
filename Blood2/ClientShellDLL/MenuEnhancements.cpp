@@ -19,7 +19,6 @@
 
 CMenuEnhancements::CMenuEnhancements()
 {
-	m_bBugFixes = DTRUE;
 	m_bReactions = DTRUE;
 	m_bConsistentDamage = DTRUE;
 }
@@ -39,11 +38,9 @@ void CMenuEnhancements::Build()
 	SetOptionPos(m_pMainMenus->GetOptionsPos());
 	SetItemSpacing(5);
 
-	m_bBugFixes = g_pBloodClientShell ? g_pBloodClientShell->IsEnhancementOn("EnhanceBugFixes") : DTRUE;
 	m_bReactions = g_pBloodClientShell ? g_pBloodClientShell->IsEnhancementOn("EnhanceReactions") : DTRUE;
 	m_bConsistentDamage = g_pBloodClientShell ? g_pBloodClientShell->IsEnhancementOn("EnhanceConsistentDamage") : DTRUE;
 
-	AddOnOffOption(IDS_MENU_ENHANCEMENTS_BUGFIXES, m_pMainMenus->GetSmallFont(), 100, &m_bBugFixes);
 	AddOnOffOption(IDS_MENU_ENHANCEMENTS_REACTIONS, m_pMainMenus->GetSmallFont(), 100, &m_bReactions);
 	AddOnOffOption(IDS_MENU_ENHANCEMENTS_DAMAGE, m_pMainMenus->GetSmallFont(), 100, &m_bConsistentDamage);
 
@@ -56,7 +53,6 @@ void CMenuEnhancements::OnFocus(DBOOL bFocus)
 	{
 		if (g_pBloodClientShell)
 		{
-			m_bBugFixes = g_pBloodClientShell->IsEnhancementOn("EnhanceBugFixes");
 			m_bReactions = g_pBloodClientShell->IsEnhancementOn("EnhanceReactions");
 			m_bConsistentDamage = g_pBloodClientShell->IsEnhancementOn("EnhanceConsistentDamage");
 		}
@@ -70,8 +66,6 @@ void CMenuEnhancements::OnFocus(DBOOL bFocus)
 	{
 		// '+' gives each variable VARFLAG_SAVE, so it is written to autoexec.cfg
 		char strConsole[64];
-		sprintf(strConsole, "+EnhanceBugFixes %f", (float)(m_bBugFixes ? 1 : 0));
-		m_pClientDE->RunConsoleString(strConsole);
 		sprintf(strConsole, "+EnhanceReactions %f", (float)(m_bReactions ? 1 : 0));
 		m_pClientDE->RunConsoleString(strConsole);
 		sprintf(strConsole, "+EnhanceConsistentDamage %f", (float)(m_bConsistentDamage ? 1 : 0));
