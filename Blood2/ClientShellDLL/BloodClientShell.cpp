@@ -468,6 +468,7 @@ CBloodClientShell::CBloodClientShell()
 	g_pBloodClientShell		= this;
 	m_bDemoPlayback			= DFALSE;
 	m_szPlayDemo[0]			= '\0';
+	m_bDemoGame				= DFALSE;
 	m_szPendingDemo[0]		= '\0';
 	m_bDemoStartFrame		= DFALSE;
 
@@ -4155,6 +4156,7 @@ DBOOL CBloodClientShell::StartNewGame(const char *pszWorldName, DBYTE nStartType
 	memset(&m_Request, 0, sizeof(StartGameRequest));
 	m_Request.m_Type = nStartType;
 	// StartDemoPlayback's file, for this one request. The engine starts the playback in StartGame, as retail's does
+	m_bDemoGame = m_szPlayDemo[0] ? DTRUE : DFALSE;
 	if (m_szPlayDemo[0])
 	{
 		SAFE_STRCPY(m_Request.m_PlaybackFilename, m_szPlayDemo);
@@ -6545,6 +6547,65 @@ void CBloodClientShell::HandleExitWorld(HMESSAGEREAD hMessage)
 
 // ----------------------------------------------------------------------- //
 //
+//	ROUTINE:	CBloodClientShell::IsEnhancementOn
+//
+//	PURPOSE:	A Port Enhancements console variable's ON/OFF, bDefault when
+//				it is absent. PortEnhancements is OFF on a fresh install and
+//				each enhancement under it ON
+//
+// ----------------------------------------------------------------------- //
+
+DBOOL CBloodClientShell::IsEnhancementOn(const char *pVar, DBOOL bDefault)
+{
+	CClientDE* pClientDE = GetClientDE();
+	if (!pClientDE) return bDefault;
+
+	HCONSOLEVAR hVar = pClientDE->GetConsoleVar((char*)pVar);
+	if (!hVar) return bDefault;
+	return pClientDE->GetVarValueFloat(hVar) != 0.0f ? DTRUE : DFALSE;
+}
+
+// ----------------------------------------------------------------------- //
+//
+//	ROUTINE:	CBloodClientShell::GetEnhancementFlags
+//
+//	PURPOSE:	The PORTENH_ bits the server should use. None while Port
+//				Enhancements is OFF, and none while a retail demo plays,
+//				because it must replay what retail did
+//
+// ----------------------------------------------------------------------- //
+
+DBYTE CBloodClientShell::GetEnhancementFlags()
+{
+	if (m_bDemoGame || !IsEnhancementOn("PortEnhancements", DFALSE)) return 0;
+
+	DBYTE nFlags = 0;
+	if (IsEnhancementOn("EnhanceBugFixes")) nFlags |= PORTENH_BUGFIXES;
+	if (IsEnhancementOn("EnhanceReactions")) nFlags |= PORTENH_REACTIONS;
+	return nFlags;
+}
+
+// ----------------------------------------------------------------------- //
+//
+//	ROUTINE:	CBloodClientShell::SendEnhancements
+//
+//	PURPOSE:	Tells a game in progress the Port Enhancements changed. With
+//				no world loaded the next CMSG_LOADWORLD carries them
+//
+// ----------------------------------------------------------------------- //
+
+void CBloodClientShell::SendEnhancements()
+{
+	CClientDE* pClientDE = GetClientDE();
+	if (!pClientDE || !m_bInWorld) return;
+
+	HMESSAGEWRITE hMsg = pClientDE->StartMessage(CMSG_ENHANCEMENTS);
+	pClientDE->WriteToMessageByte(hMsg, GetEnhancementFlags());
+	pClientDE->EndMessage(hMsg);
+}
+
+// ----------------------------------------------------------------------- //
+//
 //	ROUTINE:	CBloodClientShell::StartNewWorld()
 //
 //	PURPOSE:	Start the new world
@@ -6578,6 +6639,7 @@ DBOOL CBloodClientShell::StartNewWorld(const char *pszWorld, DBYTE nGameType, DB
 		pClientDE->WriteToMessageByte(hMsg, nGameType);			// Game type
 		pClientDE->WriteToMessageByte(hMsg, nLoadType);			// Load type
 		pClientDE->WriteToMessageByte(hMsg, nDifficulty);		// Difficulty level
+		pClientDE->WriteToMessageByte(hMsg, GetEnhancementFlags());	// Port Enhancements
 		pClientDE->EndMessage(hMsg);
 
 		SetGameState(GS_LOADINGLEVEL);

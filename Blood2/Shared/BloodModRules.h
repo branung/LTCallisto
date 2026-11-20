@@ -96,6 +96,15 @@
 //                               reversed shot, so most hits miss and the
 //                               rest favor the legs; and a lost arm also
 //                               hides the next limb. FALSE retains them)
+//   [Civilians] FemaleSecondSkin
+//                               TRUE: a female civilian wears
+//                               f_civilian2.dtx on one roll in three.
+//                               (The original game names f_civilian1 on
+//                               all three rolls, so its second skin is
+//                               never seen. FALSE retains that)
+//
+// The port's Bug Fixes enhancement sets LimbLossFix and FemaleSecondSkin TRUE, each only where the
+// mod did not set the key itself, so a mod's own value always wins.
 //
 // Both modules load the file and read their own keys. An unknown section or key, a value of the
 // wrong kind or out of range, or a minimum above its maximum loads nothing, and the error says
@@ -161,6 +170,8 @@ struct BloodModRulesValues
 	int			nGibArmChance;
 	int			nGibLegChance;
 	int			bLimbLossFix;
+	// [Civilians]
+	int			bFemaleSecondSkin;
 	// [Effects] (the client's)
 	int			nFleshGibChance;
 	int			nFleshGibMore;
@@ -200,5 +211,10 @@ void BloodModRules_Clear();
 std::string BloodModRules_Summary();
 std::string BloodModRules_Reference();
 void BloodModRules_LoadAndReport(LT1Mod::FileSource &src, void (*pPrint)(const char *pLine), const char *pPrefix);
+
+// The Port Enhancements in effect, PORTENH_ bits (SharedDefs.h), from CMSG_LOADWORLD. Each sets its
+// keys in gRules over retail's, never over a key the mod set, and a later Load or Clear keeps them.
+void BloodModRules_SetEnhancements(unsigned nFlags);
+unsigned BloodModRules_Enhancements();
 
 #endif // __BLOODMODRULES_H__

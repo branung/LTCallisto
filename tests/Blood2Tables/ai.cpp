@@ -10,7 +10,10 @@
 //   strings   at most 31 characters, terminated in the member.
 //   trace     [Options] Trace, and the first-of-class answer, once.
 
+#include "server_de.h"
+#include "SharedDefs.h"		// PORTENH_REACTIONS
 #include "BloodModAI.h"
+#include "BloodModRules.h"
 #include "harness.h"
 
 #include <filesystem>
@@ -535,6 +538,11 @@ void TestArchetypes()
 }
 
 // The reaction keys, and BloodModAI_Sets, which decides whether AI_Mgr::Save writes the reaction's state
+// Enemy Reactions' draws: each end of the range, and how many were asked for
+int s_nRolls = 0;
+float RollLow(float lo, float hi) { ++s_nRolls; return lo; }
+float RollHigh(float lo, float hi) { ++s_nRolls; return hi; }
+
 void TestReact()
 {
 	printf("AI: the reaction\n");
@@ -556,6 +564,37 @@ void TestReact()
 	Check(!bNegative && err.find("ReactTime") != std::string::npos, "a negative ReactTime is refused: " + err);
 	Unload();
 	Check(!BloodModAI_Sets("ReactTime"), "and unloading takes the reaction away");
+
+	// Enemy Reactions: the three classes, under the mod's own key
+	BloodModAIValues e = Sentinel();
+	s_nRolls = 0;
+	Check(BloodModAI_ApplyEnhancements("CultistAI", e, RollLow) == 0 && e.m_fModReactTime == Sentinel().m_fModReactTime &&
+		  s_nRolls == 0,
+		  "with Enemy Reactions off no class takes a reaction, and nothing is drawn");
+	BloodModRules_SetEnhancements(PORTENH_REACTIONS);
+	int nThree = 0;
+	const char* kThree[] = { "CultistAI", "Fanatic", "Prophet" };
+	for (int i = 0; i < 3; ++i)
+	{
+		e = Sentinel();
+		if (BloodModAI_ApplyEnhancements(kThree[i], e, RollLow) == 1 && e.m_fModReactTime == 0.60f) ++nThree;
+	}
+	const int nThreeRolls = s_nRolls;
+	e = Sentinel();
+	Check(nThree == 3 && nThreeRolls == 3 && BloodModAI_ApplyEnhancements("ShikariAI", e, RollLow) == 0 &&
+		  BloodModAI_ApplyEnhancements("GabriellaAI", e, RollLow) == 0 && s_nRolls == 3,
+		  "Enemy Reactions draws CultistAI, Fanatic and Prophet a ReactTime from 0.60, once each, and no other class");
+	BloodModAI_ApplyEnhancements("Prophet", e, RollHigh);
+	const float fHigh = e.m_fModReactTime;
+	BloodModAI_ApplyEnhancements("Prophet", e, 0);
+	Check(fHigh == 0.75f && e.m_fModReactTime == 0.75f, "to 0.75, which is also the time with no draw");
+	const bool bOwn = LoadAI("[Fanatic]\nReactTime = 2.0\n", err);
+	e = Sentinel();
+	BloodModAI_ApplyEnhancements("Fanatic", e, RollLow);
+	BloodModAI_Apply("Fanatic", e);
+	Check(bOwn && e.m_fModReactTime == 2.0f, "and a mod's own ReactTime wins over it");
+	Unload();
+	BloodModRules_SetEnhancements(0);
 }
 
 // The example mod, tests/Blood2Tables/ai_mod.

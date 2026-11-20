@@ -8,6 +8,7 @@
 #include "lt1mod_attrib.h"
 #include "lt1mod_registry.h"
 #include "SFXMsgIds.h"			// the OBJFX_ names
+#include "SharedDefs.h"			// PORTENH_REACTIONS
 
 #include <stddef.h>
 #include <stdio.h>
@@ -582,6 +583,20 @@ int BloodModAI_Apply(const char* pClass, BloodModAIValues& v)
 	return ApplyOverride(g_Overrides[(size_t)nClass], v);
 }
 
+// Enemy Reactions' pause before the first shot, in seconds, drawn per AI so a group does not fire in
+// step. Retail's models have no spot animation, so it is a wait in the first idle
+const float kBloodModEnhanceReactMin = 0.60f;
+const float kBloodModEnhanceReactMax = 0.75f;
+
+int BloodModAI_ApplyEnhancements(const char* pClass, BloodModAIValues& v, float (*pRoll)(float lo, float hi))
+{
+	if (!pClass || !(BloodModRules_Enhancements() & PORTENH_REACTIONS)) return 0;
+	if (!EqualNoCase(pClass, "CultistAI") && !EqualNoCase(pClass, "Fanatic") && !EqualNoCase(pClass, "Prophet"))
+		return 0;
+	v.m_fModReactTime = pRoll ? pRoll(kBloodModEnhanceReactMin, kBloodModEnhanceReactMax) : kBloodModEnhanceReactMax;
+	return 1;
+}
+
 int BloodModAI_FindArchetype(const char* pName)
 {
 	if (pName)
@@ -787,7 +802,10 @@ std::string BloodModAI_Reference()
 		   "//                    spot_right\n"
 		   "//     ReactAnimPistol  the same, while holding a pistol (\"\": ReactAnim)\n"
 		   "//     ReactTime      the reaction's seconds, at least (0); a model without the\n"
-		   "//                    animation stands idle for them instead\n"
+		   "//                    animation stands idle for them instead; the Enemy\n"
+		   "//                    Reactions enhancement gives CultistAI, Fanatic and\n"
+		   "//                    Prophet 0.60 to 0.75, drawn for each, where the mod\n"
+		   "//                    does not set it\n"
 		   "//     ReactAgain     seconds out of attack after which the next attack reacts\n"
 		   "//                    again (0: once in the AI's life)\n"
 		   "//     Script         TRUE: the mod's ServerScript.lua hears every AI of the class\n"

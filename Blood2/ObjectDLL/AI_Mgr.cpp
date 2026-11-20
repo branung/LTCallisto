@@ -1029,6 +1029,12 @@ static DBOOL ModAI_ClassName(ObjectCreateStruct *pStruct, char* pName, size_t nS
 	return DTRUE;
 }
 
+// Enemy Reactions' draw, from the engine's stream as an AI's random hit points are
+static float ModAI_RollReact(float lo, float hi)
+{
+	return g_pServerDE ? g_pServerDE->Random(lo, hi) : hi;
+}
+
 DBOOL AI_Mgr::ModAI_Apply(ObjectCreateStruct *pStruct, BloodModAIValues& ctor, BloodModAIValues& mod)
 {
 	char szClass[64], szClassArch[64];
@@ -1048,7 +1054,7 @@ DBOOL AI_Mgr::ModAI_Apply(ObjectCreateStruct *pStruct, BloodModAIValues& ctor, B
 		BloodMod::PrintWrapped(std::string(szClass) + "'s constructor: " + sLine, "AI: ", ModAI_Print);
 	}
 
-	const int nClassKeys = BloodModAI_Apply(szClass, mod);
+	const int nClassKeys = BloodModAI_ApplyEnhancements(szClass, mod, ModAI_RollReact) + BloodModAI_Apply(szClass, mod);
 
 	// A mod's new enemy type: the object's Archetype
 	// property, which a world file or a Spawner's string gives, names an
@@ -1103,7 +1109,8 @@ void AI_Mgr::ModAI_ApplyRestored(ObjectCreateStruct *pStruct)
 #define X(key, member, kind) ModAI_Copy(v.member, member);
 	BLOODMOD_AI_FIELDS(X)
 #undef X
-	if (BloodModAI_Apply(szClass, v))
+	// No draw here, because the end of Load draws again
+	if (BloodModAI_ApplyEnhancements(szClass, v, DNULL) + BloodModAI_Apply(szClass, v))
 	{
 		if (BloodModAI_Trace())	// m_pServerDE is not set before InitialUpdate
 			DEBaseClass::GetServerDE()->CPrint("AI: %s restored: Cabal %s -> %s", szClass, m_bCabal ? "TRUE" : "FALSE",
@@ -1132,7 +1139,8 @@ void AI_Mgr::ModAI_ApplyUnsaved()
 #define X(key, member, kind) ModAI_Copy(v.member, member);
 	BLOODMOD_AI_FIELDS(X)
 #undef X
-	const int nKeys = BloodModAI_Apply(szClass, v) + BloodModAI_ApplyArchetype(m_nModArchetype, v);
+	const int nKeys = BloodModAI_ApplyEnhancements(szClass, v, ModAI_RollReact) + BloodModAI_Apply(szClass, v) +
+					  BloodModAI_ApplyArchetype(m_nModArchetype, v);
 	if (!nKeys) return;
 #define X(member) ModAI_Copy(member, v.member);
 	BLOODMOD_AI_UNSAVED(X)
@@ -1283,11 +1291,12 @@ void AI_Mgr::MC_ModReact()
 	}
 }
 
-// Whether the mod has a reaction anywhere, so Save writes the reaction's state and Load reads it;
-// with none a save's bytes are retail's
-DBOOL AI_Mgr::ModAI_ReactSaved()
+// Whether this AI has a reaction, from the mod or Enemy Reactions, so Save writes its state. Save
+// marks it in the top bit of m_bUpdateScriptCmd's byte and Load reads the state where it finds the
+// mark, so a save loads whatever the mod or the menu says now. With none a save's bytes are retail's.
+DBOOL AI_Mgr::ModAI_ReactSaved() const
 {
-	return (BloodModAI_Sets("ReactAnim") || BloodModAI_Sets("ReactAnimPistol") || BloodModAI_Sets("ReactTime")) ? DTRUE : DFALSE;
+	return (m_szModReactAnim[0] || m_szModReactAnimPistol[0] || m_fModReactTime > 0.0f || m_bModReacted) ? DTRUE : DFALSE;
 }
 
 // After ReadProp: what the mod changed in this object, and where the level's own property replaced
@@ -7451,7 +7460,8 @@ void AI_Mgr::Save(HMESSAGEWRITE hWrite, DDWORD dwSaveFlags)
 	pServerDE->WriteToMessageFloat(hWrite, m_fScriptWaitEnd);
 	pServerDE->WriteToMessageDWord(hWrite, m_dwScriptFlags);
 	pServerDE->WriteToMessageByte(hWrite, m_eScriptMovement);
-	pServerDE->WriteToMessageByte(hWrite, m_bUpdateScriptCmd);
+	const DBOOL bReactSaved = ModAI_ReactSaved();
+	pServerDE->WriteToMessageByte(hWrite, (DBYTE)((m_bUpdateScriptCmd ? 1 : 0) | (bReactSaved ? 0x80 : 0)));
 
 	m_curScriptCmd.Save(hWrite);
 	m_scriptCmdList.Save(hWrite);
@@ -7461,9 +7471,9 @@ void AI_Mgr::Save(HMESSAGEWRITE hWrite, DDWORD dwSaveFlags)
 	// Only while the mod has archetypes, so a retail save's bytes are unchanged.
 	if (BloodModAI_ArchetypeName(0))
 		pServerDE->WriteToMessageString(hWrite, (char*)(m_nModArchetype >= 0 ? BloodModAI_ArchetypeName(m_nModArchetype) : ""));
-	// A mod's reaction: whether this AI has reacted, and its clocks, so a load does not arm it again.
-	// Only while the mod has a reaction, as above.
-	if (ModAI_ReactSaved())
+	// A reaction: whether this AI has reacted, and its clocks, so a load does not arm it again. Only for
+	// an AI with a reaction, which the byte above marks.
+	if (bReactSaved)
 	{
 		pServerDE->WriteToMessageByte(hWrite, (DBYTE)m_bModReacted);
 		pServerDE->WriteToMessageFloat(hWrite, m_fModReactStart - fTime);
@@ -7559,7 +7569,8 @@ void AI_Mgr::Load(HMESSAGEREAD hRead, DDWORD dwLoadFlags)
 	m_fScriptWaitEnd	= pServerDE->ReadFromMessageFloat(hRead);
 	m_dwScriptFlags		= pServerDE->ReadFromMessageDWord(hRead);
 	m_eScriptMovement	= (AIScriptMovement) pServerDE->ReadFromMessageByte(hRead);
-	m_bUpdateScriptCmd	= (DBOOL) pServerDE->ReadFromMessageByte(hRead);
+	const DBYTE nUpdateScriptCmd = pServerDE->ReadFromMessageByte(hRead);
+	m_bUpdateScriptCmd	= (nUpdateScriptCmd & 0x7f) ? DTRUE : DFALSE;
 
 	m_curScriptCmd.Load(hRead);
 	m_scriptCmdList.Load(hRead);
@@ -7571,7 +7582,7 @@ void AI_Mgr::Load(HMESSAGEREAD hRead, DDWORD dwLoadFlags)
 		char* pArch = pServerDE->ReadFromMessageString(hRead);
 		m_nModArchetype = (pArch && pArch[0]) ? BloodModAI_FindArchetype(pArch) : -1;
 	}
-	if (ModAI_ReactSaved())
+	if (nUpdateScriptCmd & 0x80)
 	{
 		m_bModReacted = (DBOOL)pServerDE->ReadFromMessageByte(hRead);
 		m_fModReactStart = pServerDE->ReadFromMessageFloat(hRead) + fTime;

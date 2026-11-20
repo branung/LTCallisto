@@ -132,7 +132,11 @@ enum ClientServerMsgs
 	CMSG_WEAPON_CHANGE,
 	CMSG_NEXTLEVEL,
 	CMSG_MAXMESSAGES,
-	CMSG_RESETPLAYERINVENTORY
+	CMSG_RESETPLAYERINVENTORY,
+
+	// The Port Enhancements changed during a game, a byte of PORTENH_ bits. CMSG_LOADWORLD carries
+	// the same byte for each world
+	CMSG_ENHANCEMENTS
 };
 
 // Server <-> client, both directions: the mod signature. The server sends its own when a client
@@ -143,6 +147,11 @@ enum ClientServerMsgs
 // A message between the mod's two scripts: the name and the payload, two strings. Read with
 // ReadString into a buffer of its own, because ReadFromMessageString's 512 byte slots would cut a
 // 1 KB payload short.
+// The Port Enhancements (General, Customize Enhancements) as the bits CMSG_LOADWORLD and
+// CMSG_ENHANCEMENTS carry. A retail demo's playback sends none
+#define PORTENH_BUGFIXES	0x01	// LimbLossFix TRUE, FemaleSecondSkin TRUE
+#define PORTENH_REACTIONS	0x02	// AI.txt ReactTime for CultistAI, Fanatic and Prophet
+
 #define MSG_MOD_SCRIPT		241
 
 

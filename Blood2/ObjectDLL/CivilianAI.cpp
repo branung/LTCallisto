@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include "CivilianAI.h"
 #include "cpp_server_de.h"
+#include "BloodModRules.h"
 
 BEGIN_CLASS(CivilianAI)
     ADD_REALPROP(RandomHitPoints, 0.0f) \
@@ -278,7 +279,11 @@ void CivilianAI::PostPropRead(ObjectCreateStruct *pStruct)
 			switch(pServerDE->IntRandom(1,3))
 			{
 				case 1:		pSkin = "Skins\\Enemies\\f_civilian1.dtx";	break;
-				case 2:		pSkin = "Skins\\Enemies\\f_civilian1.dtx";	break;
+				case 2:
+					// Retail names f_civilian1 here too, so f_civilian2 never shows
+					if (gRules.bFemaleSecondSkin)	pSkin = "Skins\\Enemies\\f_civilian2.dtx";
+					else							pSkin = "Skins\\Enemies\\f_civilian1.dtx";
+					break;
 				case 3:		pSkin = "Skins\\Enemies\\f_civilian1.dtx";	break;
 				default:	pSkin = "Skins\\Enemies\\f_civilian1.dtx";	break;
 			}

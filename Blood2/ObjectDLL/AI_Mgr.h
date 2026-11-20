@@ -420,7 +420,7 @@ protected :
 	void			MC_ChaseWalk();			// MC_Walk, or MC_Run with the mod's ChaseRun
 	DBOOL			ModAI_ReactPending() const;	// the mod gives a reaction this AI has yet to play
 	void			MC_ModReact();			// plays it
-	static DBOOL	ModAI_ReactSaved();		// the mod has a reaction, so Save keeps its state
+	DBOOL			ModAI_ReactSaved() const;	// this AI has a reaction, so Save keeps its state
 	static int		ModAI_DeathKind(int nType);		// a DAMAGE_TYPE_'s death table kind
 	void			ModAI_DeathFX(const char* pName);
 	void			ModAI_Drop(const char* pClass, const char* pNode);

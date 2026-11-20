@@ -55,6 +55,7 @@ BloodModRulesValues gRules =
 	80,				// its IsRandomChance(80) for each arm
 	60,				// and IsRandomChance(60) for each leg
 	0,				// CCorpse's 1 hit point, reversed hit test, and HideLimb's nNode+3
+	0,				// CivilianAI::PostPropRead's females: f_civilian1 on every roll
 	// SFXMgr.cpp's:
 	20, 2, 1,		// CreateGibs: IsRandomChance(20) *= 2, else *= (DBYTE)1.5
 	{ 300, 300, 80, 80, 80, 80, 100, 80 },	// s_nDynArrayMaxNums
@@ -128,6 +129,7 @@ const Rule kRules[] =
 	R("Corpse", "GibArmChance",			PERCENT,	nGibArmChance),
 	R("Corpse", "GibLegChance",			PERCENT,	nGibLegChance),
 	R("Corpse", "LimbLossFix",			BOOL,		bLimbLossFix),
+	R("Civilians", "FemaleSecondSkin",	BOOL,		bFemaleSecondSkin),
 	R("Effects", "FleshGibChance",		PERCENT,	nFleshGibChance),
 	RM("Effects", "FleshGibMore",		INT,		nFleshGibMore, 16),		// a DBYTE count's multiplier
 	RM("Effects", "FleshGibScale",		INT,		nFleshGibScale, 16),
@@ -182,6 +184,8 @@ const int kNumObjFX = (int)(sizeof(kObjFX) / sizeof(kObjFX[0]));
 BloodModRulesValues g_Retail;
 bool g_bRetail = false;
 std::deque<std::string> g_Strings;	// every string a mod gave: gRules keeps the pointers
+std::vector<char> g_Set;			// by key, whether the loaded mod set it
+unsigned g_nEnhancements = 0;		// BloodModRules_SetEnhancements' PORTENH_ bits
 
 void TakeRetail()
 {
@@ -271,10 +275,48 @@ bool BloodModRules_ObjFXList(const char* pList, std::vector<int>& out, std::stri
 	return true;
 }
 
+// The Bug Fixes enhancement: each key and its fixed value
+struct EnhancementKey { const char* pKey; int nValue; };
+const EnhancementKey kBugFixes[] =
+{
+	{ "LimbLossFix", 1 },
+	{ "FemaleSecondSkin", 1 },
+};
+
+// Each enhancement's keys over gRules: its value when it is on, retail's when it is off, and nothing
+// where the mod set the key
+void ApplyEnhancements()
+{
+	for (size_t f = 0; f < sizeof(kBugFixes) / sizeof(kBugFixes[0]); ++f)
+	{
+		for (int i = 0; i < kNumRules; ++i)
+		{
+			if (strcmp(kRules[i].pKey, kBugFixes[f].pKey)) continue;
+			if ((size_t)i < g_Set.size() && g_Set[i]) break;
+			N(gRules, i) = (g_nEnhancements & PORTENH_BUGFIXES) ? kBugFixes[f].nValue : N(g_Retail, i);
+			break;
+		}
+	}
+}
+
+void BloodModRules_SetEnhancements(unsigned nFlags)
+{
+	TakeRetail();
+	g_nEnhancements = nFlags;
+	ApplyEnhancements();
+}
+
+unsigned BloodModRules_Enhancements()
+{
+	return g_nEnhancements;
+}
+
 void BloodModRules_Clear()
 {
 	TakeRetail();
 	gRules = g_Retail;
+	g_Set.clear();
+	ApplyEnhancements();
 }
 
 bool BloodModRules_Load(LT1Mod::FileSource &src, std::string &sError)
@@ -298,6 +340,7 @@ bool BloodModRules_Load(LT1Mod::FileSource &src, std::string &sError)
 	BloodModRulesValues v = g_Retail;
 	std::vector<std::string> strings;		// kept only once the whole file is good
 	std::vector<int> stringKeys;
+	std::vector<char> set(kNumRules, 0);
 	char buf[512];
 	const std::vector<std::string>& tags = a.Tags();
 	for (size_t t = 0; t < tags.size(); ++t)
@@ -375,6 +418,7 @@ bool BloodModRules_Load(LT1Mod::FileSource &src, std::string &sError)
 				sError = buf;
 				return false;
 			}
+			set[r] = 1;
 		}
 	}
 	// A minimum above its maximum would run GetRandom backwards.
@@ -400,6 +444,8 @@ bool BloodModRules_Load(LT1Mod::FileSource &src, std::string &sError)
 		S(v, stringKeys[i]) = g_Strings.back().c_str();
 	}
 	gRules = v;
+	g_Set = set;
+	ApplyEnhancements();
 	return true;
 }
 
@@ -417,7 +463,7 @@ std::string BloodModRules_Summary()
 		}
 		section = kRules[i].pSection;
 		const std::string now = ValueOf(gRules, i);
-		if (now != ValueOf(g_Retail, i))
+		if (now != ValueOf(g_Retail, i) && (size_t)i < g_Set.size() && g_Set[i])
 			line += std::string(line.empty() ? "" : ", ") + kRules[i].pKey + " " + now;
 	}
 	return out;

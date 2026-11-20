@@ -222,6 +222,13 @@ class CBloodClientShell : public CClientShellDE
 		DBOOL			IsRunLock()								{ return (cdata.byFlags & CDATA_RUNLOCK) ? DTRUE : DFALSE; }
 		void			SetRunLock(DBOOL bRunLock)				{ if (bRunLock) cdata.byFlags |= CDATA_RUNLOCK; else cdata.byFlags &= ~CDATA_RUNLOCK; }
 
+		// The Port Enhancements: a console variable's ON/OFF, bDefault when it is absent; the PORTENH_
+		// bits in effect, none while Port Enhancements is OFF or a retail demo plays; and those bits
+		// sent to a game in progress
+		DBOOL			IsEnhancementOn(const char *pVar, DBOOL bDefault = DTRUE);
+		DBYTE			GetEnhancementFlags();
+		void			SendEnhancements();
+
 		// Joystick routines
 		DBOOL			IsUseJoystick()							{ return m_bUseJoystick; }
 		void			SetUseJoystick(DBOOL bUseJoystick);
@@ -434,6 +441,7 @@ class CBloodClientShell : public CClientShellDE
 		DBOOL			m_nLastCrosshair;
 		DBOOL			m_bDemoPlayback;
 		char			m_szPlayDemo[100];		// For the next StartNewGame's request (StartDemoPlayback)
+		DBOOL			m_bDemoGame;			// the game StartNewGame last started plays a retail demo
 		char			m_szPendingDemo[100];	// playdemo, started by the first Update
 		DBOOL			m_bDemoStartFrame;		// That Update started it, so PostUpdate draws no loading screen
 		DBOOL			m_bShiftState;

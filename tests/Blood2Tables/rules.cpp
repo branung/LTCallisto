@@ -88,7 +88,8 @@ void TestRetail()
 		  gRules.fFlashlightChargeTime == 120.0f && gRules.fGogglesChargeTime == 30.0f &&
 		  gRules.fBloodSpurtDamage == 25.0f && !strcmp(gRules.szBurnFX, "FLAMING_2") &&
 		  !strcmp(gRules.szSmokeFX, "SMOKING_2") && !gRules.bGibOnExplosionOnly && gRules.nGibHeadChance == 100 &&
-		  gRules.nGibArmChance == 80 && gRules.nGibLegChance == 60 && !gRules.bLimbLossFix,
+		  gRules.nGibArmChance == 80 && gRules.nGibLegChance == 60 && !gRules.bLimbLossFix &&
+		  !gRules.bFemaleSecondSkin,
 		  "with no mod gRules is the retail code's constants: " + All());
 	// The client's, from retail's ClientShellDLL: BloodClientShell.cpp's BOB/SWAY_WALKING and
 	// shake's * 3.0f, ViewWeapon's idle delays, MoveMgr's LADDER_STOP_TIME and swim flags,
@@ -219,6 +220,28 @@ void TestErrors()
 	Unload();
 }
 
+void TestEnhancements()
+{
+	printf("rules: enhancements\n");
+	std::string err;
+	Unload();
+	BloodModRules_SetEnhancements(PORTENH_BUGFIXES);
+	Check(gRules.bLimbLossFix && gRules.bFemaleSecondSkin && BloodModRules_Summary().empty(),
+		  "Bug Fixes with no mod: limbs come off bodies, the second skin shows, and no mod change is reported");
+	LoadRules("[Corpse]\nLimbLossFix = FALSE\n", err);
+	// The mod names retail's value, so its summary, which lists what differs from retail, stays empty
+	Check(!gRules.bLimbLossFix && gRules.bFemaleSecondSkin && BloodModRules_Summary().empty(),
+		  "a mod's own LimbLossFix wins over Bug Fixes, which still sets the key the mod left alone" +
+		  (err.empty() ? std::string() : ": " + err));
+	LoadRules("[Player]\nUseDistance = 122.0\n", err);
+	Check(gRules.bLimbLossFix && gRules.bFemaleSecondSkin,
+		  "Bug Fixes outlasts the next load, which no longer sets the key");
+	BloodModRules_SetEnhancements(0);
+	Check(!gRules.bLimbLossFix && !gRules.bFemaleSecondSkin && gRules.fUseDistance == 122.0f,
+		  "turned off, each key goes back to retail's and the mod's keys stay");
+	Unload();
+}
+
 } // namespace
 
 std::string RulesDump()
@@ -238,7 +261,8 @@ std::string RulesDump()
 		"// smoking corpse show, one of each list at random, whether only an\n"
 		"// explosion gibs a corpse, the percent chance of each limb a gib\n"
 		"// throws, and whether shooting a body's limbs off works \n"
-		"// (the original game had several bugs there). \n"
+		"// (the original game had several bugs there); [Civilians] whether a\n"
+		"// female civilian may wear her second skin, which retail never shows.\n"
 		"// The client reads [Camera] (bob, sway, shake), [ViewWeapon]\n"
 		"// (the idle delay), [Movement] (ladders and swimming), [Items]'\n"
 		"// FlashlightRadius, the rest of [Impacts] (WeaponFX.cpp's numbers) and\n"
@@ -260,4 +284,5 @@ void RulesSelfTest()
 	TestKeys();
 	TestRoundTrip();
 	TestErrors();
+	TestEnhancements();
 }

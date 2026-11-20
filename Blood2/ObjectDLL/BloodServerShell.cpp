@@ -24,6 +24,7 @@
 #include "lt1mod_engine.h"
 #include "ModCommands.h"
 #include "ModScript.h"
+#include "BloodModRules.h"
 #include "lt1mod_script.h"		// its messages' sizes
 
 #include <windows.h>  // For DebugBreak
@@ -488,6 +489,16 @@ void CBloodServerShell::OnMessage(HCLIENT hSender, DBYTE messageID, HMESSAGEREAD
 			{
 				pPlayer->HandleWeaponStateMessage(hMessage);
 			}
+		}
+		break;
+
+		// The Port Enhancements changed during a game. Single player only, because a multiplayer game
+		// keeps what the host's CMSG_LOADWORLD said
+		case CMSG_ENHANCEMENTS:
+		{
+			DBYTE nFlags = g_pServerDE->ReadFromMessageByte(hMessage);
+			if (!IsMultiplayerGame())
+				BloodModRules_SetEnhancements(nFlags);
 		}
 		break;
 
@@ -957,6 +968,9 @@ DBOOL CBloodServerShell::LoadWorld(HMESSAGEREAD hMessage)
 	DBYTE nGameType		= g_pServerDE->ReadFromMessageByte(hMessage);
 	DBYTE nLoadType		= g_pServerDE->ReadFromMessageByte(hMessage);
 	DBYTE nDifficulty	= g_pServerDE->ReadFromMessageByte(hMessage);
+	// The host's Port Enhancements, before the world's objects are created because a civilian's skin
+	// is chosen then
+	BloodModRules_SetEnhancements(g_pServerDE->ReadFromMessageByte(hMessage));
 
 	CultistAI::ResetStatics();	// fix a wierd clown animation bug
 

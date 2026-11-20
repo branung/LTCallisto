@@ -173,6 +173,7 @@ DBOOL CMainMenus::Init(CClientDE* pClientDE)
 	m_keyboardMenu.Init			(m_pClientDE, this, &m_optionsMenu	   ,MENU_ID_KEYBOARD	   ,m_nMenuHeight);
 	m_joystickMenu.Init			(m_pClientDE, this, &m_optionsMenu	   ,MENU_ID_JOYSTICK	   ,m_nMenuHeight);
 	m_generalMenu.Init			(m_pClientDE, this, &m_optionsMenu	   ,MENU_ID_GENERAL	   ,m_nMenuHeight);
+	m_enhancementsMenu.Init		(m_pClientDE, this, &m_generalMenu	   ,MENU_ID_ENHANCEMENTS   ,m_nMenuHeight);
 
 	// Add each menu to the array
 	m_menuArray.SetSize(0);
@@ -193,6 +194,7 @@ DBOOL CMainMenus::Init(CClientDE* pClientDE)
 	m_menuArray.Add(&m_keyboardMenu);
 	m_menuArray.Add(&m_joystickMenu);
 	m_menuArray.Add(&m_generalMenu);
+	m_menuArray.Add(&m_enhancementsMenu);
 
 	// Build each menu
 	unsigned int i;
@@ -1029,6 +1031,11 @@ CMenuBase *CMainMenus::GetMenuFromID(DWORD dwMenuID)
 	case MENU_ID_GENERAL:
 		{
 			pMenu=&m_generalMenu;
+			break;
+		}
+	case MENU_ID_ENHANCEMENTS:
+		{
+			pMenu=&m_enhancementsMenu;
 			break;
 		}
 	default:

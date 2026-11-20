@@ -76,6 +76,13 @@ void BloodModAI_Clear();
 // of keys written; 0 when the mod sets nothing for it.
 int BloodModAI_Apply(const char* pClass, BloodModAIValues& v);
 
+// The Port Enhancements' values for class pClass, written into v before the mod's, so the mod's own
+// key wins. Enemy Reactions gives CultistAI, Fanatic and Prophet a ReactTime that pRoll draws between
+// the two times below, or the longer with no pRoll. pRoll is called only for an AI that takes the
+// reaction, so nothing is drawn when the enhancement is off. Returns the keys written.
+int BloodModAI_ApplyEnhancements(const char* pClass, BloodModAIValues& v, float (*pRoll)(float lo, float hi));
+extern const float kBloodModEnhanceReactMin, kBloodModEnhanceReactMax;
+
 // Archetypes: the index of a name, or -1; its name and the class at the root of its chain; its
 // values, written into v root first; NULL for no index
 int BloodModAI_FindArchetype(const char* pName);

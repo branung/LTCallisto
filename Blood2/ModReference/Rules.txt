@@ -12,7 +12,8 @@
 // smoking corpse show, one of each list at random, whether only an
 // explosion gibs a corpse, the percent chance of each limb a gib
 // throws, and whether shooting a body's limbs off works 
-// (the original game had several bugs there). 
+// (the original game had several bugs there); [Civilians] whether a
+// female civilian may wear her second skin, which retail never shows.
 // The client reads [Camera] (bob, sway, shake), [ViewWeapon]
 // (the idle delay), [Movement] (ladders and swimming), [Items]'
 // FlashlightRadius, the rest of [Impacts] (WeaponFX.cpp's numbers) and
@@ -82,6 +83,9 @@ GibHeadChance = 100
 GibArmChance = 80
 GibLegChance = 60
 LimbLossFix = FALSE
+
+[Civilians]
+FemaleSecondSkin = FALSE
 
 [Effects]
 FleshGibChance = 20

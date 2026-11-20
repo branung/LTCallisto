@@ -22,7 +22,15 @@ public:
 
 	void	OnFocus(DBOOL bFocus);
 
+	// Port Enhancements' ON/OFF greys Customize Enhancements as it changes
+	void	OnLeft();
+	void	OnRight();
+	DBOOL	OnLButtonDown(int x, int y);
+
 protected:
+	void	EnableEnhancementControls();
+	void	OnEnhancementsToggled();
+
 	// Load/Save the general settings
 	void	LoadGeneralSettings();
 	void	SaveGeneralSettings();
@@ -30,6 +38,10 @@ protected:
 protected:
 	DBOOL	m_bCrosshair;			// Show the crosshair
 	DBOOL	m_bAlwaysRun;			// Always run (RunLock)
+	DBOOL	m_bEnhancements;		// PortEnhancements console variable
+
+	CLTGUIOnOffCtrl			*m_pEnhancementsCtrl;	// Port Enhancements
+	CLTGUIColumnTextCtrl	*m_pCustomizeCtrl;		// Customize Enhancements...
 
 	DDWORD	OnCommand(DDWORD dwCommand, DDWORD dwParam1, DDWORD dwParam2);
 };
