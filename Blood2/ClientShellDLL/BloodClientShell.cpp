@@ -5832,13 +5832,14 @@ void CBloodClientShell::OnObjectRemove(HLOCALOBJ hObj)
 		m_hSeeingEyeObj = DNULL;
 	else if (hObj == m_hOrbObj)
 		m_hOrbObj = DNULL;
-	else if (m_pCreature)
-	{
-		if(hObj == m_pCreature->m_hEnemyObject || hObj == m_pCreature->m_hServerObject)
-			m_pCreature->Detach();
-	}
 	else
+	{
+		if (m_pCreature &&
+			(hObj == m_pCreature->m_hEnemyObject || hObj == m_pCreature->m_hServerObject))
+			m_pCreature->Detach();
+
 		m_sfxMgr.RemoveSpecialFX(hObj);
+	}
 }
 
 
