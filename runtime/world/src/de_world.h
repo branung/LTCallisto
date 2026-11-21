@@ -29,6 +29,10 @@ class VisitPVSRequest;
                                         // 2. FLAG_GOTHRUWORLD is checked for world models
                                         //    with this WorldBsp.
 
+#define WIF_TERRAIN             (1<<3)  // LT2: a terrain section, which the v66/v70 converter writes as a model named
+                                        //    "#$#<i> <model>". Collision only, one solid invisible object each, as
+                                        //    LT2 makes them. Jupiter's preprocessor never writes the bit, so native
+                                        //    worlds are unaffected.
 #define WIF_PHYSICSBSP          (1<<4)  // This is the physics BSP (only one of these).
 #define WIF_VISBSP              (1<<5)  // This is the visibility BSP (only one of these).
 

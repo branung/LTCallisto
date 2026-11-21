@@ -526,7 +526,26 @@ bool CClientShell::CreateVisContainerObjects() {
         pWorldData = world_bsp_client->GetWorldModel(i);
 
         dResult = LT_OK;
-        if (pWorldData->OriginalBSP()->m_WorldInfoFlags & (WIF_PHYSICSBSP | WIF_VISBSP))
+        // An LT2 terrain section is solid and ray-hit but not visible, because the terrain draws as part of the main  world.
+        // LT 2.5's client makes it this way at its translation as the BSPs are
+        if ((pWorldData->OriginalBSP()->m_WorldInfoFlags & WIF_TERRAIN) &&
+            strncmp(pWorldData->m_pValidBsp->m_WorldName, "#$#", 3) == 0)
+        {
+            ocs.Clear();
+            ocs.m_ObjectType = OT_WORLDMODEL;
+            ocs.m_Flags = FLAG_SOLID | FLAG_RAYHIT;
+            SAFE_STRCPY(ocs.m_Filename, pWorldData->m_pValidBsp->m_WorldName);
+            ocs.m_Pos = pWorldData->OriginalBSP()->m_WorldTranslation;
+
+            dResult = g_pClientMgr->AddObjectToClientWorld(OBJID_CLIENTCREATED,
+                &internalSetup, &pObject, true, false);
+
+            if (dResult != LT_OK)
+            {
+                return false;
+            }
+        }
+        else if (pWorldData->OriginalBSP()->m_WorldInfoFlags & (WIF_PHYSICSBSP | WIF_VISBSP))
         {
             // Ok, make an object for it.
             ocs.Clear();
@@ -622,6 +641,8 @@ FileIDInfo *CClientShell::GetClientFileIDInfo(uint16 wFileID)
 }
 
 
+extern int32 g_bLT2SurfaceSprite;
+
 void WorldBsp::SetPolyTexturePointers() {
     uint32 i;
     Surface *pSurface;
@@ -632,7 +653,27 @@ void WorldBsp::SetPolyTexturePointers() {
 
         ref.m_FileType = FILE_ANYFILE;
         ref.m_pFilename = m_TextureNames[pSurface->m_iTexture];
-    
+
+        // LT2SurfaceSprite: a surface whose texture is a sprite takes the sprite's current frame, frame 0 at load, as LT2's loader does.
+        // Jupiter tries the .spr as a DTX, which fails and leaves the default texture. 
+        // The render blocks draw the sprite either way.
+        // LT2 keys on SURF_SPRITEANIMATE, which a v85 world doesn't have, so this keys on the extension as the render block does
+        if (g_bLT2SurfaceSprite && ref.m_pFilename)
+        {
+            size_t nLen = strlen(ref.m_pFilename);
+            if (nLen >= 4 && stricmp(ref.m_pFilename + nLen - 4, ".spr") == 0)
+            {
+                Sprite *pSprite = LTNULL;
+                if (LoadSprite(&ref, &pSprite) == LT_OK && pSprite &&
+                    pSprite->m_nAnims > 0 && pSprite->m_Anims[0].m_nFrames > 0 &&
+                    pSprite->m_Anims[0].m_Frames[0].m_pTex)
+                {
+                    pSurface->m_pTexture = pSprite->m_Anims[0].m_Frames[0].m_pTex;
+                    continue;
+                }
+            }
+        }
+
         pSurface->m_pTexture = g_pClientMgr->AddSharedTexture(&ref);
 
         if (!pSurface->m_pTexture && (g_DebugLevel >= 1))

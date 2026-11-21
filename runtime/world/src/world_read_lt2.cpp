@@ -334,10 +334,52 @@ static bool ReadWorldModelV66(Reader &r, WorldModel &m, bool bV70)
 	}
 
 	m.m_nRootNode = r.I32();
-	r.U32(); // Terrain section count
+	uint32 nTerrainSections = r.U32();
 
 	if (r.Bad()) return false;
 	if (bV70 && !SplitV70Surfaces(m, PlaneNormals, PolyPlanes, PolyTex)) return false;
+
+	// A terrain model's sections, parsed on a copy of the reader, so a layout that doesn't land on the next position
+	// leaves the model unsplit rather than the world unread
+	m.m_TerrainSections.clear();
+	if ((m.m_nSrcWorldInfoFlags & kWifTerrain) && nTerrainSections)
+	{
+		Reader rs = r;
+		std::vector<WorldModel::TerrainSection> Secs(nTerrainSections);
+		for (uint32 si = 0; si < nTerrainSections && !rs.Bad(); ++si)
+		{
+			WorldModel::TerrainSection &ts = Secs[si];
+			uint32 nn = rs.U32();
+			if (rs.Bad() || (uint64)nn * 12 > nNextPos) { rs.SeekTo(~0u); break; }
+			ts.m_Nodes.resize((size_t)nn * 3);
+			for (uint32 k = 0; k < nn; ++k)
+			{
+				ts.m_Nodes[(size_t)k * 3 + 0] = (int32)rs.U32();
+				ts.m_Nodes[(size_t)k * 3 + 1] = rs.I32();
+				ts.m_Nodes[(size_t)k * 3 + 2] = rs.I32();
+			}
+			ts.m_nRoot = rs.I32();
+			uint32 np = rs.U32();
+			if (rs.Bad() || (uint64)np * 4 > nNextPos) { rs.SeekTo(~0u); break; }
+			ts.m_Polies.resize(np);
+			for (uint32 k = 0; k < np; ++k)
+				ts.m_Polies[k] = rs.U32();
+			// The section's PBlockTable, which nothing reads
+			uint32 gx = rs.U32(), gy = rs.U32(), gz = rs.U32();
+			rs.Skip(24);
+			uint64 nCells = (uint64)gx * gy * gz;
+			if (nCells > nNextPos) { rs.SeekTo(~0u); break; }
+			for (uint64 c = 0; c < nCells && !rs.Bad(); ++c)
+			{
+				uint16 nCount = rs.U16();
+				rs.U16();
+				rs.Skip((uint32)nCount * 6);
+			}
+			rs.Skip(8 + 12); // NodePath and centre
+		}
+		if (!rs.Bad() && rs.Pos() == nNextPos)
+			m.m_TerrainSections.swap(Secs);
+	}
 
 	// Seek rather than trust the body's length, as the engine does: some models carry more after it
 	r.SeekTo(nNextPos);
@@ -705,6 +747,130 @@ static void AttachLightmapsV66(const uint8 *pData, uint32 nSize, uint32 nPos, fl
 }
 
 
+// Each section of a WIF_TERRAIN model becomes a world model of its own, named "#$#<i> <model>" as LT2 names it, with
+// the section's polygons in section order and the points and surfaces they use in order of first use. The engine makes
+// them as LT2 does, solid and invisible (CreateVisContainerObjects). Jupiter's loader refuses a model that carries
+// sections, so this is the only form they can reach it in.
+static bool TerrainSectionIsSound(const WorldModel &m, const WorldModel::TerrainSection &ts)
+{
+	const size_t nNodes = ts.m_Nodes.size() / 3;
+	std::set<uint32> InList;
+	for (size_t k = 0; k < ts.m_Polies.size(); ++k)
+	{
+		uint32 pi = ts.m_Polies[k];
+		if (!InList.insert(pi).second) return false; // Duplicate
+		if (pi >= m.m_nPolies || pi >= m.m_Polies.size()) return false;
+		const Poly &p = m.m_Polies[pi];
+		if (p.m_nSurface >= m.m_nSurfaces) return false;
+		for (size_t v = 0; v < p.m_Verts.size(); ++v)
+			if (p.m_Verts[v].m_nVert >= m.m_nPoints) return false;
+	}
+	for (size_t n = 0; n < nNodes; ++n)
+	{
+		if (InList.find((uint32)ts.m_Nodes[n * 3]) == InList.end()) return false;
+		for (int c = 1; c <= 2; ++c)
+		{
+			int32 i = ts.m_Nodes[n * 3 + c];
+			if (!(i == -1 || i == -2 || (i >= 0 && (size_t)i < nNodes))) return false;
+		}
+	}
+	return ts.m_nRoot == -1 || ts.m_nRoot == -2 || (ts.m_nRoot >= 0 && (size_t)ts.m_nRoot < nNodes);
+}
+
+static void TerrainSectionModel(const WorldModel &m, uint32 si, const WorldModel::TerrainSection &ts, WorldModel &s)
+{
+	s = m;
+	s.m_TerrainSections.clear();
+	char szIndex[16];
+	sprintf(szIndex, "%u", si);
+	s.m_sName = std::string("#$#") + szIndex + " " + m.m_sName;
+
+	std::map<uint32, uint32> PMap, VMap, SMap;
+	std::vector<uint32> VOrder, SOrder;
+	for (size_t k = 0; k < ts.m_Polies.size(); ++k)
+		PMap[ts.m_Polies[k]] = (uint32)k;
+	for (size_t k = 0; k < ts.m_Polies.size(); ++k)
+	{
+		const Poly &p = m.m_Polies[ts.m_Polies[k]];
+		if (SMap.insert(std::make_pair(p.m_nSurface, (uint32)SOrder.size())).second)
+			SOrder.push_back(p.m_nSurface);
+		for (size_t v = 0; v < p.m_Verts.size(); ++v)
+			if (VMap.insert(std::make_pair((uint32)p.m_Verts[v].m_nVert, (uint32)VOrder.size())).second)
+				VOrder.push_back(p.m_Verts[v].m_nVert);
+	}
+
+	s.m_Polies.clear();
+	s.m_PolyVertCounts.clear();
+	s.m_PolyVertTotals.clear();
+	for (size_t k = 0; k < ts.m_Polies.size(); ++k)
+	{
+		uint32 pi = ts.m_Polies[k];
+		Poly p = m.m_Polies[pi];
+		p.m_nSurface = SMap[p.m_nSurface];
+		for (size_t v = 0; v < p.m_Verts.size(); ++v)
+			p.m_Verts[v].m_nVert = (uint16)VMap[p.m_Verts[v].m_nVert];
+		s.m_Polies.push_back(p);
+		s.m_PolyVertCounts.push_back(m.m_PolyVertCounts[pi]);
+		s.m_PolyVertTotals.push_back(m.m_PolyVertTotals[pi]);
+	}
+	s.m_Points.clear();
+	for (size_t k = 0; k < VOrder.size(); ++k)
+		s.m_Points.insert(s.m_Points.end(), &m.m_Points[(size_t)VOrder[k] * 3], &m.m_Points[(size_t)VOrder[k] * 3] + 3);
+	s.m_Surfaces.clear();
+	for (size_t k = 0; k < SOrder.size(); ++k)
+		s.m_Surfaces.push_back(m.m_Surfaces[SOrder[k]]);
+	s.m_Lightmaps.clear();
+	for (std::map<uint32, WorldModel::LMPage>::const_iterator it = m.m_Lightmaps.begin(); it != m.m_Lightmaps.end(); ++it)
+	{
+		std::map<uint32, uint32>::const_iterator f = PMap.find(it->first);
+		if (f != PMap.end())
+			s.m_Lightmaps[f->second] = it->second;
+	}
+	s.m_Nodes.resize(ts.m_Nodes.size() / 3);
+	for (size_t n = 0; n < s.m_Nodes.size(); ++n)
+	{
+		s.m_Nodes[n].m_nPoly = PMap[(uint32)ts.m_Nodes[n * 3]];
+		s.m_Nodes[n].m_nLeaf = 0xFFFF;
+		s.m_Nodes[n].m_Child0 = ts.m_Nodes[n * 3 + 1];
+		s.m_Nodes[n].m_Child1 = ts.m_Nodes[n * 3 + 2];
+	}
+	s.m_nRootNode = ts.m_nRoot;
+	s.m_nPoints = (uint32)VOrder.size();
+	s.m_nSurfaces = (uint32)s.m_Surfaces.size();
+	s.m_nPolies = (uint32)s.m_Polies.size();
+	s.m_nNodes = (uint32)s.m_Nodes.size();
+	s.m_nLeaves = 0;
+	s.m_Leaves.clear();
+	s.m_nUserPortals = 0;
+	s.m_UserPortals.clear();
+	s.m_bSkyObject = false;
+}
+
+// Appends the sections of every terrain model, parents and sections in file order. The parent is kept as it is, and a
+// model with any unsound section is left whole
+static void SplitTerrainSections(SourceWorld &out)
+{
+	std::vector<WorldModel> Added;
+	for (size_t i = 0; i < out.m_Models.size(); ++i)
+	{
+		const WorldModel &m = out.m_Models[i];
+		if (!(m.m_nSrcWorldInfoFlags & kWifTerrain) || m.m_TerrainSections.empty())
+			continue;
+		bool bSound = true;
+		for (size_t k = 0; k < m.m_TerrainSections.size() && bSound; ++k)
+			bSound = TerrainSectionIsSound(m, m.m_TerrainSections[k]);
+		if (!bSound)
+			continue;
+		for (size_t k = 0; k < m.m_TerrainSections.size(); ++k)
+		{
+			Added.push_back(WorldModel());
+			TerrainSectionModel(m, (uint32)k, m.m_TerrainSections[k], Added.back());
+		}
+	}
+	out.m_Models.insert(out.m_Models.end(), Added.begin(), Added.end());
+}
+
+
 bool ReadV66(const uint8 *pData, uint32 nSize, SourceWorld &out)
 {
 	Reader r(pData, nSize);
@@ -778,6 +944,9 @@ bool ReadV66(const uint8 *pData, uint32 nSize, SourceWorld &out)
 
 	// For v70 this also brings the vertex lighting, which v70 moved out of the polygon records
 	AttachLightmapsV66(pData, nSize, nRenderDataPos, fLMGrid, out, nVersion >= 70);
+
+	// After the lighting is attached, so it travels with the section's polygons
+	SplitTerrainSections(out);
 	return true;
 }
 

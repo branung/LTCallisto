@@ -1915,7 +1915,14 @@ bool CServerMgr::CreateVisContainerObjects()
 		const WorldData *pWorldData;
 		pWorldData = world_bsp_server->GetWorldModel(i);
 
-		if ((pWorldData->OriginalBSP()->m_WorldInfoFlags & (WIF_PHYSICSBSP | WIF_VISBSP)) == 0)
+		// An LT2 terrain section is solid and ray-hit but never visible, because the terrain draws as part of the main world.
+		// LT 2.5's server makes it this way
+		const bool bTerrainSection =
+			(pWorldData->OriginalBSP()->m_WorldInfoFlags & WIF_TERRAIN) &&
+			strncmp(pWorldData->m_pValidBsp->m_WorldName, "#$#", 3) == 0;
+
+		if (!bTerrainSection &&
+			(pWorldData->OriginalBSP()->m_WorldInfoFlags & (WIF_PHYSICSBSP | WIF_VISBSP)) == 0)
 			continue;
 
 		ObjectCreateStruct ocs;

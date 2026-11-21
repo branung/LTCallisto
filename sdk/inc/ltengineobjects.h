@@ -101,6 +101,18 @@ public:
 };
 
 /*!
+The Terrain class.
+
+An LT2 engine class that Jupiter dropped. A world's Terrain object carries only Name, Pos and Rotation, and LT2
+registered the class CF_NORUNTIME, so neither engine ever makes one. It is declared so that LoadObjects finds the
+class and skips it quietly, instead of reporting a missing class for content that works as designed.
+*/
+class Terrain : public BaseClass {
+public:
+
+};
+
+/*!
 MainWorld.
 */
 class MainWorld : public BaseClass {

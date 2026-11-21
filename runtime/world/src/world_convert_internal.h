@@ -54,6 +54,7 @@ static const uint32 kLMPageMaxH = 256;
 static const uint32 kWifMoveable = 1u << 1;
 static const uint32 kWifMainWorld = 1u << 2;
 static const uint32 kWifPhysicsBsp = 1u << 4;
+static const uint32 kWifTerrain = 1u << 3; // LT2's terrain model, de_world.h WIF_TERRAIN
 
 // LT1's object light grid, rebulit in the same order with the same rounding
 static const double kLightGridCell = 350.0;
@@ -238,6 +239,16 @@ struct WorldModel
 
 	// The whole model translucency verdict LT1 and LT2 share: 1 blended, 0 opaque, -1 decide per polygon
 	int m_nLT1Translucent;
+
+	// A WIF_TERRAIN model's TerrainSections, read so that SplitTerrainSections can write each as a world model of its own.
+	// Empty on every other model, and on a terrain model whose sections didn't parse to its next position.
+	struct TerrainSection
+	{
+		std::vector<int32> m_Nodes; // 3 per node: the parent's polygon, child 0, child 1
+		int32 m_nRoot;
+		std::vector<uint32> m_Polies;
+	};
+	std::vector<TerrainSection> m_TerrainSections;
 };
 
 struct SourceWorld

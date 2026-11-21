@@ -189,6 +189,9 @@ int32	g_bLT1ZeroMoveSkip = 0; // A world walk for a move under 0.0001 on every a
 // Read when the world is converted so it is set before the world loads. Both sides.
 int32	g_bLT2_5ObjectLights = 0;
 
+// A world surface whose texture is a sprite (.spr) takes the sprite's frame 0 at load - as LT2's loader does - instead of trying the file as a DTX
+int32	g_bLT2SurfaceSprite = 0;
+
 int32	g_CV_MasterPaletteMode = 2;
 
 int32	g_CV_ModelTransitionMS = 200;
@@ -515,6 +518,7 @@ static LTEngineVar g_LTEngineVars[] =
 	EV_LONG("LT1ObjectPass", &g_bLT1ObjectPass),
 	EV_LONG("LT1ZeroMoveSkip", &g_bLT1ZeroMoveSkip),
 	EV_LONG("LT2_5ObjectLights", &g_bLT2_5ObjectLights),
+	EV_LONG("LT2SurfaceSprite", &g_bLT2SurfaceSprite),
 	EV_LONG("FullLightScale", &g_CV_FullLightScale),
 	EV_LONG("ForceClear", &g_CV_ForceClear),
 	EV_LONG("ModelTransitionMS", &g_CV_ModelTransitionMS),

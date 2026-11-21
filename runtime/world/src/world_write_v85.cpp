@@ -2233,11 +2233,20 @@ LTRESULT worldconv::BuildV85ImageFromSource(const SourceWorld &src, uint8 **ppIm
 
 	uint32 nRenderPos = (uint32)w.Size();
 	{
-		// The main world supplies the main render world, and every other world model becomes a nested one keyed by name
+		// The main world supplies the main render world, and every other world model becomes a nested one keyed by name.
+		// An LT2 terrain model joins the main render world instead, because LT2 reaches its polygons through the VisBSP's
+		// leaf lists and never through an object. Its sections are collision only and get no render world.
 		std::vector<const WorldModel *> root(1, &src.m_Models[nMainIdx]);
 		std::vector<const WorldModel *> nested;
 		for (size_t i = 0; i < all.size(); ++i)
-			if (i != nMainIdx) nested.push_back(all[i]);
+		{
+			if (i == nMainIdx) continue;
+			const bool bTerrain = src.m_bSourceWorldInfoFlags && (all[i]->m_nSrcWorldInfoFlags & kWifTerrain) != 0;
+			if (!bTerrain)
+				nested.push_back(all[i]);
+			else if (all[i]->m_sName.compare(0, 3, "#$#") != 0)
+				root.push_back(all[i]);
+		}
 		EmitRenderWorld(w, root, nested, pTexDims, pUser, pWarn, pWarnUser, nMaxBlockVerts, "");
 	}
 

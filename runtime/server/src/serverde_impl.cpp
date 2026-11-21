@@ -2962,25 +2962,30 @@ bool si_GetModelFilenames(HOBJECT hObj, char *pFilename, int fileBufLen, char *p
 	if (pObj->m_ObjectType != OT_MODEL) 
 		return false;
 
-	if (ilt_model_server->GetModelDBFilename( hObj, pFilename, fileBufLen ) != LT_OK)
+	// Either buffer may be NULL, as LT 2.5 allows.
+	if (pFilename && fileBufLen > 0 &&
+		ilt_model_server->GetModelDBFilename( hObj, pFilename, fileBufLen ) != LT_OK)
 	{
 		pFilename[0] = 0;
 	}
 
-	if (pObj->sd->m_pSkin) 
+	if (pSkinName && skinBufLen > 0)
 	{
-		LTStrCpy(pSkinName, server_filemgr->GetUsedFilename(pObj->sd->m_pSkin), skinBufLen);
-	}
-	else
-	{
-		pSkinName[0] = 0;
+		if (pObj->sd->m_pSkin) 
+		{
+			LTStrCpy(pSkinName, server_filemgr->GetUsedFilename(pObj->sd->m_pSkin), skinBufLen);
+		}
+		else
+		{
+			pSkinName[0] = 0;
+		}
 	}
 
 #if defined(__LINUX)
 	// A Linux build's names come back with '/', but game code compares them with its own DOS paths.
-	for (char *p = pFilename; *p; ++p)
+	for (char *p = pFilename; p && fileBufLen > 0 && *p; ++p)
 		if (*p == '/') *p = '\\';
-	for (char *p = pSkinName; *p; ++p)
+	for (char *p = pSkinName; p && skinBufLen > 0 && *p; ++p)
 		if (*p == '/') *p = '\\';
 #endif
 

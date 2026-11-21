@@ -229,6 +229,12 @@ BEGIN_CLASS(WorldSection)
 END_CLASS_DEFAULT_FLAGS(WorldSection, BaseClass, bc_EngineMessageFn, bc_ObjectMessageFn, CF_NORUNTIME)
 
 
+// LT2's own registration, which creates nothing because LoadObjects skips a CF_NORUNTIME class.
+// It only keeps a world's Terrain marker out of the missing class report.
+BEGIN_CLASS(Terrain)
+END_CLASS_DEFAULT_FLAGS(Terrain, BaseClass, NULL, NULL, CF_NORUNTIME)
+
+
 
 
 
