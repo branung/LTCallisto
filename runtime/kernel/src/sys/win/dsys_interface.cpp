@@ -546,6 +546,8 @@ LTRESULT GetOrCopyClientFile( char const* pszFilename,
 
 
 
+static void dsi_ApplyGameIcon(SDL_Window *pWindow); // Below dsi_GetSDL2Window
+
 LTRESULT dsi_InitClientShellDE()
 {
     char fileName[MAX_PATH];
@@ -626,6 +628,9 @@ LTRESULT dsi_InitClientShellDE()
     if (instance_handle_client != NULL) {
         instance_handle_client->SetInstanceHandle(g_pClientMgr->m_hShellModule);
     }
+
+    // The window client.cpp made before any game module was loaded takes the game's icon
+    dsi_ApplyGameIcon(g_ClientGlob.m_window);
 
     return LT_OK;
 }
@@ -823,6 +828,44 @@ void* dsi_GetMainWindow() {
 	SDL_GetWindowWMInfo(g_ClientGlob.m_window, &info);
 	return (void*)info.info.win.window;
 }
+// The game's window and taskbar icon, a GAMEICON resource in its cres.dll, loaded once at the system's large and small sizes.
+// A game without one keeps SDL's default. It is set on every window because r_InitRender recreates the window on boot,
+// on a mode change and when focus comes back, and a WM_SETICON belongs to the window it was sent to.
+static HICON g_hGameIconBig = NULL;
+static HICON g_hGameIconSmall = NULL;
+static bool g_bGameIconTried = false;
+
+static void dsi_ApplyGameIcon(SDL_Window *pWindow)
+{
+	if (!pWindow)
+		return;
+
+	if (!g_bGameIconTried && g_pClientMgr && g_pClientMgr->m_hClientResourceModule)
+	{
+		g_bGameIconTried = true;
+		void *pInstance = NULL;
+		if (bm_GetInstanceHandle(g_pClientMgr->m_hClientResourceModule, &pInstance) == LT_OK && pInstance)
+		{
+			// Not LR_SHARED, so the copies stay valid after the module is unbound
+			g_hGameIconBig = (HICON)LoadImageA((HINSTANCE)pInstance, "GAMEICON", IMAGE_ICON,
+				GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), 0);
+			g_hGameIconSmall = (HICON)LoadImageA((HINSTANCE)pInstance, "GAMEICON", IMAGE_ICON,
+				GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0);
+		}
+	}
+	if (!g_hGameIconBig && !g_hGameIconSmall)
+		return;
+
+	SDL_SysWMinfo info;
+	SDL_VERSION(&info.version);
+	if (!SDL_GetWindowWMInfo(pWindow, &info))
+		return;
+	if (g_hGameIconBig)
+		SendMessage(info.info.win.window, WM_SETICON, ICON_BIG, (LPARAM)g_hGameIconBig);
+	if (g_hGameIconSmall)
+		SendMessage(info.info.win.window, WM_SETICON, ICON_SMALL, (LPARAM)g_hGameIconSmall);
+}
+
 void* dsi_GetSDL2Window() {
     return (void*)g_ClientGlob.m_window;
 }
@@ -830,6 +873,7 @@ void* dsi_GetSDL2Window() {
 void dsi_SetSDL2Window(SDL_Window* window)
 {
 	g_ClientGlob.m_window = window;
+	dsi_ApplyGameIcon(window);
 
 	SDL_SysWMinfo info;
 	SDL_VERSION(&info.version);
